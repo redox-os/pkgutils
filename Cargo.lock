@@ -1,0 +1,83 @@
+[root]
+name = "pkgutils"
+version = "0.1.0"
+dependencies = [
+ "octavo 0.1.1 (git+https://github.com/libOctavo/octavo)",
+ "termion 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "byteorder"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "generic-array"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "libc"
+version = "0.2.17"
+source = "git+https://github.com/redox-os/liblibc.git?branch=new_kernel#e1481692c25d9be513f2f8bf8c77cce2573a6e9f"
+
+[[package]]
+name = "libc"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+replace = "libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)"
+
+[[package]]
+name = "octavo"
+version = "0.1.1"
+source = "git+https://github.com/libOctavo/octavo#d94d924616dca83b9c6cfc815062276c5908713a"
+dependencies = [
+ "octavo-digest 0.1.2 (git+https://github.com/libOctavo/octavo)",
+]
+
+[[package]]
+name = "octavo-digest"
+version = "0.1.2"
+source = "git+https://github.com/libOctavo/octavo#d94d924616dca83b9c6cfc815062276c5908713a"
+dependencies = [
+ "byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "generic-array 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "static-buffer 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "static-buffer"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "generic-array 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "termion"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "typenum"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[metadata]
+"checksum byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0fc10e8cc6b2580fda3f36eb6dc5316657f812a3df879a44a66fc9f0fdbc4855"
+"checksum generic-array 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3406a3975bc944fdd85b7964d53296a0ff11f4b6c4704fa4972c9a7c8ba27367"
+"checksum libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)" = "<none>"
+"checksum libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "044d1360593a78f5c8e5e710beccdc24ab71d1f01bc19a29bcacdba22e8475d8"
+"checksum octavo 0.1.1 (git+https://github.com/libOctavo/octavo)" = "<none>"
+"checksum octavo-digest 0.1.2 (git+https://github.com/libOctavo/octavo)" = "<none>"
+"checksum static-buffer 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6da6a96247d4b372d3ed90dec2c129ab57c934359ac4c6adbaa5871cd0737437"
+"checksum termion 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ce9884af069456867e19fd5648b8908d5c9378f586b2659aaa6f3a4088fdb867"
+"checksum typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "20f316d9057bedfb465699a77d63d37d3eeef53a63ec835d715abd3bd3a87b5e"
