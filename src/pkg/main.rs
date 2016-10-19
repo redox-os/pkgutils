@@ -96,6 +96,18 @@ fn download(package: &str) -> io::Result<String> {
     Ok(tarfile)
 }
 
+fn extract(package: &str) -> io::Result<()> {
+    let tarfile = download(package)?;
+
+    Command::new("tar")
+        .arg("xf")
+        .arg(&tarfile)
+        .spawn()?
+        .wait()?;
+
+    Ok(())
+}
+
 fn install(package: &str) -> io::Result<()> {
     let tarfile = download(package)?;
 
@@ -147,6 +159,7 @@ fn sign(package: &str) -> io::Result<()> {
 fn usage() -> io::Result<()> {
     write!(io::stderr(), "pkg [command] [arguments]\n")?;
     write!(io::stderr(), "    create [directory] - create a package\n")?;
+    write!(io::stderr(), "    extract [package] - extract a package\n")?;
     write!(io::stderr(), "    help - show this help message\n")?;
     write!(io::stderr(), "    install [package] - install a package\n")?;
     write!(io::stderr(), "    list [package] - list package contents\n")?;
@@ -172,6 +185,21 @@ fn main() {
                     }
                 } else {
                     let _ = write!(io::stderr(), "pkg: create: no packages specified\n");
+                    process::exit(1);
+                }
+            },
+            "extract" => {
+                let packages: Vec<String> = args.collect();
+                if ! packages.is_empty() {
+                    for package in packages.iter() {
+                        if let Err(err) = extract(package) {
+                            let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, err);
+                        } else {
+                            let _ = write!(io::stderr(), "pkg: extract: {}: succeeded\n", package);
+                        }
+                    }
+                } else {
+                    let _ = write!(io::stderr(), "pkg: extract: no packages specified\n");
                     process::exit(1);
                 }
             },
