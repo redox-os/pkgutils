@@ -47,6 +47,12 @@ fn signature(file: &str) -> io::Result<String> {
     Ok(encoded)
 }
 
+fn clean(package: &str) -> io::Result<String> {
+    let tardir = format!("{}/{}", REPO_LOCAL, package);
+    fs::remove_dir_all(&tardir)?;
+    Ok(tardir)
+}
+
 fn create(package: &str) -> io::Result<String> {
     if ! Path::new(package).is_dir() {
         return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package)));
@@ -119,14 +125,16 @@ fn list(package: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn usage() -> io::Result<()> {
+fn help() -> io::Result<()> {
     write!(io::stderr(), "pkg [command] [arguments]\n")?;
+    write!(io::stderr(), "    clean [package] - clean an extracted package\n")?;
     write!(io::stderr(), "    create [directory] - create a package\n")?;;
     write!(io::stderr(), "    extract [package] - extract a package\n")?;
     write!(io::stderr(), "    fetch [package] - download a package\n")?;
     write!(io::stderr(), "    help - show this help message\n")?;
     write!(io::stderr(), "    install [package] - install a package\n")?;
     write!(io::stderr(), "    list [package] - list package contents\n")?;
+    write!(io::stderr(), "    sign [file] - get a file signature\n")?;
 
     Ok(())
 }
@@ -135,6 +143,24 @@ fn main() {
     let mut args = env::args().skip(1);
     if let Some(op) = args.next() {
         match op.as_str() {
+            "clean" => {
+                let packages: Vec<String> = args.collect();
+                if ! packages.is_empty() {
+                    for package in packages.iter() {
+                        match clean(package) {
+                            Ok(tardir) => {
+                                let _ = write!(io::stderr(), "pkg: clean: {}: cleaned {}\n", package, tardir);
+                            }
+                            Err(err) => {
+                                let _ = write!(io::stderr(), "pkg: clean: {}: failed: {}\n", package, err);
+                            }
+                        }
+                    }
+                } else {
+                    let _ = write!(io::stderr(), "pkg: clean: no packages specified\n");
+                    process::exit(1);
+                }
+            },
             "create" => {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
@@ -190,7 +216,7 @@ fn main() {
                 }
             },
             "help" => {
-                let _ = usage();
+                let _ = help();
             },
             "install" => {
                 let packages: Vec<String> = args.collect();
@@ -222,15 +248,33 @@ fn main() {
                     process::exit(1);
                 }
             },
+            "sign" => {
+                let files: Vec<String> = args.collect();
+                if ! files.is_empty() {
+                    for file in files.iter() {
+                        match signature(file) {
+                            Ok(signature) => {
+                                let _ = write!(io::stderr(), "pkg: sign: {}: {}\n", file, signature);
+                            },
+                            Err(err) => {
+                                let _ = write!(io::stderr(), "pkg: sign: {}: failed: {}\n", file, err);
+                            }
+                        }
+                    }
+                } else {
+                    let _ = write!(io::stderr(), "pkg: sign: no files specified\n");
+                    process::exit(1);
+                }
+            },
             _ => {
                 let _ = write!(io::stderr(), "pkg: {}: unknown operation\n", op);
-                let _ = usage();
+                let _ = help();
                 process::exit(1);
             }
         }
     } else {
         let _ = write!(io::stderr(), "pkg: no operation\n");
-        let _ = usage();
+        let _ = help();
         process::exit(1);
     }
 }
