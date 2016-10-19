@@ -1,145 +1,38 @@
 extern crate octavo;
 
+use octavo::octavo_digest::Digest;
+use octavo::octavo_digest::sha3::Sha512;
 use std::{env, str};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write};
-use std::net::TcpStream;
 use std::path::Path;
 use std::process::{self, Command};
 
-fn create(package: &str) -> io::Result<()> {
-    if ! Path::new(package).is_dir() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "package directory not found"));
-    }
+use download::download;
 
-    Command::new("tar")
-        .arg("cf")
-        .arg(&format!("../{}.tar", package))
-        .arg(".")
-        .current_dir(package)
-        .spawn()?
-        .wait()?;
+mod download;
 
-    Ok(())
-}
+static REPO_REMOTE: &'static str = "http://static.redox-os.org/pkg";
+static REPO_LOCAL: &'static str = "/tmp/redox-pkg";
 
-fn download(package: &str) -> io::Result<String> {
-    let tarfile = format!("{}.tar", package);
-    if Path::new(&tarfile).is_file() {
-        write!(stderr(), "* Already downloaded {}\n", package)?;
+fn sync(file: &str) -> io::Result<String> {
+    let local_path = format!("{}/{}", REPO_LOCAL, file);
+    if Path::new(&local_path).is_file() {
+        write!(stderr(), "* Already downloaded {}\n", file)?;
     } else {
-        let host = "static.redox-os.org";
-        let port = 80;
-        let path = format!("pkg/{}.tar", package);
-
-        write!(stderr(), "* Connecting to {}:{}\n", host, port)?;
-
-        let mut stream = TcpStream::connect((host, port))?;
-
-        write!(stderr(), "* Requesting {}\n", path)?;
-
-        let request = format!("GET /{} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", path, host);
-        stream.write(request.as_bytes())?;
-        stream.flush()?;
-
-        write!(stderr(), "* Waiting for response\n")?;
-
-        let mut response = Vec::new();
-
-        loop {
-            let mut buf = [0; 65536];
-            let count = stream.read(&mut buf)?;
-            if count == 0 {
-                break;
-            }
-            response.extend_from_slice(&buf[.. count]);
+        if let Some(parent) = Path::new(&local_path).parent() {
+            fs::create_dir_all(parent)?;
         }
 
-        write!(stderr(), "* Received {} bytes\n", response.len())?;
-
-        let mut header_end = 0;
-        while header_end < response.len() {
-            if response[header_end..].starts_with(b"\r\n\r\n") {
-                break;
-            }
-            header_end += 1;
-        }
-
-        let mut status = (0, String::new());
-        for line in unsafe { str::from_utf8_unchecked(&response[..header_end]) }.lines() {
-            if line.starts_with("HTTP/1.1 ") {
-                let mut args = line.split(' ').skip(1);
-                if let Some(arg) = args.next() {
-                    if let Ok(status_code) = arg.parse::<usize>() {
-                        status.0 = status_code;
-                    }
-                }
-
-                status.1 = args.collect::<Vec<&str>>().join(" ");
-            }
-            write!(stderr(), "> {}\n", line)?;
-        }
-
-        match status.0 {
-            200 => {
-                write!(stderr(), "* Success {} {}\n", status.0, status.1)?;
-
-                File::create(&tarfile)?.write(&response[header_end + 4 ..])?;
-            },
-            _ => {
-                write!(stderr(), "* Failure {} {}\n", status.0, status.1)?;
-                return Err(io::Error::new(io::ErrorKind::NotFound, "package archive not found"));
-            }
-        }
+        let remote_path = format!("{}/{}", REPO_REMOTE, file);
+        download(&remote_path, &local_path)?;
     }
-
-    Ok(tarfile)
+    Ok(local_path)
 }
 
-fn extract(package: &str) -> io::Result<()> {
-    let tarfile = download(package)?;
-
-    Command::new("tar")
-        .arg("xf")
-        .arg(&tarfile)
-        .spawn()?
-        .wait()?;
-
-    Ok(())
-}
-
-fn install(package: &str) -> io::Result<()> {
-    let tarfile = download(package)?;
-
-    Command::new("tar")
-        .arg("tf")
-        .arg(&tarfile)
-        .spawn()?
-        .wait()?;
-
-    Ok(())
-}
-
-fn list(package: &str) -> io::Result<()> {
-    let tarfile = download(package)?;
-
-    Command::new("tar")
-        .arg("tf")
-        .arg(&tarfile)
-        .spawn()?
-        .wait()?;
-
-    Ok(())
-}
-
-fn sign(package: &str) -> io::Result<()> {
-    use octavo::octavo_digest::Digest;
-    use octavo::octavo_digest::sha3::Sha512;
-
-    let tarfile = download(package)?;
-
+fn signature(file: &str) -> io::Result<String> {
     let mut data = vec![];
-    File::open(&tarfile)?.read_to_end(&mut data)?;
+    File::open(&file)?.read_to_end(&mut data)?;
 
     let mut output = vec![0; Sha512::output_bytes()];
     let mut hash = Sha512::default();
@@ -151,36 +44,108 @@ fn sign(package: &str) -> io::Result<()> {
         encoded.push_str(&format!("{:X}", b));
     }
 
-    println!("{}", encoded);
+    Ok(encoded)
+}
+
+fn create(package: &str) -> io::Result<String> {
+    if ! Path::new(package).is_dir() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package)));
+    }
+
+    let sigfile = format!("{}.sig", package);
+    let tarfile = format!("{}.tar", package);
+
+    Command::new("tar")
+        .arg("cf")
+        .arg(&format!("../{}", tarfile))
+        .arg(".")
+        .current_dir(package)
+        .spawn()?
+        .wait()?;
+
+    let mut signature = signature(&tarfile)?;
+    signature.push('\n');
+
+    File::create(&sigfile)?.write_all(&signature.as_bytes())?;
+
+    Ok(tarfile)
+}
+
+fn fetch(package: &str) -> io::Result<String> {
+    let sigfile = sync(&format!("{}.sig", package))?;
+    let tarfile = sync(&format!("{}.tar", package))?;
+
+    let mut expected = String::new();
+    File::open(sigfile)?.read_to_string(&mut expected)?;
+    if expected.trim() != signature(&tarfile)? {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
+    }
+
+    Ok(tarfile)
+}
+
+fn extract(package: &str) -> io::Result<String> {
+    let tarfile = fetch(package)?;
+    let tardir = format!("{}/{}", REPO_LOCAL, package);
+    fs::create_dir_all(&tardir)?;
+
+    Command::new("tar")
+        .arg("xf")
+        .arg(&tarfile)
+        .current_dir(&tardir)
+        .spawn()?
+        .wait()?;
+
+    Ok(tardir)
+}
+
+fn install(package: &str) -> io::Result<()> {
+    let tardir = extract(package)?;
+
+    println!("TODO: install {}", tardir);
+
+    Ok(())
+}
+
+fn list(package: &str) -> io::Result<()> {
+    let tarfile = fetch(package)?;
+
+    Command::new("tar")
+        .arg("tf")
+        .arg(&tarfile)
+        .spawn()?
+        .wait()?;
 
     Ok(())
 }
 
 fn usage() -> io::Result<()> {
     write!(io::stderr(), "pkg [command] [arguments]\n")?;
-    write!(io::stderr(), "    create [directory] - create a package\n")?;
+    write!(io::stderr(), "    create [directory] - create a package\n")?;;
     write!(io::stderr(), "    extract [package] - extract a package\n")?;
+    write!(io::stderr(), "    fetch [package] - download a package\n")?;
     write!(io::stderr(), "    help - show this help message\n")?;
     write!(io::stderr(), "    install [package] - install a package\n")?;
     write!(io::stderr(), "    list [package] - list package contents\n")?;
-    write!(io::stderr(), "    sign [package] - get the package signature\n")?;
 
     Ok(())
 }
 
 fn main() {
     let mut args = env::args().skip(1);
-
     if let Some(op) = args.next() {
         match op.as_str() {
             "create" => {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        if let Err(err) = create(package) {
-                            let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, err);
-                        } else {
-                            let _ = write!(io::stderr(), "pkg: create: {}: succeeded\n", package);
+                        match create(package) {
+                            Ok(tarfile) => {
+                                let _ = write!(io::stderr(), "pkg: create: {}: created {}\n", package, tarfile);
+                            }
+                            Err(err) => {
+                                let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, err);
+                            }
                         }
                     }
                 } else {
@@ -192,14 +157,35 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        if let Err(err) = extract(package) {
-                            let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, err);
-                        } else {
-                            let _ = write!(io::stderr(), "pkg: extract: {}: succeeded\n", package);
+                        match extract(package) {
+                            Ok(tardir) => {
+                                let _ = write!(io::stderr(), "pkg: extract: {}: extracted to {}\n", package, tardir);
+                            },
+                            Err(err) => {
+                                let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, err);
+                            }
                         }
                     }
                 } else {
                     let _ = write!(io::stderr(), "pkg: extract: no packages specified\n");
+                    process::exit(1);
+                }
+            },
+            "fetch" => {
+                let packages: Vec<String> = args.collect();
+                if ! packages.is_empty() {
+                    for package in packages.iter() {
+                        match fetch(package) {
+                            Ok(tarfile) => {
+                                let _ = write!(io::stderr(), "pkg: fetch: {}: fetched {}\n", package, tarfile);
+                            },
+                            Err(err) => {
+                                let _ = write!(io::stderr(), "pkg: fetch: {}: failed: {}\n", package, err);
+                            }
+                        }
+                    }
+                } else {
+                    let _ = write!(io::stderr(), "pkg: fetch: no packages specified\n");
                     process::exit(1);
                 }
             },
@@ -235,22 +221,7 @@ fn main() {
                     let _ = write!(io::stderr(), "pkg: list: no packages specified\n");
                     process::exit(1);
                 }
-            }
-            "sign" => {
-                let packages: Vec<String> = args.collect();
-                if ! packages.is_empty() {
-                    for package in packages.iter() {
-                        if let Err(err) = sign(package) {
-                            let _ = write!(io::stderr(), "pkg: sign: {}: failed: {}\n", package, err);
-                        } else {
-                            let _ = write!(io::stderr(), "pkg: sign: {}: succeeded\n", package);
-                        }
-                    }
-                } else {
-                    let _ = write!(io::stderr(), "pkg: sign: no packages specified\n");
-                    process::exit(1);
-                }
-            }
+            },
             _ => {
                 let _ = write!(io::stderr(), "pkg: {}: unknown operation\n", op);
                 let _ = usage();
