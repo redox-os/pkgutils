@@ -12,7 +12,7 @@ use download::download;
 
 mod download;
 
-static REPO_REMOTE: &'static str = "http://static.redox-os.org/pkg";
+static REPO_REMOTE: &'static str = "http://static.redox-os.org/pkg/x86_64-unknown-redox";
 static REPO_LOCAL: &'static str = "/tmp/redox-pkg";
 
 fn sync(file: &str) -> io::Result<String> {
