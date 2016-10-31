@@ -1,12 +1,9 @@
-# Redox OS userutils
+# Redox OS pkgutils
 
-This repository contains utilities for user and group management for Redox. Additional related tools are included.
+This repository contains utilities for package management on Redox. Additional related tools are included.
 
-[![Travis Build Status](https://travis-ci.org/redox-os/userutils.svg?branch=master)](https://travis-ci.org/redox-os/userutils)
+[![Travis Build Status](https://travis-ci.org/redox-os/pkgutils.svg?branch=master)](https://travis-ci.org/redox-os/pkgutils)
 
 **Currently included:**
 
-- `getty`
-- `id`
-- `login`
-- `sudo`
+- `pkg`
