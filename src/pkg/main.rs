@@ -12,6 +12,7 @@ use download::download;
 
 mod download;
 
+//TODO: Allow URLs for other archs
 static REPO_REMOTE: &'static str = "http://static.redox-os.org/pkg/x86_64-unknown-redox";
 static REPO_LOCAL: &'static str = "/tmp/redox-pkg";
 
@@ -78,14 +79,16 @@ fn create(package: &str) -> io::Result<String> {
 }
 
 fn fetch(package: &str) -> io::Result<String> {
-    let sigfile = sync(&format!("{}.sig", package))?;
+    //TODO let sigfile = sync(&format!("{}.sig", package))?;
     let tarfile = sync(&format!("{}.tar", package))?;
 
+    /*TODO Check signature
     let mut expected = String::new();
     File::open(sigfile)?.read_to_string(&mut expected)?;
     if expected.trim() != signature(&tarfile)? {
         return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
     }
+    */
 
     Ok(tarfile)
 }
