@@ -109,9 +109,14 @@ fn extract(package: &str) -> io::Result<String> {
 }
 
 fn install(package: &str) -> io::Result<()> {
-    let tardir = extract(package)?;
+    let tarfile = fetch(package)?;
 
-    println!("TODO: install {}", tardir);
+    Command::new("tar")
+        .arg("xf")
+        .arg(&tarfile)
+        .current_dir("/")
+        .spawn()?
+        .wait()?;
 
     Ok(())
 }
