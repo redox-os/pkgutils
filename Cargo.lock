@@ -22,7 +22,7 @@ dependencies = [
 [[package]]
 name = "libc"
 version = "0.2.17"
-source = "git+https://github.com/redox-os/liblibc.git?branch=redox#4ddaf1f4c1675785cc8cc66c9ce7e5f7e7745789"
+source = "git+https://github.com/redox-os/liblibc.git?branch=redox#fe0eb1175d38aa52ac3b36e9914d5217ddb0c305"
 
 [[package]]
 name = "libc"
