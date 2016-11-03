@@ -16,7 +16,7 @@ name = "generic-array"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typenum 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -46,7 +46,7 @@ dependencies = [
  "byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "generic-array 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "static-buffer 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typenum 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -55,7 +55,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "generic-array 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typenum 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.3.2"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
@@ -80,4 +80,4 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum octavo-digest 0.1.2 (git+https://github.com/libOctavo/octavo)" = "<none>"
 "checksum static-buffer 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6da6a96247d4b372d3ed90dec2c129ab57c934359ac4c6adbaa5871cd0737437"
 "checksum termion 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b38671f376ed6147ce4bc7df3f216f68631beb17433c205e2adb30a2d6b33e45"
-"checksum typenum 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "20f316d9057bedfb465699a77d63d37d3eeef53a63ec835d715abd3bd3a87b5e"
+"checksum typenum 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0597740ce8121d2286d9b4942effc48beb68777cdb8fe1fcb68494979b86ab69"
