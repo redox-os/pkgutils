@@ -22,7 +22,7 @@ dependencies = [
 [[package]]
 name = "libc"
 version = "0.2.17"
-source = "git+https://github.com/rust-lang/libc.git#9195462a49857ac4a22293f00cee6c79443c7272"
+source = "git+https://github.com/rust-lang/libc.git#6e8c1b490ccbe5e84d248bab883515bc85394b5f"
 
 [[package]]
 name = "libc"
