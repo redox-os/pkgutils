@@ -2,12 +2,16 @@
 name = "pkgutils"
 version = "0.1.0"
 
+[lib]
+name = "pkgutils"
+path = "src/lib.rs"
+
 [[bin]]
 name = "pkg"
-path = "src/pkg/main.rs"
+path = "src/bin/pkg.rs"
 
 [dependencies]
-termion = "*"
+termion = "1.1"
 
 [dependencies.octavo]
 git = "https://github.com/libOctavo/octavo"
