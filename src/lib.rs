@@ -1,5 +1,7 @@
 #![deny(warnings)]
 
+extern crate hyper;
+extern crate hyper_rustls;
 extern crate octavo;
 
 use octavo::octavo_digest::Digest;
