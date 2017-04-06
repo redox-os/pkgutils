@@ -115,14 +115,18 @@ pub fn extract(package: &str) -> io::Result<String> {
 pub fn install(package: &str) -> io::Result<()> {
     let tarfile = fetch(package)?;
 
-    Command::new("tar")
+    let status = Command::new("tar")
         .arg("xf")
         .arg(&tarfile)
         .current_dir("/")
         .spawn()?
         .wait()?;
 
-    Ok(())
+    if status.success() {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::Other, "tar command failed"))
+    }
 }
 
 pub fn list(package: &str) -> io::Result<()> {
