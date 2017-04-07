@@ -2,7 +2,7 @@
 
 extern crate pkgutils;
 
-use pkgutils::*;
+use pkgutils::Repo;
 use std::{env, process};
 use std::io::{self, Write};
 
@@ -21,6 +21,8 @@ fn help() -> io::Result<()> {
 }
 
 fn main() {
+    let repo = Repo::new();
+
     let mut args = env::args().skip(1);
     if let Some(op) = args.next() {
         match op.as_str() {
@@ -28,7 +30,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        match clean(package) {
+                        match repo.clean(package) {
                             Ok(tardir) => {
                                 let _ = write!(io::stderr(), "pkg: clean: {}: cleaned {}\n", package, tardir);
                             }
@@ -46,7 +48,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        match create(package) {
+                        match repo.create(package) {
                             Ok(tarfile) => {
                                 let _ = write!(io::stderr(), "pkg: create: {}: created {}\n", package, tarfile);
                             }
@@ -64,7 +66,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        match extract(package) {
+                        match repo.extract(package) {
                             Ok(tardir) => {
                                 let _ = write!(io::stderr(), "pkg: extract: {}: extracted to {}\n", package, tardir);
                             },
@@ -82,7 +84,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        match fetch(package) {
+                        match repo.fetch(package) {
                             Ok(tarfile) => {
                                 let _ = write!(io::stderr(), "pkg: fetch: {}: fetched {}\n", package, tarfile);
                             },
@@ -103,7 +105,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        if let Err(err) = install(package) {
+                        if let Err(err) = repo.install(package) {
                             let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, err);
                         } else {
                             let _ = write!(io::stderr(), "pkg: install: {}: succeeded\n", package);
@@ -118,7 +120,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        if let Err(err) = list(package) {
+                        if let Err(err) = repo.list(package) {
                             let _ = write!(io::stderr(), "pkg: list: {}: failed: {}\n", package, err);
                         } else {
                             let _ = write!(io::stderr(), "pkg: list: {}: succeeded\n", package);
@@ -133,7 +135,7 @@ fn main() {
                 let files: Vec<String> = args.collect();
                 if ! files.is_empty() {
                     for file in files.iter() {
-                        match signature(file) {
+                        match repo.signature(file) {
                             Ok(signature) => {
                                 let _ = write!(io::stderr(), "pkg: sign: {}: {}\n", file, signature);
                             },
