@@ -196,4 +196,8 @@ impl Repo {
     pub fn set_dest(&mut self, dest: &str) {
         self.dest = dest.to_string();
     }
+
+    pub fn add_remote(&mut self, remote: &str) {
+        self.remotes.push(remote.to_string());
+    }
 }
