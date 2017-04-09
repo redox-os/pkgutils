@@ -19,6 +19,7 @@ mod download;
 pub struct Repo {
     local: String,
     remotes: Vec<String>,
+    dest: String,
 }
 
 impl Repo {
@@ -60,6 +61,7 @@ impl Repo {
         Repo {
             local: format!("/tmp/redox-pkg"),
             remotes: remotes,
+            dest: "/".to_string()
         }
     }
 
@@ -168,7 +170,7 @@ impl Repo {
         let status = Command::new("tar")
             .arg("xf")
             .arg(&tarfile)
-            .current_dir("/")
+            .current_dir(&self.dest)
             .spawn()?
             .wait()?;
 
@@ -189,5 +191,9 @@ impl Repo {
             .wait()?;
 
         Ok(())
+    }
+
+    pub fn set_dest(&mut self, dest: &str) {
+        self.dest = dest.to_string();
     }
 }
