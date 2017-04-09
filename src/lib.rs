@@ -19,10 +19,12 @@ mod download;
 pub struct Repo {
     local: String,
     remotes: Vec<String>,
+    dest: String,
+    target: String,
 }
 
 impl Repo {
-    pub fn new() -> Repo {
+    pub fn new(target: &str) -> Repo {
         let mut remotes = vec![];
 
         //TODO: Cleanup
@@ -60,6 +62,8 @@ impl Repo {
         Repo {
             local: format!("/tmp/redox-pkg"),
             remotes: remotes,
+            dest: "/".to_string(),
+            target: target.to_string()
         }
     }
 
@@ -75,7 +79,7 @@ impl Repo {
 
             let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
             for remote in self.remotes.iter() {
-                let remote_path = format!("{}/{}/{}", remote, env!("TARGET"), file);
+                let remote_path = format!("{}/{}/{}", remote, self.target, file);
                 res = download(&remote_path, &local_path).map(|_| local_path.clone());
                 if res.is_ok() {
                     break;
@@ -162,13 +166,11 @@ impl Repo {
         Ok(tardir)
     }
 
-    pub fn install(&self, package: &str) -> io::Result<()> {
-        let tarfile = self.fetch(package)?;
-
+    pub fn install_file(&self, path: &str)-> io::Result<()> {
         let status = Command::new("tar")
             .arg("xf")
-            .arg(&tarfile)
-            .current_dir("/")
+            .arg(path)
+            .current_dir(&self.dest)
             .spawn()?
             .wait()?;
 
@@ -177,6 +179,11 @@ impl Repo {
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "tar command failed"))
         }
+    }
+
+    pub fn install(&self, package: &str) -> io::Result<()> {
+        let tarfile = self.fetch(package)?;
+        self.install_file(&tarfile)
     }
 
     pub fn list(&self, package: &str) -> io::Result<()> {
@@ -189,5 +196,13 @@ impl Repo {
             .wait()?;
 
         Ok(())
+    }
+
+    pub fn set_dest(&mut self, dest: &str) {
+        self.dest = dest.to_string();
+    }
+
+    pub fn add_remote(&mut self, remote: &str) {
+        self.remotes.push(remote.to_string());
     }
 }
