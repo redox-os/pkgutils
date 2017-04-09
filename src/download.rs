@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, stderr, Read, Write};
 use std::error::Error;
+use std::time::Duration;
 
 use hyper::status::StatusCode;
 use hyper::Client;
@@ -11,7 +12,9 @@ use hyper::error::Error as HyperError;
 pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
     write!(stderr(), "* Requesting {}\n", remote_path)?;
 
-    let client = Client::with_connector(HttpsConnector::new(TlsClient::new()));
+    let mut client = Client::with_connector(HttpsConnector::new(TlsClient::new()));
+    client.set_read_timeout(Some(Duration::new(5, 0)));
+    client.set_write_timeout(Some(Duration::new(5, 0)));
     let mut res = match client.get(remote_path).send() {
         Ok(res) => res,
         Err(HyperError::Io(err)) => return Err(err),
