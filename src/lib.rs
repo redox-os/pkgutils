@@ -20,10 +20,11 @@ pub struct Repo {
     local: String,
     remotes: Vec<String>,
     dest: String,
+    target: String,
 }
 
 impl Repo {
-    pub fn new() -> Repo {
+    pub fn new(target: &str) -> Repo {
         let mut remotes = vec![];
 
         //TODO: Cleanup
@@ -61,7 +62,8 @@ impl Repo {
         Repo {
             local: format!("/tmp/redox-pkg"),
             remotes: remotes,
-            dest: "/".to_string()
+            dest: "/".to_string(),
+            target: target.to_string()
         }
     }
 
@@ -77,7 +79,7 @@ impl Repo {
 
             let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
             for remote in self.remotes.iter() {
-                let remote_path = format!("{}/{}/{}", remote, env!("TARGET"), file);
+                let remote_path = format!("{}/{}/{}", remote, self.target, file);
                 res = download(&remote_path, &local_path).map(|_| local_path.clone());
                 if res.is_ok() {
                     break;
