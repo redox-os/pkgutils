@@ -21,7 +21,7 @@ fn help() -> io::Result<()> {
 }
 
 fn main() {
-    let repo = Repo::new();
+    let repo = Repo::new(env!("TARGET"));
 
     let mut args = env::args().skip(1);
     if let Some(op) = args.next() {
