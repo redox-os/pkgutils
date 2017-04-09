@@ -49,7 +49,6 @@ impl Repo {
                     if let Ok(_) = file.read_to_string(&mut data) {
                         for line in data.lines() {
                             if ! line.starts_with('#') {
-                                println!("Remote {}", line);
                                 remotes.push(line.to_string());
                             }
                         }
