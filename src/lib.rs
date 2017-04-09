@@ -166,12 +166,10 @@ impl Repo {
         Ok(tardir)
     }
 
-    pub fn install(&self, package: &str) -> io::Result<()> {
-        let tarfile = self.fetch(package)?;
-
+    pub fn install_file(&self, path: &str)-> io::Result<()> {
         let status = Command::new("tar")
             .arg("xf")
-            .arg(&tarfile)
+            .arg(path)
             .current_dir(&self.dest)
             .spawn()?
             .wait()?;
@@ -181,6 +179,11 @@ impl Repo {
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "tar command failed"))
         }
+    }
+
+    pub fn install(&self, package: &str) -> io::Result<()> {
+        let tarfile = self.fetch(package)?;
+        self.install_file(&tarfile)
     }
 
     pub fn list(&self, package: &str) -> io::Result<()> {
