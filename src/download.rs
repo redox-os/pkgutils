@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, stderr, Read, Write};
+use std::io::{self, stderr, Write};
 use std::error::Error;
 use std::time::Duration;
 
@@ -21,14 +21,13 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
         Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.description()))
     };
 
-    let mut data = Vec::new();
-    res.read_to_end(&mut data)?;
-
     match res.status {
         StatusCode::Ok => {
             write!(stderr(), "* Success {}\n", res.status)?;
 
-            File::create(&local_path)?.write(data.as_slice())?;
+            let mut file = File::create(&local_path)?;
+            io::copy(&mut res, &mut file)?;
+
             Ok(())
         },
         _ => {
