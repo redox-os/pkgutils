@@ -105,7 +105,14 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        if let Err(err) = repo.install(package) {
+                        let result = if package.ends_with(".tar") {
+                            let path = format!("{}/{}", env::current_dir().unwrap().to_string_lossy(), package);
+                            repo.install_file(&path)
+                        } else {
+                            repo.install(package)
+                        };
+
+                        if let Err(err) = result {
                             let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, err);
                         } else {
                             let _ = write!(io::stderr(), "pkg: install: {}: succeeded\n", package);
