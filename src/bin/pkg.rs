@@ -45,21 +45,17 @@ fn main() {
                 }
             },
             "create" => {
-                let packages: Vec<String> = args.collect();
-                if ! packages.is_empty() {
-                    for package in packages.iter() {
-                        match repo.create(package) {
-                            Ok(tarfile) => {
-                                let _ = write!(io::stderr(), "pkg: create: {}: created {}\n", package, tarfile);
-                            }
-                            Err(err) => {
-                                let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, err);
-                            }
-                        }
+                let dir = args.next().unwrap();
+                let package = args.next().unwrap();
+                let version = args.next().unwrap();
+
+                match repo.create(&dir, &package, &version) {
+                    Ok(tarfile) => {
+                        let _ = write!(io::stderr(), "pkg: create: {}: created {}\n", package, tarfile);
                     }
-                } else {
-                    let _ = write!(io::stderr(), "pkg: create: no packages specified\n");
-                    process::exit(1);
+                    Err(err) => {
+                        let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, err);
+                    }
                 }
             },
             "extract" => {
