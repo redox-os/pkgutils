@@ -13,6 +13,7 @@ path = "src/bin/pkg.rs"
 [dependencies]
 termion = "1.1"
 hyper-rustls = "0.3"
+tar = { git = "https://github.com/redox-os/tar-rs" }
 
 [dependencies.hyper]
 version = "0.10"

@@ -3,14 +3,15 @@
 extern crate hyper;
 extern crate hyper_rustls;
 extern crate octavo;
+extern crate tar;
 
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
+use tar::Archive;
 use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write};
 use std::path::Path;
-use std::process::Command;
 
 pub use download::download;
 
@@ -120,13 +121,12 @@ impl Repo {
         let sigfile = format!("{}.sig", package);
         let tarfile = format!("{}.tar", package);
 
-        Command::new("tar")
-            .arg("cf")
-            .arg(&format!("../{}", tarfile))
-            .arg(".")
-            .current_dir(package)
-            .spawn()?
-            .wait()?;
+        {
+            let file = File::create(&tarfile)?;
+            let mut tar = tar::Builder::new(file);
+            tar.append_dir_all("", package)?;
+            tar.finish()?;
+        }
 
         let mut signature = self.signature(&tarfile)?;
         signature.push('\n');
@@ -156,29 +156,18 @@ impl Repo {
         let tardir = format!("{}/{}", self.local, package);
         fs::create_dir_all(&tardir)?;
 
-        Command::new("tar")
-            .arg("xf")
-            .arg(&tarfile)
-            .current_dir(&tardir)
-            .spawn()?
-            .wait()?;
+        let mut ar = Archive::new(File::open(&tarfile)?);
+        ar.set_preserve_permissions(true);
+        ar.unpack(&tardir)?;
 
         Ok(tardir)
     }
 
     pub fn install_file(&self, path: &str)-> io::Result<()> {
-        let status = Command::new("tar")
-            .arg("xf")
-            .arg(path)
-            .current_dir(&self.dest)
-            .spawn()?
-            .wait()?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "tar command failed"))
-        }
+        let mut ar = Archive::new(File::open(path)?);
+        ar.set_preserve_permissions(true);
+        ar.unpack(&self.dest)?;
+        Ok(())
     }
 
     pub fn install(&self, package: &str) -> io::Result<()> {
@@ -189,11 +178,10 @@ impl Repo {
     pub fn list(&self, package: &str) -> io::Result<()> {
         let tarfile = self.fetch(package)?;
 
-        Command::new("tar")
-            .arg("tf")
-            .arg(&tarfile)
-            .spawn()?
-            .wait()?;
+        let mut ar = Archive::new(File::open(tarfile)?);
+        for i in ar.entries()? {
+            println!("{}", i?.path()?.display());
+        }
 
         Ok(())
     }
