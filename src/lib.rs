@@ -29,11 +29,11 @@ impl Repo {
         let mut remotes = vec![];
 
         //TODO: Cleanup
-        // This will add every line in every file in /etc/pkg.d to the remotes,
+        // This will add every line in every file in /etc/pkg.d/repos to the remotes,
         // provided it does not start with #
         {
             let mut entries = vec![];
-            if let Ok(read_dir) = fs::read_dir("/etc/pkg.d") {
+            if let Ok(read_dir) = fs::read_dir("/etc/pkg.d/repos") {
                 for entry_res in read_dir {
                     if let Ok(entry) = entry_res {
                         let path = entry.path();
