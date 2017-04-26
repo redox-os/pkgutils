@@ -2,9 +2,9 @@ use toml::{self, to_string, from_str};
 
 #[derive(Serialize, Deserialize)]
 pub struct PackageMeta {
-    name: String,
-    version: String,
-    target: String,
+    pub name: String,
+    pub version: String,
+    pub target: String,
 }
 
 impl PackageMeta {
