@@ -4,6 +4,9 @@ extern crate hyper;
 extern crate hyper_rustls;
 extern crate octavo;
 extern crate tar;
+#[macro_use]
+extern crate serde_derive;
+extern crate toml;
 
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
@@ -14,8 +17,10 @@ use std::io::{self, stderr, Read, Write};
 use std::path::Path;
 
 pub use download::download;
+pub use packagemeta::PackageMeta;
 
 mod download;
+mod packagemeta;
 
 pub struct Repo {
     local: String,
