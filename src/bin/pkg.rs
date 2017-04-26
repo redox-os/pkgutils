@@ -2,7 +2,7 @@
 
 extern crate pkgutils;
 
-use pkgutils::Repo;
+use pkgutils::{Repo, Package};
 use std::{env, process};
 use std::io::{self, Write};
 
@@ -85,8 +85,8 @@ fn main() {
                 if ! packages.is_empty() {
                     for package in packages.iter() {
                         match repo.fetch(package) {
-                            Ok(tarfile) => {
-                                let _ = write!(io::stderr(), "pkg: fetch: {}: fetched {}\n", package, tarfile);
+                            Ok(pkg) => {
+                                let _ = write!(io::stderr(), "pkg: fetch: {}: fetched {}\n", package, pkg.path().display());
                             },
                             Err(err) => {
                                 let _ = write!(io::stderr(), "pkg: fetch: {}: failed: {}\n", package, err);
@@ -105,14 +105,14 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        let result = if package.ends_with(".tar") {
+                        let pkg = if package.ends_with(".tar") {
                             let path = format!("{}/{}", env::current_dir().unwrap().to_string_lossy(), package);
-                            repo.install_file(&path)
+                            Package::from_path(&path)
                         } else {
-                            repo.install(package)
+                            repo.fetch(package)
                         };
 
-                        if let Err(err) = result {
+                        if let Err(err) = pkg.and_then(|mut p| p.install("/")) {
                             let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, err);
                         } else {
                             let _ = write!(io::stderr(), "pkg: install: {}: succeeded\n", package);
@@ -127,7 +127,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        if let Err(err) = repo.list(package) {
+                        if let Err(err) = repo.fetch(package).and_then(|mut p| p.list()) {
                             let _ = write!(io::stderr(), "pkg: list: {}: failed: {}\n", package, err);
                         } else {
                             let _ = write!(io::stderr(), "pkg: list: {}: succeeded\n", package);
