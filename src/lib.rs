@@ -61,7 +61,7 @@ impl Repo {
         }
 
         Repo {
-            local: format!("/tmp/redox-pkg"),
+            local: format!("/tmp/pkg"),
             remotes: remotes,
             dest: "/".to_string(),
             target: target.to_string()
@@ -137,16 +137,14 @@ impl Repo {
     }
 
     pub fn fetch(&self, package: &str) -> io::Result<String> {
-        //TODO let sigfile = sync(&format!("{}.sig", package))?;
+        let sigfile = self.sync(&format!("{}.sig", package))?;
         let tarfile = self.sync(&format!("{}.tar", package))?;
 
-        /*TODO Check signature
         let mut expected = String::new();
         File::open(sigfile)?.read_to_string(&mut expected)?;
-        if expected.trim() != signature(&tarfile)? {
+        if expected.trim() != self.signature(&tarfile)? {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
         }
-        */
 
         Ok(tarfile)
     }
