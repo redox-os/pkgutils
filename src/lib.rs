@@ -10,7 +10,6 @@ extern crate toml;
 
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
-use tar::Archive;
 use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write};
@@ -18,14 +17,15 @@ use std::path::Path;
 
 pub use download::download;
 pub use packagemeta::PackageMeta;
+pub use package::Package;
 
 mod download;
 mod packagemeta;
+mod package;
 
 pub struct Repo {
     local: String,
     remotes: Vec<String>,
-    dest: String,
     target: String,
 }
 
@@ -68,7 +68,6 @@ impl Repo {
         Repo {
             local: format!("/tmp/pkg"),
             remotes: remotes,
-            dest: "/".to_string(),
             target: target.to_string()
         }
     }
@@ -141,7 +140,7 @@ impl Repo {
         Ok(tarfile)
     }
 
-    pub fn fetch(&self, package: &str) -> io::Result<String> {
+    pub fn fetch(&self, package: &str) -> io::Result<Package> {
         let sigfile = self.sync(&format!("{}.sig", package))?;
         let tarfile = self.sync(&format!("{}.tar", package))?;
 
@@ -151,46 +150,14 @@ impl Repo {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
         }
 
-        Ok(tarfile)
+        Package::from_path(tarfile)
     }
 
     pub fn extract(&self, package: &str) -> io::Result<String> {
-        let tarfile = self.fetch(package)?;
         let tardir = format!("{}/{}", self.local, package);
         fs::create_dir_all(&tardir)?;
-
-        let mut ar = Archive::new(File::open(&tarfile)?);
-        ar.set_preserve_permissions(true);
-        ar.unpack(&tardir)?;
-
+        self.fetch(package)?.install(&tardir)?;
         Ok(tardir)
-    }
-
-    pub fn install_file(&self, path: &str)-> io::Result<()> {
-        let mut ar = Archive::new(File::open(path)?);
-        ar.set_preserve_permissions(true);
-        ar.unpack(&self.dest)?;
-        Ok(())
-    }
-
-    pub fn install(&self, package: &str) -> io::Result<()> {
-        let tarfile = self.fetch(package)?;
-        self.install_file(&tarfile)
-    }
-
-    pub fn list(&self, package: &str) -> io::Result<()> {
-        let tarfile = self.fetch(package)?;
-
-        let mut ar = Archive::new(File::open(tarfile)?);
-        for i in ar.entries()? {
-            println!("{}", i?.path()?.display());
-        }
-
-        Ok(())
-    }
-
-    pub fn set_dest(&mut self, dest: &str) {
-        self.dest = dest.to_string();
     }
 
     pub fn add_remote(&mut self, remote: &str) {
