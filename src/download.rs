@@ -71,6 +71,8 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
             }
             let _ = write!(stderr, "\n");
 
+            file.sync_all()?;
+
             Ok(())
         },
         _ => {
