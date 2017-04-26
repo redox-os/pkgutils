@@ -4,18 +4,24 @@ extern crate hyper;
 extern crate hyper_rustls;
 extern crate octavo;
 extern crate tar;
+#[macro_use]
+extern crate serde_derive;
+extern crate toml;
 
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
-use tar::Archive;
+use tar::{Archive, Header};
 use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write};
 use std::path::Path;
+use std::io::Cursor;
 
 pub use download::download;
+use packagemeta::PackageMeta;
 
 mod download;
+mod packagemeta;
 
 pub struct Repo {
     local: String,
@@ -113,18 +119,29 @@ impl Repo {
         Ok(tardir)
     }
 
-    pub fn create(&self, package: &str) -> io::Result<String> {
-        if ! Path::new(package).is_dir() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package)));
+    pub fn create(&self, dir: &str, package: &str, version: &str) -> io::Result<String> {
+        if ! Path::new(dir).is_dir() {
+            return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", dir)));
         }
 
-        let sigfile = format!("{}.sig", package);
-        let tarfile = format!("{}.tar", package);
+        let metadata = PackageMeta::new(package, version, &self.target).to_toml();
+
+        let sigfile = format!("{}.sig", dir);
+        let tarfile = format!("{}.tar", dir);
 
         {
             let file = File::create(&tarfile)?;
             let mut tar = tar::Builder::new(file);
-            tar.append_dir_all("", package)?;
+
+            tar.append_dir_all("", dir)?;
+
+            let mut header = Header::new_gnu();
+            header.set_path(&format!("etc/pkg.d/{}.toml", package))?;
+            header.set_size(metadata.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            tar.append(&header, Cursor::new(metadata))?;
+
             tar.finish()?;
         }
 
