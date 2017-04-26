@@ -39,7 +39,7 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
                     ((100 * count) / length, (status.len() * count) / length)
                 };
 
-                let _ = write!(stderr, "\r* {:>3}%[", percent);
+                let _ = write!(stderr, "\r* {:>3}% [", percent);
 
                 for i in 0..cols {
                     status[i] = b'=';
@@ -49,7 +49,18 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
                 }
 
                 let _ = stderr.write(&status);
-                let _ = write!(stderr, "]");
+
+                let (size, suffix) = if count >= 10 * 1000 * 1000 * 1000 {
+                    (count / (1000 * 1000 * 1000), "GB")
+                } else if count >= 10 * 1000 * 1000 {
+                    (count / (1000 * 1000), "MB")
+                } else if count >= 10 * 1000 {
+                    (count / 1000, "KB")
+                } else {
+                    (count, "B")
+                };
+
+                let _ = write!(stderr, "] {:>4} {}", size, suffix);
 
                 let mut buf = [0; 8192];
                 let res = res.read(&mut buf)?;
