@@ -16,6 +16,7 @@ fn help() -> io::Result<()> {
     write!(io::stderr(), "    install [package] - install a package\n")?;
     write!(io::stderr(), "    list [package] - list package contents\n")?;
     write!(io::stderr(), "    sign [file] - get a file signature\n")?;
+    write!(io::stderr(), "    upgrade - upgrade all packages\n")?;
 
     Ok(())
 }
@@ -154,6 +155,16 @@ fn main() {
                 } else {
                     let _ = write!(io::stderr(), "pkg: sign: no files specified\n");
                     process::exit(1);
+                }
+            },
+            "upgrade" => {
+                match repo.upgrade() {
+                    Ok(()) => {
+                        let _ = write!(io::stderr(), "pkg: upgrade: succeeded\n");
+                    },
+                    Err(err) => {
+                        let _ = write!(io::stderr(), "pkg: upgrade: failed: {}\n", err);
+                    }
                 }
             },
             _ => {

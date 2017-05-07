@@ -7,6 +7,7 @@ extern crate tar;
 #[macro_use]
 extern crate serde_derive;
 extern crate toml;
+extern crate version_compare;
 
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
@@ -14,9 +15,10 @@ use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write};
 use std::path::Path;
+use version_compare::{VersionCompare, CompOp};
 
 pub use download::download;
-pub use packagemeta::PackageMeta;
+pub use packagemeta::{PackageMeta, PackageMetaList};
 pub use package::Package;
 
 mod download;
@@ -158,6 +160,48 @@ impl Repo {
         fs::create_dir_all(&tardir)?;
         self.fetch(package)?.install(&tardir)?;
         Ok(tardir)
+    }
+
+    pub fn upgrade(&self) -> io::Result<()> {
+        let mut local_list = PackageMetaList::new();
+        if Path::new("/pkg/").is_dir() {
+            for entry_res in fs::read_dir("/pkg/")? {
+                let entry = entry_res?;
+
+                let mut toml = String::new();
+                File::open(entry.path())?.read_to_string(&mut toml)?;
+
+                if let Ok(package) = PackageMeta::from_toml(&toml) {
+                    local_list.packages.insert(package.name, package.version);
+                }
+            }
+        }
+
+        let tomlfile = self.sync("repo.toml")?;
+
+        let mut toml = String::new();
+        File::open(tomlfile)?.read_to_string(&mut toml)?;
+
+        let remote_list = PackageMetaList::from_toml(&toml).map_err(|err| {
+            io::Error::new(io::ErrorKind::InvalidData, format!("TOML error: {}", err))
+        })?;
+
+        for (package, version) in local_list.packages.iter() {
+            let remote_version = remote_list.packages.get(package).map_or("", |s| &s);
+            match VersionCompare::compare(version, remote_version).map_err(|_err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{}: version parsing error when comparing {} and {}", package, version, remote_version)
+                )
+            })? {
+                CompOp::Lt => println!("{}: {} is older than {}", package, version, remote_version),
+                CompOp::Eq => println!("{}: {} is up to date with {}", package, version, remote_version),
+                CompOp::Gt => println!("{}: {} is newer than {}", package, version, remote_version),
+                other => println!("{}: did not expect {:?} when comparing {} and {}", package, other, version, remote_version),
+            }
+        }
+
+        Ok(())
     }
 
     pub fn add_remote(&mut self, remote: &str) {
