@@ -1,10 +1,88 @@
 #![deny(warnings)]
 
+extern crate liner;
 extern crate pkgutils;
+extern crate version_compare;
 
-use pkgutils::{Repo, Package};
+use pkgutils::{Repo, Package, PackageMeta, PackageMetaList};
 use std::{env, process};
-use std::io::{self, Write};
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
+use std::path::Path;
+use version_compare::{VersionCompare, CompOp};
+
+fn upgrade(repo: Repo) -> io::Result<()> {
+    let mut local_list = PackageMetaList::new();
+    if Path::new("/pkg/").is_dir() {
+        for entry_res in fs::read_dir("/pkg/")? {
+            let entry = entry_res?;
+
+            let mut toml = String::new();
+            File::open(entry.path())?.read_to_string(&mut toml)?;
+
+            if let Ok(package) = PackageMeta::from_toml(&toml) {
+                local_list.packages.insert(package.name, package.version);
+            }
+        }
+    }
+
+    let tomlfile = repo.sync("repo.toml")?;
+
+    let mut toml = String::new();
+    File::open(tomlfile)?.read_to_string(&mut toml)?;
+
+    let remote_list = PackageMetaList::from_toml(&toml).map_err(|err| {
+        io::Error::new(io::ErrorKind::InvalidData, format!("TOML error: {}", err))
+    })?;
+
+    let mut upgrades = Vec::new();
+    for (package, version) in local_list.packages.iter() {
+        let remote_version = remote_list.packages.get(package).map_or("", |s| &s);
+        match VersionCompare::compare(version, remote_version) {
+            Ok(cmp) => match cmp {
+                CompOp::Lt => {
+                    upgrades.push((package.clone(), version.clone(), remote_version.to_string()));
+                },
+                _ => ()
+            },
+            Err(_err) => {
+                println!("{}: version parsing error when comparing {} and {}", package, version, remote_version);
+            }
+        }
+    }
+
+    if upgrades.is_empty() {
+        println!("All packages are up to date.");
+    } else {
+        for &(ref package, ref old_version, ref new_version) in upgrades.iter() {
+            println!("{}: {} => {}", package, old_version, new_version);
+        }
+
+        let line = liner::Context::new().read_line(
+            "Do you want to upgrade these packages? (Y/n) ",
+            &mut |_| {}
+        )?;
+        match line.to_lowercase().as_str() {
+            "" | "y" | "yes" => {
+                println!("Downloading packages");
+                let mut packages = Vec::new();
+                for (package, _, _) in upgrades {
+                    packages.push(repo.fetch(&package)?);
+                }
+
+                println!("Installing packages");
+                for mut package in packages {
+                    package.install("/")?;
+                }
+            },
+            _ => {
+                println!("Cancelling upgrade.");
+            }
+        }
+    }
+
+    Ok(())
+}
 
 fn help() -> io::Result<()> {
     write!(io::stderr(), "pkg [command] [arguments]\n")?;
@@ -158,7 +236,7 @@ fn main() {
                 }
             },
             "upgrade" => {
-                match repo.upgrade() {
+                match upgrade(repo) {
                     Ok(()) => {
                         let _ = write!(io::stderr(), "pkg: upgrade: succeeded\n");
                     },
