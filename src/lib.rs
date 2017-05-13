@@ -74,24 +74,20 @@ impl Repo {
 
     pub fn sync(&self, file: &str) -> io::Result<String> {
         let local_path = format!("{}/{}", self.local, file);
-        if Path::new(&local_path).is_file() {
-            write!(stderr(), "* Already downloaded {}\n", file)?;
-            Ok(local_path)
-        } else {
-            if let Some(parent) = Path::new(&local_path).parent() {
-                fs::create_dir_all(parent)?;
-            }
 
-            let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
-            for remote in self.remotes.iter() {
-                let remote_path = format!("{}/{}/{}", remote, self.target, file);
-                res = download(&remote_path, &local_path).map(|_| local_path.clone());
-                if res.is_ok() {
-                    break;
-                }
-            }
-            res
+        if let Some(parent) = Path::new(&local_path).parent() {
+            fs::create_dir_all(parent)?;
         }
+
+        let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
+        for remote in self.remotes.iter() {
+            let remote_path = format!("{}/{}/{}", remote, self.target, file);
+            res = download(&remote_path, &local_path).map(|_| local_path.clone());
+            if res.is_ok() {
+                break;
+            }
+        }
+        res
     }
 
     pub fn signature(&self, file: &str) -> io::Result<String> {
@@ -142,11 +138,24 @@ impl Repo {
 
     pub fn fetch(&self, package: &str) -> io::Result<Package> {
         let sigfile = self.sync(&format!("{}.sig", package))?;
-        let tarfile = self.sync(&format!("{}.tar", package))?;
 
         let mut expected = String::new();
         File::open(sigfile)?.read_to_string(&mut expected)?;
-        if expected.trim() != self.signature(&tarfile)? {
+        let expected = expected.trim();
+
+        {
+            let tarfile = format!("{}/{}.tar", self.local, package);
+            if let Ok(signature) = self.signature(&tarfile) {
+                if signature == expected {
+                    write!(stderr(), "* Already downloaded {}\n", package)?;
+                    return Package::from_path(tarfile);
+                }
+            }
+        }
+
+        let tarfile = self.sync(&format!("{}.tar", package))?;
+
+        if self.signature(&tarfile)? != expected  {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
         }
 
