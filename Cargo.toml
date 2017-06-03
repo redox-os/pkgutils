@@ -12,7 +12,7 @@ path = "src/bin/pkg.rs"
 
 [dependencies]
 liner = "0.1"
-hyper-rustls = "0.3"
+hyper-rustls = "0.6"
 serde = "1.0"
 serde_derive = "1.0"
 tar = { git = "https://github.com/redox-os/tar-rs" }
