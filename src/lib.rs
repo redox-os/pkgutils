@@ -1,5 +1,6 @@
 #![deny(warnings)]
 
+extern crate libflate;
 extern crate hyper;
 extern crate hyper_rustls;
 extern crate octavo;
@@ -8,6 +9,7 @@ extern crate serde_derive;
 extern crate tar;
 extern crate toml;
 
+use libflate::gzip::Encoder;
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
 use std::str;
@@ -119,11 +121,13 @@ impl Repo {
         }
 
         let sigfile = format!("{}.sig", package);
-        let tarfile = format!("{}.tar", package);
+        let tarfile = format!("{}.tar.gz", package);
 
         {
             let file = File::create(&tarfile)?;
-            let mut tar = tar::Builder::new(file);
+            let encoder = Encoder::new(file)?;
+
+            let mut tar = tar::Builder::new(encoder);
             tar.append_dir_all("", package)?;
             tar.finish()?;
         }
@@ -144,7 +148,7 @@ impl Repo {
         let expected = expected.trim();
 
         {
-            let tarfile = format!("{}/{}.tar", self.local, package);
+            let tarfile = format!("{}/{}.tar.gz", self.local, package);
             if let Ok(signature) = self.signature(&tarfile) {
                 if signature == expected {
                     write!(stderr(), "* Already downloaded {}\n", package)?;
@@ -153,7 +157,7 @@ impl Repo {
             }
         }
 
-        let tarfile = self.sync(&format!("{}.tar", package))?;
+        let tarfile = self.sync(&format!("{}.tar.gz", package))?;
 
         if self.signature(&tarfile)? != expected  {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));

@@ -184,7 +184,7 @@ fn main() {
                 let packages: Vec<String> = args.collect();
                 if ! packages.is_empty() {
                     for package in packages.iter() {
-                        let pkg = if package.ends_with(".tar") {
+                        let pkg = if package.ends_with(".tar.gz") {
                             let path = format!("{}/{}", env::current_dir().unwrap().to_string_lossy(), package);
                             Package::from_path(&path)
                         } else {

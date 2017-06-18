@@ -1,3 +1,4 @@
+use libflate::gzip::Decoder;
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
@@ -7,14 +8,17 @@ use tar::{Archive, EntryType};
 use packagemeta::PackageMeta;
 
 pub struct Package {
-    archive: Archive<File>,
+    archive: Archive<Decoder<File>>,
     path: PathBuf,
     meta: Option<PackageMeta>,
 }
 
 impl Package {
     pub fn from_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let mut ar = Archive::new(File::open(&path)?);
+        let file = File::open(&path)?;
+        let decoder = Decoder::new(file)?;
+
+        let mut ar = Archive::new(decoder);
         ar.set_preserve_permissions(true);
         Ok(Package{archive: ar, path: path.as_ref().to_path_buf(), meta: None})
     }
