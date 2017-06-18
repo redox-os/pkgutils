@@ -129,7 +129,10 @@ impl Repo {
 
             let mut tar = tar::Builder::new(encoder);
             tar.append_dir_all("", package)?;
-            tar.finish()?;
+
+            let encoder = tar.into_inner()?;
+            let mut file = encoder.finish().into_result()?;
+            file.flush()?;
         }
 
         let mut signature = self.signature(&tarfile)?;
