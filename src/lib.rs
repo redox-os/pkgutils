@@ -8,6 +8,7 @@ extern crate octavo;
 extern crate serde_derive;
 extern crate tar;
 extern crate toml;
+extern crate pbr;
 
 use libflate::gzip::Encoder;
 use octavo::octavo_digest::Digest;
