@@ -7,6 +7,7 @@ extern crate octavo;
 extern crate serde_derive;
 extern crate tar;
 extern crate toml;
+extern crate pbr;
 
 use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
