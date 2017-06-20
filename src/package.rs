@@ -4,11 +4,12 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::io::{self, Error, ErrorKind, Read};
 use tar::{Archive, EntryType};
+use std::io::BufReader;
 
 use packagemeta::PackageMeta;
 
 pub struct Package {
-    archive: Archive<Decoder<File>>,
+    archive: Archive<Decoder<BufReader<File>>>,
     path: PathBuf,
     meta: Option<PackageMeta>,
 }
@@ -16,7 +17,7 @@ pub struct Package {
 impl Package {
     pub fn from_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let file = File::open(&path)?;
-        let decoder = Decoder::new(file)?;
+        let decoder = Decoder::new(BufReader::new(file))?;
 
         let mut ar = Archive::new(decoder);
         ar.set_preserve_permissions(true);
