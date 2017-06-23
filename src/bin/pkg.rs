@@ -87,10 +87,11 @@ fn upgrade(repo: Repo) -> io::Result<()> {
 }
 
 fn main() {
-    let repo = Repo::new(env!("TARGET"));
-
     let matches = App::new("pkg")
-        .subcommand(SubCommand::with_name("clean")
+        .arg(Arg::with_name("target")
+             .long("target")
+             .takes_value(true)
+        ).subcommand(SubCommand::with_name("clean")
             .arg(Arg::with_name("package")
                  .multiple(true)
                  .required(true)
@@ -127,6 +128,13 @@ fn main() {
             )
         ).subcommand(SubCommand::with_name("upgrade")
         ).get_matches();
+
+    let target = matches.value_of("target")
+        .or(option_env!("TARGET"))
+        .expect(concat!("pkg was not compiled with a target, ",
+                        "and --target was not specified"));
+
+    let repo = Repo::new(target);
 
     match matches.subcommand() {
         ("clean", Some(m)) => {
