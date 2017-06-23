@@ -90,29 +90,42 @@ fn main() {
     let repo = Repo::new(env!("TARGET"));
 
     let matches = App::new("pkg")
-        .subcommand(
-            SubCommand::with_name("clean")
-            .arg(Arg::with_name("package").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("create")
-            .arg(Arg::with_name("package").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("extract")
-            .arg(Arg::with_name("package").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("fetch")
-            .arg(Arg::with_name("package").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("install")
-            .arg(Arg::with_name("package").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("list")
-            .arg(Arg::with_name("package").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("sign")
-            .arg(Arg::with_name("file").multiple(true))
-        ).subcommand(
-            SubCommand::with_name("upgrade")
+        .subcommand(SubCommand::with_name("clean")
+            .arg(Arg::with_name("package")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("create")
+            .arg(Arg::with_name("package")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("extract")
+            .arg(Arg::with_name("package")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("fetch")
+            .arg(Arg::with_name("package")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("install")
+            .arg(Arg::with_name("package")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("list")
+            .arg(Arg::with_name("package")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("sign")
+            .arg(Arg::with_name("file")
+                 .multiple(true)
+                 .required(true)
+            )
+        ).subcommand(SubCommand::with_name("upgrade")
         ).get_matches();
 
     match matches.subcommand() {
