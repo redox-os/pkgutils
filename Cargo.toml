@@ -20,6 +20,7 @@ tar = { git = "https://github.com/redox-os/tar-rs" }
 toml = "0.4"
 version-compare = "0.0.4"
 pbr = { version = "1.0", git = "https://github.com/ids1024/pb", branch = "redox" }
+clap = {version = "2.25", default-features = false}
 
 [dependencies.hyper]
 version = "0.10"
