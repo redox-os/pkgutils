@@ -129,10 +129,7 @@ fn main() {
         ).subcommand(SubCommand::with_name("upgrade")
         ).get_matches();
 
-    let target = matches.value_of("target")
-        .or(option_env!("TARGET"))
-        .expect(concat!("pkg was not compiled with a target, ",
-                        "and --target was not specified"));
+    let target = matches.value_of("target").unwrap_or(env!("PKG_DEFAULT_TARGET"));
 
     let repo = Repo::new(target);
 
