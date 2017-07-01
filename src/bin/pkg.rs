@@ -6,7 +6,7 @@ extern crate version_compare;
 extern crate clap;
 
 use pkgutils::{Repo, Package, PackageMeta, PackageMetaList};
-use std::{env, fmt};
+use std::{env, fmt, process};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -146,6 +146,8 @@ fn main() {
 
     let repo = Repo::new(target);
 
+    let mut success = true;
+
     match matches.subcommand() {
         ("clean", Some(m)) => {
             for package in m.values_of("package").unwrap() {
@@ -155,6 +157,7 @@ fn main() {
                     }
                     Err(err) => {
                         let _ = write!(io::stderr(), "pkg: clean: {}: failed: {}\n", package, ErrMsg(&err));
+                        success = false;
                     }
                 }
             }
@@ -167,6 +170,7 @@ fn main() {
                     }
                     Err(err) => {
                         let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, ErrMsg(&err));
+                        success = false;
                     }
                 }
             }
@@ -179,6 +183,7 @@ fn main() {
                     },
                     Err(err) => {
                         let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, ErrMsg(&err));
+                        success = false;
                     }
                 }
             }
@@ -191,6 +196,7 @@ fn main() {
                     },
                     Err(err) => {
                         let _ = write!(io::stderr(), "pkg: fetch: {}: failed: {}\n", package, ErrMsg(&err));
+                        success = false;
                     }
                 }
             }
@@ -206,6 +212,7 @@ fn main() {
 
                 if let Err(err) = pkg.and_then(|mut p| p.install("/")) {
                     let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, ErrMsg(&err));
+                    success = false;
                 } else {
                     let _ = write!(io::stderr(), "pkg: install: {}: succeeded\n", package);
                 }
@@ -215,6 +222,7 @@ fn main() {
             for package in m.values_of("package").unwrap() {
                 if let Err(err) = repo.fetch(package).and_then(|mut p| p.list()) {
                     let _ = write!(io::stderr(), "pkg: list: {}: failed: {}\n", package, ErrMsg(&err));
+                    success = false;
                 } else {
                     let _ = write!(io::stderr(), "pkg: list: {}: succeeded\n", package);
                 }
@@ -228,6 +236,7 @@ fn main() {
                     },
                     Err(err) => {
                         let _ = write!(io::stderr(), "pkg: sign: {}: failed: {}\n", file, ErrMsg(&err));
+                        success = false;
                     }
                 }
             }
@@ -239,9 +248,12 @@ fn main() {
                 },
                 Err(err) => {
                     let _ = write!(io::stderr(), "pkg: upgrade: failed: {}\n", ErrMsg(&err));
+                    success = false;
                 }
             }
         }
         _ => unreachable!()
     }
+
+    process::exit(if success { 0 } else { 1 });
 }
