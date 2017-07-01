@@ -129,6 +129,7 @@ impl Repo {
             let encoder = Encoder::new(file)?;
 
             let mut tar = tar::Builder::new(encoder);
+            tar.follow_symlinks(false);
             tar.append_dir_all("", package)?;
 
             let encoder = tar.into_inner()?;
