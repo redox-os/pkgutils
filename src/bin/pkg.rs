@@ -6,12 +6,25 @@ extern crate version_compare;
 extern crate clap;
 
 use pkgutils::{Repo, Package, PackageMeta, PackageMetaList};
-use std::env;
+use std::{env, fmt};
+use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::Path;
 use version_compare::{VersionCompare, CompOp};
 use clap::{App, SubCommand, Arg};
+
+struct ErrMsg<'a>(&'a io::Error);
+
+impl<'a> fmt::Display for ErrMsg<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)?;
+        if let Some(cause) = self.0.cause() {
+            write!(f, " ({})", cause)?;
+        }
+        Ok(())
+    }
+}
 
 fn upgrade(repo: Repo) -> io::Result<()> {
     let mut local_list = PackageMetaList::new();
@@ -141,7 +154,7 @@ fn main() {
                         let _ = write!(io::stderr(), "pkg: clean: {}: cleaned {}\n", package, tardir);
                     }
                     Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: clean: {}: failed: {}\n", package, err);
+                        let _ = write!(io::stderr(), "pkg: clean: {}: failed: {}\n", package, ErrMsg(&err));
                     }
                 }
             }
@@ -153,7 +166,7 @@ fn main() {
                         let _ = write!(io::stderr(), "pkg: create: {}: created {}\n", package, tarfile);
                     }
                     Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, err);
+                        let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, ErrMsg(&err));
                     }
                 }
             }
@@ -165,7 +178,7 @@ fn main() {
                         let _ = write!(io::stderr(), "pkg: extract: {}: extracted to {}\n", package, tardir);
                     },
                     Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, err);
+                        let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, ErrMsg(&err));
                     }
                 }
             }
@@ -177,7 +190,7 @@ fn main() {
                         let _ = write!(io::stderr(), "pkg: fetch: {}: fetched {}\n", package, pkg.path().display());
                     },
                     Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: fetch: {}: failed: {}\n", package, err);
+                        let _ = write!(io::stderr(), "pkg: fetch: {}: failed: {}\n", package, ErrMsg(&err));
                     }
                 }
             }
@@ -192,7 +205,7 @@ fn main() {
                 };
 
                 if let Err(err) = pkg.and_then(|mut p| p.install("/")) {
-                    let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, err);
+                    let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, ErrMsg(&err));
                 } else {
                     let _ = write!(io::stderr(), "pkg: install: {}: succeeded\n", package);
                 }
@@ -201,7 +214,7 @@ fn main() {
         ("list", Some(m)) => {
             for package in m.values_of("package").unwrap() {
                 if let Err(err) = repo.fetch(package).and_then(|mut p| p.list()) {
-                    let _ = write!(io::stderr(), "pkg: list: {}: failed: {}\n", package, err);
+                    let _ = write!(io::stderr(), "pkg: list: {}: failed: {}\n", package, ErrMsg(&err));
                 } else {
                     let _ = write!(io::stderr(), "pkg: list: {}: succeeded\n", package);
                 }
@@ -214,7 +227,7 @@ fn main() {
                         let _ = write!(io::stderr(), "pkg: sign: {}: {}\n", file, signature);
                     },
                     Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: sign: {}: failed: {}\n", file, err);
+                        let _ = write!(io::stderr(), "pkg: sign: {}: failed: {}\n", file, ErrMsg(&err));
                     }
                 }
             }
@@ -225,7 +238,7 @@ fn main() {
                     let _ = write!(io::stderr(), "pkg: upgrade: succeeded\n");
                 },
                 Err(err) => {
-                    let _ = write!(io::stderr(), "pkg: upgrade: failed: {}\n", err);
+                    let _ = write!(io::stderr(), "pkg: upgrade: failed: {}\n", ErrMsg(&err));
                 }
             }
         }
