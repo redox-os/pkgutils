@@ -9,7 +9,7 @@ use pkgutils::{Repo, Package, PackageMeta, PackageMetaList};
 use std::{env, fmt, process};
 use std::error::Error;
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::path::Path;
 use version_compare::{VersionCompare, CompOp};
 use clap::{App, SubCommand, Arg};
@@ -148,57 +148,43 @@ fn main() {
 
     let mut success = true;
 
+    macro_rules! print_result {
+        ( $res:expr, $ok_fmt:expr $(, $var:expr )* ) => {
+            let res = $res;
+            eprint!("pkg: {}: ", matches.subcommand_name().unwrap());
+            $( eprint!("{}: ", $var); )*
+            match res {
+                // {0:.0?} is a hack to avoid "argument never used"
+                Ok(res) => eprintln!(concat!("{0:.0?}", $ok_fmt), res),
+                Err(err) => {
+                    eprintln!("failed: {}", ErrMsg(&err));
+                    success = false;
+                }
+            }
+        }
+    }
+
     match matches.subcommand() {
         ("clean", Some(m)) => {
             for package in m.values_of("package").unwrap() {
-                match repo.clean(package) {
-                    Ok(tardir) => {
-                        let _ = write!(io::stderr(), "pkg: clean: {}: cleaned {}\n", package, tardir);
-                    }
-                    Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: clean: {}: failed: {}\n", package, ErrMsg(&err));
-                        success = false;
-                    }
-                }
+                print_result!(repo.clean(package), "cleaned {}", package);
             }
         }
         ("create", Some(m)) => {
             for package in m.values_of("package").unwrap() {
-                match repo.create(package) {
-                    Ok(tarfile) => {
-                        let _ = write!(io::stderr(), "pkg: create: {}: created {}\n", package, tarfile);
-                    }
-                    Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: create: {}: failed: {}\n", package, ErrMsg(&err));
-                        success = false;
-                    }
-                }
+                print_result!(repo.create(package), "created {}", package);
             }
         }
         ("extract", Some(m)) => {
             for package in m.values_of("package").unwrap() {
-                match repo.extract(package) {
-                    Ok(tardir) => {
-                        let _ = write!(io::stderr(), "pkg: extract: {}: extracted to {}\n", package, tardir);
-                    },
-                    Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: extract: {}: failed: {}\n", package, ErrMsg(&err));
-                        success = false;
-                    }
-                }
+                print_result!(repo.extract(package), "extracted to {}", package);
             }
         }
         ("fetch", Some(m)) => {
             for package in m.values_of("package").unwrap() {
-                match repo.fetch(package) {
-                    Ok(pkg) => {
-                        let _ = write!(io::stderr(), "pkg: fetch: {}: fetched {}\n", package, pkg.path().display());
-                    },
-                    Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: fetch: {}: failed: {}\n", package, ErrMsg(&err));
-                        success = false;
-                    }
-                }
+                let res = repo.fetch(package);
+                let res = res.as_ref().map(|p| p.path().display());
+                print_result!(res, "fetched {}", package);
             }
         }
         ("install", Some(m)) => {
@@ -209,48 +195,22 @@ fn main() {
                 } else {
                     repo.fetch(package)
                 };
-
-                if let Err(err) = pkg.and_then(|mut p| p.install("/")) {
-                    let _ = write!(io::stderr(), "pkg: install: {}: failed: {}\n", package, ErrMsg(&err));
-                    success = false;
-                } else {
-                    let _ = write!(io::stderr(), "pkg: install: {}: succeeded\n", package);
-                }
+                print_result!(pkg.and_then(|mut p| p.install("/")), "succeeded", package);
             }
         }
         ("list", Some(m)) => {
             for package in m.values_of("package").unwrap() {
-                if let Err(err) = repo.fetch(package).and_then(|mut p| p.list()) {
-                    let _ = write!(io::stderr(), "pkg: list: {}: failed: {}\n", package, ErrMsg(&err));
-                    success = false;
-                } else {
-                    let _ = write!(io::stderr(), "pkg: list: {}: succeeded\n", package);
-                }
+                let res = repo.fetch(package).and_then(|mut p| p.list());
+                print_result!(res, "succeeded", package);
             }
         }
         ("sign", Some(m)) => {
             for file in m.values_of("file").unwrap() {
-                match repo.signature(file) {
-                    Ok(signature) => {
-                        let _ = write!(io::stderr(), "pkg: sign: {}: {}\n", file, signature);
-                    },
-                    Err(err) => {
-                        let _ = write!(io::stderr(), "pkg: sign: {}: failed: {}\n", file, ErrMsg(&err));
-                        success = false;
-                    }
-                }
+                print_result!(repo.signature(file), "{}", file);
             }
         }
         ("upgrade", _) => {
-            match upgrade(repo) {
-                Ok(()) => {
-                    let _ = write!(io::stderr(), "pkg: upgrade: succeeded\n");
-                },
-                Err(err) => {
-                    let _ = write!(io::stderr(), "pkg: upgrade: failed: {}\n", ErrMsg(&err));
-                    success = false;
-                }
-            }
+            print_result!(upgrade(repo), "succeeded");
         }
         _ => unreachable!()
     }
