@@ -6,25 +6,13 @@ extern crate version_compare;
 extern crate clap;
 
 use pkgutils::{Repo, Package, PackageMeta, PackageMetaList};
-use std::{env, fmt, process};
+use std::{env, process};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::Path;
 use version_compare::{VersionCompare, CompOp};
 use clap::{App, SubCommand, Arg};
-
-struct ErrMsg<'a>(&'a io::Error);
-
-impl<'a> fmt::Display for ErrMsg<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)?;
-        if let Some(cause) = self.0.cause() {
-            write!(f, " ({})", cause)?;
-        }
-        Ok(())
-    }
-}
 
 fn upgrade(repo: Repo) -> io::Result<()> {
     let mut local_list = PackageMetaList::new();
@@ -157,7 +145,11 @@ fn main() {
                 // {0:.0?} is a hack to avoid "argument never used"
                 Ok(res) => eprintln!(concat!("{0:.0?}", $ok_fmt), res),
                 Err(err) => {
-                    eprintln!("failed: {}", ErrMsg(&err));
+                    eprint!("failed: {}", err);
+                    if let Some(cause) = err.cause() {
+                        eprint!(" ({})", cause);
+                    }
+                    eprintln!();
                     success = false;
                 }
             }
