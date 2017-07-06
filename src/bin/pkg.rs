@@ -208,7 +208,10 @@ fn main() {
         ("upgrade", _) => {
             print_result!(upgrade(repo), "succeeded");
         }
-        _ => unreachable!()
+        _ => {
+            eprintln!("{}", matches.usage());
+            success = false;
+        }
     }
 
     process::exit(if success { 0 } else { 1 });
