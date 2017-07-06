@@ -116,6 +116,9 @@ fn main() {
             .arg(Arg::with_name("package")
                  .multiple(true)
                  .required(true)
+            ).arg(Arg::with_name("root")
+                 .long("root")
+                 .takes_value(true)
             )
         ).subcommand(SubCommand::with_name("list")
             .arg(Arg::with_name("package")
@@ -187,7 +190,8 @@ fn main() {
                 } else {
                     repo.fetch(package)
                 };
-                print_result!(pkg.and_then(|mut p| p.install("/")), "succeeded", package);
+                let dest = m.value_of("root").unwrap_or("/");
+                print_result!(pkg.and_then(|mut p| p.install(dest)), "succeeded", package);
             }
         }
         ("list", Some(m)) => {
