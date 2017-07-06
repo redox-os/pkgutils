@@ -185,7 +185,7 @@ fn main() {
         ("install", Some(m)) => {
             for package in m.values_of("package").unwrap() {
                 let pkg = if package.ends_with(".tar.gz") {
-                    let path = format!("{}/{}", env::current_dir().unwrap().to_string_lossy(), package);
+                    let path = env::current_dir().unwrap().join(package);
                     Package::from_path(&path)
                 } else {
                     repo.fetch(package)
