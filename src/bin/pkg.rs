@@ -116,6 +116,9 @@ fn main() {
             .arg(Arg::with_name("package")
                  .multiple(true)
                  .required(true)
+            ).arg(Arg::with_name("root")
+                 .long("root")
+                 .takes_value(true)
             )
         ).subcommand(SubCommand::with_name("list")
             .arg(Arg::with_name("package")
@@ -182,12 +185,13 @@ fn main() {
         ("install", Some(m)) => {
             for package in m.values_of("package").unwrap() {
                 let pkg = if package.ends_with(".tar.gz") {
-                    let path = format!("{}/{}", env::current_dir().unwrap().to_string_lossy(), package);
+                    let path = env::current_dir().unwrap().join(package);
                     Package::from_path(&path)
                 } else {
                     repo.fetch(package)
                 };
-                print_result!(pkg.and_then(|mut p| p.install("/")), "succeeded", package);
+                let dest = m.value_of("root").unwrap_or("/");
+                print_result!(pkg.and_then(|mut p| p.install(dest)), "succeeded", package);
             }
         }
         ("list", Some(m)) => {
@@ -204,7 +208,10 @@ fn main() {
         ("upgrade", _) => {
             print_result!(upgrade(repo), "succeeded");
         }
-        _ => unreachable!()
+        _ => {
+            eprintln!("{}", matches.usage());
+            success = false;
+        }
     }
 
     process::exit(if success { 0 } else { 1 });
