@@ -22,6 +22,9 @@ serde_derive = "1.0"
 tar = { git = "https://github.com/redox-os/tar-rs" }
 toml = "0.4"
 version-compare = "0.0.4"
+petgraph = "0.4.5"
+bidir-map = "0.6.0"
+ordermap = "0.2.11"
 
 [dependencies.hyper]
 version = "0.10"

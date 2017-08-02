@@ -4,8 +4,9 @@ extern crate liner;
 extern crate pkgutils;
 extern crate version_compare;
 extern crate clap;
+extern crate ordermap;
 
-use pkgutils::{Repo, Package, PackageMeta, PackageMetaList};
+use pkgutils::{Database, Repo, Package, PackageMeta, PackageMetaList};
 use std::{env, process};
 use std::error::Error;
 use std::fs::{self, File};
@@ -13,6 +14,7 @@ use std::io::{self, Read};
 use std::path::Path;
 use version_compare::{VersionCompare, CompOp};
 use clap::{App, SubCommand, Arg};
+use ordermap::OrderMap;
 
 fn upgrade(repo: Repo) -> io::Result<()> {
     let mut local_list = PackageMetaList::new();
@@ -136,6 +138,7 @@ fn main() {
     let target = matches.value_of("target").unwrap_or(env!("PKG_DEFAULT_TARGET"));
 
     let repo = Repo::new(target);
+    let database = Database::open("/pkg", "/etc/pkg.d/pkglist");
 
     let mut success = true;
 
@@ -183,15 +186,96 @@ fn main() {
             }
         }
         ("install", Some(m)) => {
+            let mut dependencies = OrderMap::new();
+            let mut tar_gz_pkgs = Vec::new();
+
+            // Calculate dependencies for packages listed in database
             for package in m.values_of("package").unwrap() {
-                let pkg = if package.ends_with(".tar.gz") {
-                    let path = env::current_dir().unwrap().join(package);
-                    Package::from_path(&path)
+                // Check if package is in current directory
+                if package.ends_with(".tar.gz") {
+                    let path = env::current_dir().unwrap().join(&package);
+
+                    // Extract package report errors
+                    let extracted_pkg = match Package::from_path(&path) {
+                        Ok(p) => Some(p),
+                        Err(e) => {
+                            eprintln!("error: {}", e);
+                            if let Some(cause) = e.cause() {
+                                eprintln!("cause: {}", cause);
+                            }
+                            success = false;
+                            None
+                        }
+                    };
+
+                    // Try to calculate dependencies for package if extraction was
+                    // successful.
+                    if let Some(mut pkg) = extracted_pkg {
+                        
+                        // Obtain meta data from package to figure out its dependencies
+                        let res: Option<()> = match pkg.meta() {
+                            Ok(m) => {
+                                // Calculate all dependencies and check for errors
+                                if let Err(e) = database.calculate_depends(&m.name, &mut dependencies) {
+                                    eprintln!("error: {}", e);
+                                    if let Some(cause) = e.cause() {
+                                        eprintln!("cause: {}", cause);
+                                        success = false;
+                                    }
+                                    None
+                                } else { // Dependency calculation was successful
+                                    Some(())
+                                }
+
+                            },
+                            
+                            // Something went wrong when the meta data was obtained
+                            Err(e) => {
+                                eprintln!("error: {}", e);
+                                if let Some(cause) = e.cause() {
+                                    eprintln!("cause: {}", cause);
+                                }
+                                success = false;
+                                None
+                            }
+                        };
+
+                        // Only install package if dependency calculation was successful
+                        match res {
+                            Some(_) => tar_gz_pkgs.push(pkg),
+                            None => (),
+                        }
+                    }
                 } else {
-                    repo.fetch(package)
-                };
+                    // Package is not in current directory so calculate dependencies 
+                    // from database
+                    match database.calculate_depends(package, &mut dependencies) {
+                        Ok(_) => { 
+                            dependencies.insert(package.to_string(), ());
+                        },
+                        Err(e) => {
+                            eprintln!("error during dependency calculation: {}", e);
+
+                            if let Some(cause) = e.cause() {
+                                eprintln!("cause: {}", cause);
+                                success = false;
+                            }
+                        },
+                    }
+                }
+            }
+
+            // Download each package, except *.tar.gz, and then install each package.
+            for package in dependencies.keys() {
+                let pkg = repo.fetch(package);
+
                 let dest = m.value_of("root").unwrap_or("/");
                 print_result!(pkg.and_then(|mut p| p.install(dest)), "succeeded", package);
+            }
+
+            for mut package in tar_gz_pkgs {
+                let dest = m.value_of("root").unwrap_or("/");
+                print_result!(package.install(dest), "succeeded");
             }
         }
         ("list", Some(m)) => {
