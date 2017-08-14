@@ -15,7 +15,7 @@ use octavo::octavo_digest::Digest;
 use octavo::octavo_digest::sha3::Sha512;
 use std::str;
 use std::fs::{self, File};
-use std::io::{self, stderr, Read, Write};
+use std::io::{self, stderr, Read, Write, BufWriter};
 use std::path::Path;
 
 pub use download::download;
@@ -126,7 +126,7 @@ impl Repo {
 
         {
             let file = File::create(&tarfile)?;
-            let encoder = Encoder::new(file)?;
+            let encoder = Encoder::new(BufWriter::new(file))?;
 
             let mut tar = tar::Builder::new(encoder);
             tar.follow_symlinks(false);
