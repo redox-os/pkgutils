@@ -6,7 +6,7 @@ extern crate version_compare;
 extern crate clap;
 extern crate ordermap;
 
-use pkgutils::{Database, Repo, Package, PackageMeta, PackageMetaList};
+use pkgutils::{Database, Repo, Package, PackageDepends, PackageMeta, PackageMetaList};
 use std::{env, process};
 use std::error::Error;
 use std::fs::{self, File};
@@ -138,7 +138,7 @@ fn main() {
     let target = matches.value_of("target").unwrap_or(env!("PKG_DEFAULT_TARGET"));
 
     let repo = Repo::new(target);
-    let database = Database::open("/pkg", "/etc/pkg.d/pkglist");
+    let database = Database::open("/pkg", PackageDepends::Repository(Repo::new(target)));
 
     let mut success = true;
 

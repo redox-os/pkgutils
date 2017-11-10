@@ -15,6 +15,7 @@ use ordermap::OrderMap;
 use toml::de;
 
 use PackageMeta;
+use Repo;
 
 /// Error type for the `Database`. It's a combination of an `std::io::Error`,
 /// `toml::de::Error`, and a cyclic error that can occur during dependency
@@ -66,6 +67,34 @@ impl From<de::Error> for DatabaseError {
     }
 }
 
+#[derive(Debug)]
+pub enum PackageDepends {
+    Directory(PathBuf),
+    Repository(Repo),
+}
+
+impl PackageDepends {
+    /// Retrieves the dependencies of a package that are listed in its manifest
+    /// file.
+    pub fn get_depends(&self, pkg_name: &str) -> Result<Vec<String>, DatabaseError> {
+        match *self {
+            PackageDepends::Directory(ref pathbuf) => {
+                let path = pathbuf.as_path().join(format!("{}.toml", pkg_name));
+
+                let mut input = String::new();
+                File::open(path.as_path().to_str().unwrap()).and_then(|mut f| {
+                    f.read_to_string(&mut input)
+                })?;
+
+                Ok(PackageMeta::from_toml(&input)?.depends)
+            },
+            PackageDepends::Repository(ref repo) => {
+                Ok(repo.fetch_meta(pkg_name)?.depends)
+            }
+        }
+    }
+}
+
 /// The `Database` contains a list of all packages that are available for
 /// install, as well as a list of all the packages installed on the system.
 /// It is used to calculate the dependencies of a package and for checking if
@@ -78,7 +107,7 @@ pub struct Database {
 
     /// The path to the directory that contains the manifests of the packages
     /// available for install
-    pkglist_path: PathBuf,
+    pkgdepends: PackageDepends,
 }
 
 /// The `Database` contains a list of all packages that are available for
@@ -87,10 +116,10 @@ pub struct Database {
 /// a package is installed.
 impl Database {
     /// Opens a database from the specified path.
-    pub fn open<P: AsRef<Path>>(installed_path: P, pkglist_path: P) -> Self {
+    pub fn open<P: AsRef<Path>>(installed_path: P, pkgdepends: PackageDepends) -> Self {
         Database {
             installed_path: installed_path.as_ref().to_path_buf(),
-            pkglist_path: pkglist_path.as_ref().to_path_buf(),
+            pkgdepends: pkgdepends,
         }
     }
 
@@ -104,14 +133,7 @@ impl Database {
     /// Retrieves the dependencies of a package that are listed in its manifest
     /// file.
     pub fn get_pkg_depends(&self, pkg_name: &str) -> Result<Vec<String>, DatabaseError> {
-        let path = self.pkglist_path.as_path().join(format!("{}.toml", pkg_name));
-
-        let mut input = String::new();
-        File::open(path.as_path().to_str().unwrap()).and_then(|mut f| {
-            f.read_to_string(&mut input)
-        })?;
-
-        Ok(PackageMeta::from_toml(&input)?.depends)
+        self.pkgdepends.get_depends(pkg_name)
     }
 
     /// Calculates the dependencies of the specified package, and appends them to
@@ -148,8 +170,8 @@ impl Database {
 
     /// Helper function to calculate package dependencies.
     fn calculate_depends_rec(&self, pkg_name: &str, map: &mut BidirMap<String, usize>, graph: &mut DiGraphMap<usize, u8>) -> Result<(), DatabaseError> {
-        let curr_node = *map.get_by_first(pkg_name).unwrap(); 
-        
+        let curr_node = *map.get_by_first(pkg_name).unwrap();
+
         let mut depends = self.get_pkg_depends(pkg_name)?;
 
         if depends.len() == 0 {
@@ -181,8 +203,7 @@ impl Database {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
-
