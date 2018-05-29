@@ -1,17 +1,16 @@
 #![deny(warnings)]
 
+extern crate bidir_map;
 extern crate libflate;
-extern crate hyper;
-extern crate hyper_rustls;
 extern crate octavo;
+extern crate ordermap;
+extern crate pbr;
+extern crate petgraph;
+extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 extern crate tar;
 extern crate toml;
-extern crate pbr;
-extern crate petgraph;
-extern crate bidir_map;
-extern crate ordermap;
 
 use libflate::gzip::Encoder;
 use octavo::octavo_digest::Digest;

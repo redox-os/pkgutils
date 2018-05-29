@@ -12,23 +12,19 @@ name = "pkg"
 path = "src/bin/pkg.rs"
 
 [dependencies]
+bidir-map = "0.6.0"
 clap = {version = "2.25", default-features = false}
-hyper-rustls = "0.6"
 libflate = "0.1.4"
 liner = "0.1"
+ordermap = "0.2.11"
 pbr = { version = "1.0", git = "https://github.com/ids1024/pb", branch = "duration" }
+petgraph = "0.4.5"
+reqwest = { git = "https://github.com/redox-os/reqwest" }
 serde = "1.0"
 serde_derive = "1.0"
 tar = { git = "https://github.com/redox-os/tar-rs" }
 toml = "0.4"
 version-compare = "0.0.4"
-petgraph = "0.4.5"
-bidir-map = "0.6.0"
-ordermap = "0.2.11"
-
-[dependencies.hyper]
-version = "0.10"
-default-features = false
 
 [dependencies.octavo]
 git = "https://github.com/libOctavo/octavo.git"
