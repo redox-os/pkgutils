@@ -204,7 +204,7 @@ dependencies = [
 [[package]]
 name = "liner"
 version = "0.4.3"
-source = "git+https://github.com/redox-os/liner#98981ecdfa27ba79646e5821cd542f2e02fd0960"
+source = "git+https://gitlab.redox-os.org/redox-os/liner#98981ecdfa27ba79646e5821cd542f2e02fd0960"
 dependencies = [
  "bytecount 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "termion 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -301,14 +301,14 @@ dependencies = [
  "hyper 0.10.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper-rustls 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libflate 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "liner 0.4.3 (git+https://github.com/redox-os/liner)",
+ "liner 0.4.3 (git+https://gitlab.redox-os.org/redox-os/liner)",
  "octavo 0.1.1 (git+https://github.com/libOctavo/octavo.git)",
  "ordermap 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "pbr 1.0.0 (git+https://github.com/ids1024/pb?branch=duration)",
  "petgraph 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
- "tar 0.4.13 (git+https://github.com/redox-os/tar-rs)",
+ "tar 0.4.13 (git+https://gitlab.redox-os.org/redox-os/tar-rs)",
  "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-compare 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -450,7 +450,7 @@ dependencies = [
 [[package]]
 name = "tar"
 version = "0.4.13"
-source = "git+https://github.com/redox-os/tar-rs#b71c22029efc76611016fc4962f29afbe6d44bed"
+source = "git+https://gitlab.redox-os.org/redox-os/tar-rs#b71c22029efc76611016fc4962f29afbe6d44bed"
 dependencies = [
  "libc 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "xattr 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -631,7 +631,7 @@ dependencies = [
 "checksum lazy_static 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)" = "c9e5e58fa1a4c3b915a561a78a22ee0cac6ab97dca2504428bc1cb074375f8d5"
 "checksum libc 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)" = "5ba3df4dcb460b9dfbd070d41c94c19209620c191b0340b929ce748a2bcd42d2"
 "checksum libflate 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "ae46bcdafa496981e996e57c5be82c0a7f130a071323764c6faa4803619f1e67"
-"checksum liner 0.4.3 (git+https://github.com/redox-os/liner)" = "<none>"
+"checksum liner 0.4.3 (git+https://gitlab.redox-os.org/redox-os/liner)" = "<none>"
 "checksum log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "880f77541efa6e5cc74e76910c9884d9859683118839d6a1dc3b11e63512565b"
 "checksum matches 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "100aabe6b8ff4e4a7e32c1c13523379802df0772b82466207ac25b013f193376"
 "checksum mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ba626b8a6de5da682e1caa06bdb42a335aee5a84db8e5046a3e8ab17ba0a3ae0"
@@ -659,7 +659,7 @@ dependencies = [
 "checksum static-buffer 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6da6a96247d4b372d3ed90dec2c129ab57c934359ac4c6adbaa5871cd0737437"
 "checksum syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d3b891b9015c88c576343b9b3e41c2c11a51c219ef067b264bd9c8aa9b441dad"
 "checksum synom 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)" = "a393066ed9010ebaed60b9eafa373d4b1baac186dd7e008555b0f702b51945b6"
-"checksum tar 0.4.13 (git+https://github.com/redox-os/tar-rs)" = "<none>"
+"checksum tar 0.4.13 (git+https://gitlab.redox-os.org/redox-os/tar-rs)" = "<none>"
 "checksum termion 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "689a3bdfaab439fd92bc87df5c4c78417d3cbe537487274e9b0b2dce76e92096"
 "checksum textwrap 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c0b59b6b4b44d867f1370ef1bd91bfb262bf07bf0ae65c202ea2fbc16153b693"
 "checksum time 0.1.38 (registry+https://github.com/rust-lang/crates.io-index)" = "d5d788d3aa77bc0ef3e9621256885555368b47bd495c13dd2e7413c89f845520"

@@ -15,11 +15,11 @@ path = "src/bin/pkg.rs"
 clap = {version = "2.25", default-features = false}
 hyper-rustls = "0.6"
 libflate = "0.1.4"
-liner = { git = "https://github.com/redox-os/liner" }
+liner = { git = "https://gitlab.redox-os.org/redox-os/liner" }
 pbr = { version = "1.0", git = "https://github.com/ids1024/pb", branch = "duration" }
 serde = "1.0"
 serde_derive = "1.0"
-tar = { git = "https://github.com/redox-os/tar-rs" }
+tar = { git = "https://gitlab.redox-os.org/redox-os/tar-rs" }
 toml = "0.4"
 version-compare = "0.0.4"
 petgraph = "0.4.5"
