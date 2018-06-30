@@ -1,4 +1,4 @@
-image: "rustlang/rust:nightly"
+image: "redoxos/redox"
 
 stages:
     - build
@@ -20,6 +20,8 @@ build:linux:cargo:
 build:redox:cargo:
     stage: build
     script:
+        - mkdir .cargo
+        - echo -e "[target.x86_64-unknown-redox]\nlinker = \"x86_64-unknown-redox-gcc\"" > .cargo/config
         - cargo +nightly build --verbose --target x86_64-unknown-redox
 
 test:linux:cargo:
