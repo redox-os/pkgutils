@@ -7,7 +7,8 @@ use std::fmt::{self, Display, Formatter};
 use std::ffi::OsStr;
 use std::process::Command;
 
-use ion_shell::{Shell, Capture, IonError};
+use ion_shell::{Shell, ShellBuilder, Capture, IonError};
+use ion_shell::types::Array;
 
 use ::{PackageMeta, Repo, download};
 
@@ -103,12 +104,12 @@ fn call_func_src(shell: &mut Shell, func: &str, args: &[&str]) -> Result<()> {
 
 impl Recipe {
     pub fn new<T: AsRef<Path>>(target: String, cookbook_dir: T, package: &str, debug: bool) -> Result<Recipe> {
-        let mut shell = Shell::new();
+        let mut shell = ShellBuilder.as_library();
         //XXX shell.flags |= ERR_EXIT;
-        shell.set_var("DEBUG", if debug { "1" } else { "0" });
-        shell.set_var("TARGET", &target);
-        shell.set_var("HOST", &target);
-        shell.set_var("ARCH", target.split('_').next().unwrap());
+        shell.set("DEBUG", if debug { "1".to_string() } else { "0".to_string() });
+        shell.set("TARGET", target.clone());
+        shell.set("HOST", target.clone());
+        shell.set("ARCH", target.split('_').next().unwrap().to_string());
 
         let mut template_dir = cookbook_dir.as_ref().to_path_buf();
         template_dir.push("templates");
@@ -134,7 +135,7 @@ impl Recipe {
     fn src(&self) -> Result<Source> {
         // Syntax based on Arch PKGBUILD
         // TODO: Change to associative array when supported
-        let src = self.shell.get_var("src")
+        let src = self.shell.get::<String>("src")
             .ok_or(CookError::MissingVar("src".to_string()))?;
 
         if src.starts_with("git://") {
@@ -160,9 +161,9 @@ impl Recipe {
     /// This calls the recipe's version(), so it will fail if that does.
     pub fn meta(&mut self) -> Result<PackageMeta> {
         let version = self.version()?;
-        let name = self.shell.get_var("name")
+        let name = self.shell.get::<String>("name")
             .ok_or(CookError::MissingVar("name".to_string()))?;
-        let depends = self.shell.get_array("depends").unwrap_or(&[]);
+        let depends = self.shell.get::<Array>("depends").unwrap_or(Array::new());
         Ok(PackageMeta {
             name: name.clone(),
             version: version.to_string(),
@@ -171,8 +172,8 @@ impl Recipe {
         })
     }
 
-    fn build_depends(&self) -> &[String] {
-        self.shell.get_array("build_depends").unwrap_or(&[])
+    fn build_depends(&self) -> Array {
+        self.shell.get("build_depends").unwrap_or(Array::new())
     }
 
     pub fn tar(&mut self) -> Result<()> {

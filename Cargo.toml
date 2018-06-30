@@ -27,7 +27,7 @@ serde_derive = "1.0"
 tar = { git = "https://gitlab.redox-os.org/redox-os/tar-rs" }
 toml = "0.4"
 version-compare = "0.0.4"
-ion-shell = { path = "/home/ian/Devel/src/redox/ion" }
+ion-shell = { git = "https://gitlab.redox-os.org/redox-os/ion" }
 termion = "1.5"
 petgraph = "0.4.5"
 bidir-map = "0.6.0"
