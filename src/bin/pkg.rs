@@ -138,6 +138,7 @@ fn main() {
     let target = matches.value_of("target").unwrap_or(env!("PKG_DEFAULT_TARGET"));
 
     let repo = Repo::new(target);
+    println!("DATABASE");
     let database = Database::open("/pkg", PackageDepends::Repository(Repo::new(target)));
 
     let mut success = true;
@@ -189,12 +190,13 @@ fn main() {
             let mut dependencies = OrderMap::new();
             let mut tar_gz_pkgs = Vec::new();
 
+            println!("INSTALL");
             // Calculate dependencies for packages listed in database
             for package in m.values_of("package").unwrap() {
                 // Check if package is in current directory
                 if package.ends_with(".tar.gz") {
                     let path = env::current_dir().unwrap().join(&package);
-
+                    println!("TGZ, {:?}", path);
                     // Extract package report errors
                     match Package::from_path(&path) {
                         Ok(p) => {
@@ -209,10 +211,12 @@ fn main() {
                         }
                     }
                 } else {
+                    println!("CDP");
                     // Package is not in current directory so calculate dependencies
                     // from database
                     match database.calculate_depends(package, &mut dependencies) {
                         Ok(_) => {
+                            println!("DE {}", package.to_string());
                             dependencies.insert(package.to_string(), ());
                         },
                         Err(e) => {
@@ -229,6 +233,7 @@ fn main() {
             // Download each package, except *.tar.gz, and then install each package.
             for package in dependencies.keys() {
                 let pkg = repo.fetch(package);
+                println!("SLKDFKJLS");
 
                 let dest = m.value_of("root").unwrap_or("/");
                 print_result!(pkg.and_then(|mut p| p.install(dest)), "succeeded", package);

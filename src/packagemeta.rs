@@ -19,7 +19,7 @@ impl PackageMeta {
         }
     }
 
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
+    pub fn from_toml(text: &str) -> Result<Self, PackageMetaError> {
        from_str(text)
     }
 
@@ -41,7 +41,7 @@ impl PackageMetaList {
         }
     }
 
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
+    pub fn from_toml(text: &str) -> Result<Self, PackageMetaError> {
        from_str(text)
     }
 

@@ -12,6 +12,7 @@ extern crate pbr;
 extern crate petgraph;
 extern crate bidir_map;
 extern crate ordermap;
+#[macro_use] extern crate failure;
 
 use libflate::gzip::Encoder;
 use octavo::octavo_digest::Digest;
@@ -20,6 +21,8 @@ use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write, BufWriter};
 use std::path::Path;
+use download::DownloadError;
+use database::DatabaseError;
 
 pub use download::download;
 pub use packagemeta::{PackageMeta, PackageMetaList};
@@ -36,6 +39,32 @@ pub struct Repo {
     local: String,
     remotes: Vec<String>,
     target: String,
+}
+
+#[derive(Debug,Fail)]
+pub enum RepoError {
+    #[fail(display= "There was an error downloading your package: $1")]
+    DownloadError(DownloadError),
+    #[fail(display= "There was an error downloading your package(IO): $1")]
+    IoError(io::Error),
+    #[fail(display= "Database error: $1")]
+    DatabaseError(DatabaseError),
+
+}
+impl From<io::Error> for RepoError {
+    fn from(err: io::Error) -> RepoError {
+        RepoError::IoError(err)
+    }
+}
+impl From<DownloadError> for RepoError {
+    fn from(err: DownloadError) -> RepoError {
+        RepoError::DownloadError(err)
+    }
+}
+impl From<DatabaseError> for RepoError {
+    fn from(err: DatabaseError) -> RepoError {
+        RepoError::DatabaseError(err)
+    }
 }
 
 impl Repo {
@@ -81,14 +110,14 @@ impl Repo {
         }
     }
 
-    pub fn sync(&self, file: &str) -> io::Result<String> {
+    pub fn sync(&self, file: &str) -> Result<String,RepoError> {
         let local_path = format!("{}/{}", self.local, file);
 
         if let Some(parent) = Path::new(&local_path).parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
+        let mut res = Err(DownloadError::IoError(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths"))));
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}/{}", remote, self.target, file);
             res = download(&remote_path, &local_path).map(|_| local_path.clone());
@@ -96,10 +125,10 @@ impl Repo {
                 break;
             }
         }
-        res
+        Ok(res?)
     }
 
-    pub fn signature(&self, file: &str) -> io::Result<String> {
+    pub fn signature(&self, file: &str) -> Result<String,RepoError> {
         let mut data = vec![];
         File::open(&file)?.read_to_end(&mut data)?;
 
@@ -116,15 +145,15 @@ impl Repo {
         Ok(encoded)
     }
 
-    pub fn clean(&self, package: &str) -> io::Result<String> {
+    pub fn clean(&self, package: &str) -> Result<String,RepoError> {
         let tardir = format!("{}/{}", self.local, package);
         fs::remove_dir_all(&tardir)?;
         Ok(tardir)
     }
 
-    pub fn create(&self, package: &str) -> io::Result<String> {
+    pub fn create(&self, package: &str) -> Result<String,RepoError> {
         if ! Path::new(package).is_dir() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package)));
+            return Err(RepoError::IoError(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package))));
         }
 
         let sigfile = format!("{}.sig", package);
@@ -151,18 +180,18 @@ impl Repo {
         Ok(tarfile)
     }
 
-    pub fn fetch_meta(&self, package: &str) -> io::Result<PackageMeta> {
+    pub fn fetch_meta(&self, package: &str) -> Result<PackageMeta,RepoError> {
         let tomlfile = self.sync(&format!("{}.toml", package))?;
 
         let mut toml = String::new();
         File::open(tomlfile)?.read_to_string(&mut toml)?;
 
         PackageMeta::from_toml(&toml).map_err(|err| {
-            io::Error::new(io::ErrorKind::InvalidData, format!("TOML error: {}", err))
+            RepoError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("TOML error: {}", err)))
         })
     }
 
-    pub fn fetch(&self, package: &str) -> io::Result<Package> {
+    pub fn fetch(&self, package: &str) -> Result<Package,RepoError> {
         let sigfile = self.sync(&format!("{}.sig", package))?;
 
         let mut expected = String::new();
@@ -174,7 +203,7 @@ impl Repo {
             if let Ok(signature) = self.signature(&tarfile) {
                 if signature == expected {
                     write!(stderr(), "* Already downloaded {}\n", package)?;
-                    return Package::from_path(tarfile);
+                    return Ok(Package::from_path(tarfile)?);
                 }
             }
         }
@@ -182,13 +211,13 @@ impl Repo {
         let tarfile = self.sync(&format!("{}.tar.gz", package))?;
 
         if self.signature(&tarfile)? != expected  {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
+            return Err(RepoError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("{} The signature given was not valid", package))));
         }
 
-        Package::from_path(tarfile)
+        Ok(Package::from_path(tarfile)?)
     }
 
-    pub fn extract(&self, package: &str) -> io::Result<String> {
+    pub fn extract(&self, package: &str) -> Result<String,RepoError> {
         let tardir = format!("{}/{}", self.local, package);
         fs::create_dir_all(&tardir)?;
         self.fetch(package)?.install(&tardir)?;

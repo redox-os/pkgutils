@@ -2,8 +2,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io;
 use std::io::Read;
-use std::error;
-use std::fmt;
+use std::boxed::Box;
 
 use petgraph;
 use petgraph::graphmap::DiGraphMap;
@@ -16,48 +15,31 @@ use toml::de;
 
 use PackageMeta;
 use Repo;
+use RepoError;
 
 /// Error type for the `Database`. It's a combination of an `std::io::Error`,
 /// `toml::de::Error`, and a cyclic error that can occur during dependency
 /// resolution.
-#[derive(Debug)]
+#[derive(Debug,Fail)]
 pub enum DatabaseError {
+    #[fail(display= "IO error: $1")]
     Io(io::Error),
+    #[fail(display= "TOML parsing error: $1")]
     Toml(de::Error),
+    #[fail(display= "Cyclic dependency: $1")]
     Cycle(String),
-}
-
-impl fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            DatabaseError::Io(ref err) => write!(f, "IO error: {}", err),
-            DatabaseError::Toml(ref err) => write!(f, "TOML parsing error: {}", err),
-            DatabaseError::Cycle(ref err) => write!(f, "Cyclic dependency: {}", err),
-        }
-    }
-}
-
-impl error::Error for DatabaseError {
-    fn description(&self) -> &str {
-        match *self {
-            DatabaseError::Io(ref err) => err.description(),
-            DatabaseError::Toml(ref err) => err.description(),
-            DatabaseError::Cycle(_) => "Cyclic dependency",
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            DatabaseError::Io(ref err) => Some(err),
-            DatabaseError::Toml(ref err) => Some(err),
-            DatabaseError::Cycle(_) => None,
-        }
-    }
+    #[fail(display= "Repo error: $1")]
+    RepoError(Box<RepoError>),
 }
 
 impl From<io::Error> for DatabaseError {
     fn from(err: io::Error) -> DatabaseError {
         DatabaseError::Io(err)
+    }
+}
+impl From<RepoError> for DatabaseError {
+    fn from(err: RepoError) -> DatabaseError {
+        DatabaseError::RepoError(Box::new(err))
     }
 }
 

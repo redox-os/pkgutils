@@ -25,6 +25,8 @@ version-compare = "0.0.4"
 petgraph = "0.4.5"
 bidir-map = "0.6.0"
 ordermap = "0.2.11"
+failure = "0.1.2"
+
 
 [dependencies.hyper]
 version = "0.10"
@@ -34,3 +36,4 @@ default-features = false
 git = "https://github.com/libOctavo/octavo.git"
 default-features = false
 features = ["digest"]
+

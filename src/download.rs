@@ -12,7 +12,19 @@ use hyper::header::ContentLength;
 
 use pbr::{ProgressBar, Units};
 
-pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
+#[derive(Debug,Fail)]
+pub enum DownloadError {
+    #[fail(display= "There was an IO error: $1")]
+    IoError(io::Error),
+}
+
+impl From<io::Error> for DownloadError {
+    fn from(err: io::Error) -> DownloadError {
+        DownloadError::IoError(err)
+    }
+}
+
+pub fn download(remote_path: &str, local_path: &str) -> Result<(), DownloadError> {
     let mut stderr = stderr();
 
     write!(stderr, "* Requesting {}\n", remote_path)?;
@@ -22,8 +34,8 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
     client.set_write_timeout(Some(Duration::new(5, 0)));
     let mut response = match client.get(remote_path).send() {
         Ok(response) => response,
-        Err(HyperError::Io(err)) => return Err(err),
-        Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.description()))
+        Err(HyperError::Io(err)) => return Err(DownloadError::IoError(err)),
+        Err(err) => return Err(DownloadError::IoError(io::Error::new(io::ErrorKind::Other, err.description()))),
     };
 
     match response.status {
@@ -52,7 +64,7 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
         _ => {
             let _ = write!(stderr, "* Failure {}\n", response.status);
 
-            Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", remote_path)))
+            Err(DownloadError::IoError(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", remote_path))))
         }
     }
 }

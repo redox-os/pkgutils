@@ -15,7 +15,7 @@ pub struct Package {
 }
 
 impl Package {
-    pub fn from_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self,PackageError> {
         let file = File::open(&path)?;
         let decoder = Decoder::new(BufReader::new(file))?;
 
@@ -24,12 +24,17 @@ impl Package {
         Ok(Package{archive: ar, path: path.as_ref().to_path_buf(), meta: None})
     }
 
-    pub fn install(&mut self, dest: &str)-> io::Result<()> {
-        self.archive.unpack(dest)?;
+    pub fn install(&mut self, dest: &str)-> Result<(),PackageError> {
+        println!("DEST: {}, PATH: {:?}", dest, self.path());
+        match self.archive.unpack(dest) {
+            Ok(_) => println!("OK"),
+            Err(e) => println!("err: {}", e),
+        }
+        println!("DONE");
         Ok(())
     }
 
-    pub fn list(&mut self) -> io::Result<()> {
+    pub fn list(&mut self) -> Result<(),PackageError> {
         for i in self.archive.entries()? {
             println!("{}", i?.path()?.display());
         }
@@ -40,7 +45,7 @@ impl Package {
         &self.path
     }
 
-    pub fn meta(&mut self) -> io::Result<&PackageMeta> {
+    pub fn meta(&mut self) -> Result<&PackageMeta,PackageError> {
         if self.meta.is_none() {
             let mut toml = None;
             for entry in self.archive.entries()? {
