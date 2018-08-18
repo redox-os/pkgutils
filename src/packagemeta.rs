@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
-use toml::{self, to_string, from_str};
+use toml::{to_string, from_str};
+use toml::de::Error as TomlDeError;
+use std::io;
 
 #[derive(Serialize, Deserialize)]
 pub struct PackageMeta {
@@ -7,6 +9,26 @@ pub struct PackageMeta {
     pub version: String,
     pub target: String,
     pub depends: Vec<String>,
+}
+
+#[derive(Debug,Fail)]
+pub enum PackageMetaError {
+    #[fail(display= "There was an error downloading your package(IO): $1")]
+    IoError(io::Error),
+    #[fail(display= "Toml Error: $1")]
+    TomlError(TomlDeError),
+}
+
+impl From<io::Error> for PackageMetaError {
+    fn from(err: io::Error) -> PackageMetaError {
+        PackageMetaError::IoError(err)
+    }
+}
+
+impl From<TomlDeError> for PackageMetaError {
+    fn from(err: TomlDeError) -> PackageMetaError {
+        PackageMetaError::TomlError(err)
+    }
 }
 
 impl PackageMeta {
@@ -20,7 +42,7 @@ impl PackageMeta {
     }
 
     pub fn from_toml(text: &str) -> Result<Self, PackageMetaError> {
-       from_str(text)
+       Ok(from_str(text)?)
     }
 
     pub fn to_toml(&self) -> String {
@@ -42,7 +64,7 @@ impl PackageMetaList {
     }
 
     pub fn from_toml(text: &str) -> Result<Self, PackageMetaError> {
-       from_str(text)
+       Ok(from_str(text)?)
     }
 
     pub fn to_toml(&self) -> String {

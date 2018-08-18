@@ -2,7 +2,6 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io;
 use std::io::Read;
-use std::boxed::Box;
 
 use petgraph;
 use petgraph::graphmap::DiGraphMap;
@@ -13,7 +12,7 @@ use ordermap::OrderMap;
 
 use toml::de;
 
-use PackageMeta;
+use packagemeta::{PackageMetaError,self};
 use Repo;
 use RepoError;
 
@@ -29,7 +28,10 @@ pub enum DatabaseError {
     #[fail(display= "Cyclic dependency: $1")]
     Cycle(String),
     #[fail(display= "Repo error: $1")]
-    RepoError(Box<RepoError>),
+    RepoError(RepoError),
+    #[fail(display= "PackageMetaError: $1")]
+    PackageMetaError(PackageMetaError),
+    
 }
 
 impl From<io::Error> for DatabaseError {
@@ -39,13 +41,18 @@ impl From<io::Error> for DatabaseError {
 }
 impl From<RepoError> for DatabaseError {
     fn from(err: RepoError) -> DatabaseError {
-        DatabaseError::RepoError(Box::new(err))
+        DatabaseError::RepoError(err)
     }
 }
 
 impl From<de::Error> for DatabaseError {
     fn from(err: de::Error) -> DatabaseError {
         DatabaseError::Toml(err)
+    }
+}
+impl From<PackageMetaError> for DatabaseError {
+    fn from(err: PackageMetaError) -> DatabaseError {
+        DatabaseError::PackageMetaError(err)
     }
 }
 
@@ -68,7 +75,7 @@ impl PackageDepends {
                     f.read_to_string(&mut input)
                 })?;
 
-                Ok(PackageMeta::from_toml(&input)?.depends)
+                Ok(packagemeta::PackageMeta::from_toml(&input)?.depends)
             },
             PackageDepends::Repository(ref repo) => {
                 Ok(repo.fetch_meta(pkg_name)?.depends)

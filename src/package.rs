@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::io::{self, Error, ErrorKind, Read};
 use tar::{Archive, EntryType};
 use std::io::BufReader;
+use RepoError;
 
 use packagemeta::PackageMeta;
 
@@ -12,6 +13,26 @@ pub struct Package {
     archive: Archive<Decoder<BufReader<File>>>,
     path: PathBuf,
     meta: Option<PackageMeta>,
+}
+
+
+#[derive(Debug,Fail)]
+pub enum PackageError {
+    #[fail(display= "There was an error performing IO: $1")]
+    IoError(io::Error),
+    #[fail(display= "There was an error performing Repository stuff: $1")]
+    RepoError(RepoError),
+
+}
+impl From<io::Error> for PackageError {
+    fn from(err: io::Error) -> PackageError {
+        PackageError::IoError(err)
+    }
+}
+impl From<RepoError> for PackageError {
+    fn from(err: RepoError) -> PackageError {
+        PackageError::RepoError(err)
+    }
 }
 
 impl Package {
@@ -25,13 +46,7 @@ impl Package {
     }
 
     pub fn install(&mut self, dest: &str)-> Result<(),PackageError> {
-        println!("DEST: {}, PATH: {:?}", dest, self.path());
-        match self.archive.unpack(dest) {
-            Ok(_) => println!("OK"),
-            Err(e) => println!("err: {}", e),
-        }
-        println!("DONE");
-        Ok(())
+        Ok(self.archive.unpack(dest)?)
     }
 
     pub fn list(&mut self) -> Result<(),PackageError> {
@@ -56,15 +71,15 @@ impl Package {
                         entry.read_to_string(&mut text)?;
                         toml = Some(text);
                     } else {
-                        return Err(Error::new(ErrorKind::Other, "Multiple metadata files in package"));
+                        return Err(PackageError::IoError(Error::new(ErrorKind::Other, "Multiple metadata files in package")));
                     }
                 }
             }
 
             if let Some(toml) = toml {
-                self.meta = Some(PackageMeta::from_toml(&toml).map_err(|e| Error::new(ErrorKind::Other, e))?);
+                self.meta = PackageMeta::from_toml(&toml).ok();
             } else {
-                return Err(Error::new(ErrorKind::NotFound, "Package metadata not found"));
+                return Err(PackageError::IoError(Error::new(ErrorKind::NotFound, "Package metadata not found")));
             }
         }
 

@@ -23,10 +23,11 @@ use std::io::{self, stderr, Read, Write, BufWriter};
 use std::path::Path;
 use download::DownloadError;
 use database::DatabaseError;
+use std::boxed::Box;
 
 pub use download::download;
 pub use packagemeta::{PackageMeta, PackageMetaList};
-pub use package::Package;
+pub use package::{Package,PackageError};
 pub use database::{Database, PackageDepends};
 
 mod download;
@@ -48,9 +49,11 @@ pub enum RepoError {
     #[fail(display= "There was an error downloading your package(IO): $1")]
     IoError(io::Error),
     #[fail(display= "Database error: $1")]
-    DatabaseError(DatabaseError),
-
+    DatabaseError(Box<DatabaseError>),
+    #[fail(display= "Package error: $1")]
+    PackageError(Box<PackageError>),
 }
+
 impl From<io::Error> for RepoError {
     fn from(err: io::Error) -> RepoError {
         RepoError::IoError(err)
@@ -63,7 +66,12 @@ impl From<DownloadError> for RepoError {
 }
 impl From<DatabaseError> for RepoError {
     fn from(err: DatabaseError) -> RepoError {
-        RepoError::DatabaseError(err)
+        RepoError::DatabaseError(Box::new(err))
+    }
+}
+impl From<PackageError> for RepoError {
+    fn from(err: PackageError) -> RepoError {
+        RepoError::PackageError(Box::new(err))
     }
 }
 
