@@ -9,7 +9,6 @@ extern crate ordermap;
 
 use pkgutils::{Database, Repo, Package, PackageDepends, PackageMeta, PackageMetaList,PackageError,RepoError};
 use std::{env, process};
-use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::Path;
@@ -260,7 +259,7 @@ fn main() {
                 let pkg = repo.fetch(package);
 
                 let dest = m.value_of("root").unwrap_or("/");
-                print_result!(pkg.and_then(|mut p| p.install(dest)), "succeeded", package);
+                print_result!(pkg.and_then(|mut p| Ok(p.install(dest)?)), "succeeded", package);
             }
 
             for mut package in tar_gz_pkgs {
@@ -270,7 +269,7 @@ fn main() {
         }
         ("list", Some(m)) => {
             for package in m.values_of("package").unwrap() {
-                let res = repo.fetch(package).and_then(|mut p| p.list());
+                let res = repo.fetch(package).and_then(|mut p| Ok(p.list()?));
                 print_result!(res, "succeeded", package);
             }
         }

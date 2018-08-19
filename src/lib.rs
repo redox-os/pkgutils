@@ -44,13 +44,13 @@ pub struct Repo {
 
 #[derive(Debug,Fail)]
 pub enum RepoError {
-    #[fail(display= "There was an error downloading your package: $1")]
+    #[fail(display= "Download Error: {}", _0)]
     DownloadError(DownloadError),
-    #[fail(display= "There was an error downloading your package(IO): $1")]
+    #[fail(display= "Error preforming critical I/O: {}", _0)]
     IoError(io::Error),
-    #[fail(display= "Database error: $1")]
+    #[fail(display= "Database error: {}", _0)]
     DatabaseError(Box<DatabaseError>),
-    #[fail(display= "Package error: $1")]
+    #[fail(display= "Package error: {}", _0)]
     PackageError(Box<PackageError>),
 }
 

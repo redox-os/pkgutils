@@ -18,15 +18,18 @@ pub struct Package {
 
 #[derive(Debug,Fail)]
 pub enum PackageError {
-    #[fail(display= "There was an error performing IO: $1")]
+    #[fail(display="Critical I/O error: {}", _0)]
     IoError(io::Error),
-    #[fail(display= "There was an error performing Repository stuff: $1")]
+    #[fail(display="Error: {}", _0)]
     RepoError(RepoError),
-
+    #[fail(display="Archive error: {}", _0)]
+    ArchiveError(io::Error),
 }
+
+//all io::Errors the ? macro is preformed on inside this file are related to archives
 impl From<io::Error> for PackageError {
     fn from(err: io::Error) -> PackageError {
-        PackageError::IoError(err)
+        PackageError::ArchiveError(err)
     }
 }
 impl From<RepoError> for PackageError {

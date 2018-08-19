@@ -23,13 +23,13 @@ use RepoError;
 pub enum DatabaseError {
     #[fail(display= "IO error: $1")]
     Io(io::Error),
-    #[fail(display= "TOML parsing error: $1")]
+    #[fail(display= "TOML parsing error: {}", _0)]
     Toml(de::Error),
-    #[fail(display= "Cyclic dependency: $1")]
+    #[fail(display= "Cyclic dependency: {}", _0)]
     Cycle(String),
-    #[fail(display= "Repo error: $1")]
+    #[fail(display= "Repo error: {}", _0)]
     RepoError(RepoError),
-    #[fail(display= "PackageMetaError: $1")]
+    #[fail(display= "Package Metadata Proccessing Error: {}", _0)]
     PackageMetaError(PackageMetaError),
     
 }

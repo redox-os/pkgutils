@@ -13,9 +13,9 @@ pub struct PackageMeta {
 
 #[derive(Debug,Fail)]
 pub enum PackageMetaError {
-    #[fail(display= "There was an error downloading your package(IO): $1")]
+    #[fail(display= "Critical I/O error: {}", _0)]
     IoError(io::Error),
-    #[fail(display= "Toml Error: $1")]
+    #[fail(display= "Toml Parsing Error: {}", _0)]
     TomlError(TomlDeError),
 }
 
