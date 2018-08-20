@@ -15,7 +15,7 @@ use pbr::{ProgressBar, Units};
 pub enum DownloadError {
     #[fail(display="Critical IO error: {}", _0)]
     IoError(io::Error),
-    #[fail(display="We could not find your package: {}", _0)]
+    #[fail(display="{}", _0)]
     NotFound(io::Error),
     #[fail(display="{}",_0)]
     HyperError(HyperError),
@@ -67,9 +67,8 @@ pub fn download(remote_path: &str, local_path: &str) -> Result<(), DownloadError
             Ok(())
         },
         _ => {
-            let _ = write!(stderr, "* Failure {}\n", response.status);
 
-            Err(DownloadError::NotFound(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", remote_path))))
+            Err(DownloadError::NotFound(io::Error::new(io::ErrorKind::NotFound, format!("{} was not able to be downloaded: {}", remote_path, response.status))))
         }
     }
 }

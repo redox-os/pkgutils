@@ -19,11 +19,11 @@ use failure::Fail;
 
 #[derive(Debug,Fail)]
 pub enum PkgError {
-    #[fail(display= "Io Error: $1")]
+    #[fail(display= "{}", _0)]
     IoError(io::Error),
-    #[fail(display= "Package Error: $1")]
+    #[fail(display= "{}", _0)]
     PackageError(PackageError),
-    #[fail(display= "Repo Error: $1")]
+    #[fail(display= "{}", _0)]
     RepoError(RepoError),
 }
 

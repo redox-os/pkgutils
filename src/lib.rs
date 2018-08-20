@@ -24,6 +24,7 @@ use std::path::Path;
 use download::DownloadError;
 use database::DatabaseError;
 use std::boxed::Box;
+use packagemeta::PackageMetaError;
 
 pub use download::download;
 pub use packagemeta::{PackageMeta, PackageMetaList};
@@ -44,14 +45,17 @@ pub struct Repo {
 
 #[derive(Debug,Fail)]
 pub enum RepoError {
-    #[fail(display= "Download Error: {}", _0)]
+    #[fail(display="Download error: {}", _0)]
     DownloadError(DownloadError),
-    #[fail(display= "Error preforming critical I/O: {}", _0)]
+    #[fail(display="Error preforming critical I/O: {}", _0)]
     IoError(io::Error),
-    #[fail(display= "Database error: {}", _0)]
+    #[fail(display="Database error: {}", _0)]
     DatabaseError(Box<DatabaseError>),
-    #[fail(display= "Package error: {}", _0)]
+    #[fail(display="Package error: {}", _0)]
     PackageError(Box<PackageError>),
+    #[fail(display="Package metadata gathering error: {}", _0)]
+    PackageMetaError(PackageMetaError),
+
 }
 
 impl From<io::Error> for RepoError {
@@ -72,6 +76,11 @@ impl From<DatabaseError> for RepoError {
 impl From<PackageError> for RepoError {
     fn from(err: PackageError) -> RepoError {
         RepoError::PackageError(Box::new(err))
+    }
+}
+impl From<PackageMetaError> for RepoError {
+    fn from(err: PackageMetaError) -> RepoError {
+        RepoError::PackageMetaError(err)
     }
 }
 
@@ -194,9 +203,10 @@ impl Repo {
         let mut toml = String::new();
         File::open(tomlfile)?.read_to_string(&mut toml)?;
 
-        PackageMeta::from_toml(&toml).map_err(|err| {
+/*        PackageMeta::from_toml(&toml).map_err(|err| {
             RepoError::IoError(io::Error::new(io::ErrorKind::InvalidData, format!("TOML error: {}", err)))
-        })
+        })*/
+        Ok(PackageMeta::from_toml(&toml)?)
     }
 
     pub fn fetch(&self, package: &str) -> Result<Package,RepoError> {

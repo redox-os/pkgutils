@@ -27,7 +27,7 @@ pub enum DatabaseError {
     Toml(de::Error),
     #[fail(display= "Cyclic dependency: {}", _0)]
     Cycle(String),
-    #[fail(display= "Repo error: {}", _0)]
+    #[fail(display= "{}", _0)]
     RepoError(RepoError),
     #[fail(display= "Package Metadata Proccessing Error: {}", _0)]
     PackageMetaError(PackageMetaError),

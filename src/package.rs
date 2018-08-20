@@ -20,10 +20,12 @@ pub struct Package {
 pub enum PackageError {
     #[fail(display="Critical I/O error: {}", _0)]
     IoError(io::Error),
-    #[fail(display="Error: {}", _0)]
+    #[fail(display="{}", _0)]
     RepoError(RepoError),
     #[fail(display="Archive error: {}", _0)]
     ArchiveError(io::Error),
+    #[fail(display="{}", _0)]
+    MetadataNotFound(String),
 }
 
 //all io::Errors the ? macro is preformed on inside this file are related to archives
@@ -82,7 +84,7 @@ impl Package {
             if let Some(toml) = toml {
                 self.meta = PackageMeta::from_toml(&toml).ok();
             } else {
-                return Err(PackageError::IoError(Error::new(ErrorKind::NotFound, "Package metadata not found")));
+                return Err(PackageError::MetadataNotFound("Package metadata not found"));
             }
         }
 
