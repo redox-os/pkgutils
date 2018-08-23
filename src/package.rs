@@ -19,7 +19,7 @@ pub struct Package {
 #[derive(Debug,Fail)]
 pub enum PackageError {
     #[fail(display="Critical I/O error: {}", _0)]
-    IoError(io::Error),
+    IoError(#[cause] io::Error),
     #[fail(display="{}", _0)]
     RepoError(RepoError),
     #[fail(display="Archive error: {}", _0)]
@@ -84,7 +84,7 @@ impl Package {
             if let Some(toml) = toml {
                 self.meta = PackageMeta::from_toml(&toml).ok();
             } else {
-                return Err(PackageError::MetadataNotFound("Package metadata not found"));
+                return Err(PackageError::MetadataNotFound(String::from("Package metadata not found")));
             }
         }
 

@@ -14,11 +14,11 @@ use pbr::{ProgressBar, Units};
 #[derive(Debug,Fail)]
 pub enum DownloadError {
     #[fail(display="Critical IO error: {}", _0)]
-    IoError(io::Error),
+    IoError(#[cause] io::Error),
     #[fail(display="{}", _0)]
-    NotFound(io::Error),
+    NotFound(#[cause] io::Error),
     #[fail(display="{}",_0)]
-    HyperError(HyperError),
+    HyperError(#[cause] HyperError),
 }
 
 impl From<io::Error> for DownloadError {

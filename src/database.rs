@@ -22,9 +22,9 @@ use RepoError;
 #[derive(Debug,Fail)]
 pub enum DatabaseError {
     #[fail(display= "IO error: $1")]
-    Io(io::Error),
+    Io(#[cause] io::Error),
     #[fail(display= "TOML parsing error: {}", _0)]
-    Toml(de::Error),
+    Toml(#[cause] de::Error),
     #[fail(display= "Cyclic dependency: {}", _0)]
     Cycle(String),
     #[fail(display= "{}", _0)]

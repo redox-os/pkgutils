@@ -48,7 +48,7 @@ pub enum RepoError {
     #[fail(display="Download error: {}", _0)]
     DownloadError(DownloadError),
     #[fail(display="Error preforming critical I/O: {}", _0)]
-    IoError(io::Error),
+    IoError(#[cause] io::Error),
     #[fail(display="Database error: {}", _0)]
     DatabaseError(Box<DatabaseError>),
     #[fail(display="Package error: {}", _0)]
