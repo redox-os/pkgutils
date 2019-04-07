@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 extern crate liner;
 extern crate pkgutils;
 extern crate version_compare;

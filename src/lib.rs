@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 extern crate libflate;
 extern crate hyper;
 extern crate hyper_rustls;
