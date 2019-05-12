@@ -1,6 +1,10 @@
 [package]
 name = "redox_pkgutils"
 version = "0.1.2"
+description = "Redox Packaging Utilities"
+license = "MIT"
+authors = ["Jeremy Soller <jackpot51@gmail.com>"]
+repository = "https://gitlab.redox-os.org/redox-os/pkgutils"
 build = "build.rs"
 
 [lib]
