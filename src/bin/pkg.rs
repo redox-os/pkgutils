@@ -63,7 +63,6 @@ fn upgrade(repo: Repo) -> io::Result<()> {
 
         let line = liner::Context::new().read_line(
             "Do you want to upgrade these packages? (Y/n) ",
-            None,
             &mut |_| {}
         )?;
         match line.to_lowercase().as_str() {
@@ -151,7 +150,7 @@ fn main() {
                 Ok(res) => eprintln!(concat!("{0:.0?}", $ok_fmt), res),
                 Err(err) => {
                     eprint!("failed: {}", err);
-                    if let Some(cause) = err.cause() {
+                    if let Some(cause) = err.source() {
                         eprint!(" ({})", cause);
                     }
                     eprintln!();
@@ -201,7 +200,7 @@ fn main() {
                         },
                         Err(e) => {
                             eprintln!("error during package open: {}", e);
-                            if let Some(cause) = e.cause() {
+                            if let Some(cause) = e.source() {
                                 eprintln!("cause: {}", cause);
                             }
                             success = false;
@@ -216,7 +215,7 @@ fn main() {
                         },
                         Err(e) => {
                             eprintln!("error during dependency calculation: {}", e);
-                            if let Some(cause) = e.cause() {
+                            if let Some(cause) = e.source() {
                                 eprintln!("cause: {}", cause);
                             }
                             success = false;

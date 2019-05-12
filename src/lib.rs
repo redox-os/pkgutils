@@ -1,9 +1,9 @@
 extern crate libflate;
 extern crate hyper;
 extern crate hyper_rustls;
-extern crate octavo;
 #[macro_use]
 extern crate serde_derive;
+extern crate sha3;
 extern crate tar;
 extern crate toml;
 extern crate pbr;
@@ -12,8 +12,7 @@ extern crate bidir_map;
 extern crate ordermap;
 
 use libflate::gzip::Encoder;
-use octavo::octavo_digest::Digest;
-use octavo::octavo_digest::sha3::Sha512;
+use sha3::{Digest, Sha3_512};
 use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write, BufWriter};
@@ -101,13 +100,13 @@ impl Repo {
         let mut data = vec![];
         File::open(&file)?.read_to_end(&mut data)?;
 
-        let mut output = vec![0; Sha512::output_bytes()];
-        let mut hash = Sha512::default();
-        hash.update(&data);
-        hash.result(&mut output);
+        let mut hash = Sha3_512::default();
+        hash.input(&data);
+        let output = hash.result();
 
         let mut encoded = String::new();
         for b in output.iter() {
+            //TODO: {:>02x}
             encoded.push_str(&format!("{:X}", b));
         }
 
