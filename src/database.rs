@@ -46,7 +46,7 @@ impl error::Error for DatabaseError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             DatabaseError::Io(ref err) => Some(err),
             DatabaseError::Toml(ref err) => Some(err),
