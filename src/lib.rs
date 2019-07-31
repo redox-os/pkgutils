@@ -1,34 +1,34 @@
-extern crate libflate;
 extern crate hyper;
 extern crate hyper_rustls;
+extern crate libflate;
 #[macro_use]
 extern crate serde_derive;
+extern crate bidir_map;
+extern crate ordermap;
+extern crate pbr;
+extern crate petgraph;
 extern crate sha3;
 extern crate tar;
 extern crate toml;
-extern crate pbr;
-extern crate petgraph;
-extern crate bidir_map;
-extern crate ordermap;
 extern crate url;
 
 use libflate::gzip::Encoder;
 use sha3::{Digest, Sha3_512};
-use std::str;
 use std::fs::{self, File};
-use std::io::{self, stderr, Read, Write, BufWriter};
+use std::io::{self, stderr, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::str;
 use url::Url;
 
-pub use download::download;
-pub use packagemeta::{PackageMeta, PackageMetaList};
-pub use package::Package;
 pub use database::{Database, PackageDepends};
+pub use download::download;
+pub use package::Package;
+pub use packagemeta::{PackageMeta, PackageMetaList};
 
-mod download;
-mod packagemeta;
-mod package;
 mod database;
+mod download;
+mod package;
+mod packagemeta;
 
 #[derive(Debug)]
 pub struct Repo {
@@ -42,14 +42,16 @@ impl Repo {
         let mut remotes = vec![];
 
         if let Ok(read_dir) = fs::read_dir("/etc/pkg.d") {
-            let mut paths: Vec<PathBuf> = read_dir.filter_map(|entry| entry.ok())
+            let mut paths: Vec<PathBuf> = read_dir
+                .filter_map(|entry| entry.ok())
                 .map(|entry| entry.path())
                 .filter(|path| path.is_file())
                 .collect();
 
             paths.sort();
 
-            paths.into_iter()
+            paths
+                .into_iter()
                 .filter_map(|path| File::open(path).ok())
                 .for_each(|mut file| {
                     let mut data = String::new();
@@ -64,7 +66,7 @@ impl Repo {
         Repo {
             local: format!("/tmp/pkg"),
             remotes: remotes,
-            target: target.to_string()
+            target: target.to_string(),
         }
     }
 
@@ -75,7 +77,10 @@ impl Repo {
             fs::create_dir_all(parent)?;
         }
 
-        let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
+        let mut res = Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("no remote paths"),
+        ));
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}/{}", remote, self.target, file);
             res = download(&remote_path, &local_path).map(|_| local_path.clone());
@@ -110,8 +115,11 @@ impl Repo {
     }
 
     pub fn create(&self, package: &str) -> io::Result<String> {
-        if ! Path::new(package).is_dir() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package)));
+        if !Path::new(package).is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("{} not found", package),
+            ));
         }
 
         let sigfile = format!("{}.sig", package);
@@ -168,8 +176,11 @@ impl Repo {
 
         let tarfile = self.sync(&format!("{}.tar.gz", package))?;
 
-        if self.signature(&tarfile)? != expected  {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
+        if self.signature(&tarfile)? != expected {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{} not valid", package),
+            ));
         }
 
         Package::from_path(tarfile)
