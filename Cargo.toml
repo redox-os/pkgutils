@@ -30,6 +30,7 @@ version-compare = "0.0.4"
 petgraph = "0.4.5"
 bidir-map = "0.6.0"
 ordermap = "0.2.11"
+url = "2.0.0"
 
 [dependencies.hyper]
 version = "0.10"

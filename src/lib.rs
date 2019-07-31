@@ -10,13 +10,15 @@ extern crate pbr;
 extern crate petgraph;
 extern crate bidir_map;
 extern crate ordermap;
+extern crate url;
 
 use libflate::gzip::Encoder;
 use sha3::{Digest, Sha3_512};
 use std::str;
 use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write, BufWriter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use url::Url;
 
 pub use download::download;
 pub use packagemeta::{PackageMeta, PackageMetaList};
@@ -39,36 +41,24 @@ impl Repo {
     pub fn new(target: &str) -> Repo {
         let mut remotes = vec![];
 
-        //TODO: Cleanup
-        // This will add every line in every file in /etc/pkg.d to the remotes,
-        // provided it does not start with #
-        {
-            let mut entries = vec![];
-            if let Ok(read_dir) = fs::read_dir("/etc/pkg.d") {
-                for entry_res in read_dir {
-                    if let Ok(entry) = entry_res {
-                        let path = entry.path();
-                        if path.is_file() {
-                            entries.push(path);
-                        }
-                    }
-                }
-            }
+        if let Ok(read_dir) = fs::read_dir("/etc/pkg.d") {
+            let mut paths: Vec<PathBuf> = read_dir.filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+                .filter(|path| path.is_file())
+                .collect();
 
-            entries.sort();
+            paths.sort();
 
-            for entry in entries {
-                if let Ok(mut file) = File::open(entry) {
+            paths.into_iter()
+                .filter_map(|path| File::open(path).ok())
+                .for_each(|mut file| {
                     let mut data = String::new();
                     if let Ok(_) = file.read_to_string(&mut data) {
-                        for line in data.lines() {
-                            if ! line.starts_with('#') {
-                                remotes.push(line.to_string());
-                            }
-                        }
+                        data.lines()
+                            .filter_map(|line| Url::parse(line).ok())
+                            .for_each(|url| remotes.push(url.to_string()));
                     }
-                }
-            }
+                })
         }
 
         Repo {
