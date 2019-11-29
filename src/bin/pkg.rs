@@ -63,7 +63,11 @@ fn upgrade(repo: Repo) -> io::Result<()> {
 
         let line = liner::Context::new().read_line(
             "Do you want to upgrade these packages? (Y/n) ",
-            &mut |_| {}
+            None,
+            &mut liner::BasicCompleter::new(vec![
+                "yes",
+                "no"
+            ])
         )?;
         match line.to_lowercase().as_str() {
             "" | "y" | "yes" => {
