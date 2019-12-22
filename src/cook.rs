@@ -1,14 +1,14 @@
-use std;
-use std::env;
 use std::path::{Path, PathBuf};
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::fmt::{self, Display, Formatter};
 use std::ffi::OsStr;
 use std::process::Command;
+use std::ops::Deref;
+use std::env;
 
-use ion_shell::{Shell, ShellBuilder, Capture, IonError};
-use ion_shell::types::Array;
+use ion_shell::{Shell, IonError, Value};
+use ion_shell::builtins::Status;
 
 use ::{PackageMeta, Repo, download};
 
@@ -52,9 +52,9 @@ impl Display for CookError {
 
 type Result<T> = std::result::Result<T, CookError>;
 
-pub struct Recipe {
+pub struct Recipe<'a> {
     target: String,
-    shell: Shell,
+    shell: Shell<'a>,
     #[allow(dead_code)]
     debug: bool,
     cookbook_dir: PathBuf,
@@ -91,25 +91,30 @@ fn call_func_src(shell: &mut Shell, func: &str, args: &[&str]) -> Result<()> {
 
     let mut args_vec = vec![func];
     args_vec.extend(args);
-    let res = match shell.execute_function(func, &args_vec) {
-        Err(IonError::DoesNotExist) => Ok(()),
-        Err(e) => Err(e.into()),
-        Ok(0) => Ok(()),
-        Ok(status) => Err(CookError::NonZero(func.to_string(), status)),
-    };
+    if let Some(Value::Function(function)) = shell.variables().get(func) {
+        let res = match shell.execute_function(&function.clone(), &args_vec) {
+            Err(e) => Err(e.into()),
+            Ok(Status::SUCCESS) => Ok(()),
+            Ok(status) => Err(CookError::NonZero(func.to_string(), status.as_os_code())),
+        };
 
-    env::set_current_dir(&prev_dir)?;
-    res
+        env::set_current_dir(&prev_dir)?;
+        res
+    } else {
+        Ok(()) // TODO
+    }
+
 }
 
-impl Recipe {
+impl<'a> Recipe<'a> {
     pub fn new<T: AsRef<Path>>(target: String, cookbook_dir: T, package: &str, debug: bool) -> Result<Recipe> {
-        let mut shell = ShellBuilder.as_library();
+        let mut shell = Shell::new();
         //XXX shell.flags |= ERR_EXIT;
-        shell.set("DEBUG", if debug { "1".to_string() } else { "0".to_string() });
-        shell.set("TARGET", target.clone());
-        shell.set("HOST", target.clone());
-        shell.set("ARCH", target.split('_').next().unwrap().to_string());
+        let variables = shell.variables_mut();
+        variables.set("DEBUG", if debug { "1".to_string() } else { "0".to_string() });
+        variables.set("TARGET", target.clone());
+        variables.set("HOST", target.clone());
+        variables.set("ARCH", target.split('_').next().unwrap().to_string());
 
         let mut template_dir = cookbook_dir.as_ref().to_path_buf();
         template_dir.push("templates");
@@ -123,11 +128,11 @@ impl Recipe {
             let entry = entry?;
             if entry.file_type()?.is_file() &&
                entry.path().extension() == Some(OsStr::new("ion")) {
-                shell.execute_script(entry.path())?;
+                shell.execute_command(File::open(entry.path())?)?;
             }
         }
 
-        shell.execute_script("recipe.ion")?;
+        shell.execute_command(File::open("recipe.ion")?)?;
 
         Ok(Recipe { target, shell, debug, cookbook_dir: cookbook_dir.as_ref().to_path_buf() })
     }
@@ -135,8 +140,8 @@ impl Recipe {
     fn src(&self) -> Result<Source> {
         // Syntax based on Arch PKGBUILD
         // TODO: Change to associative array when supported
-        let src = self.shell.get::<String>("src")
-            .ok_or(CookError::MissingVar("src".to_string()))?;
+        let src = self.shell.variables().get_str("src")
+            .or(Err(CookError::MissingVar("src".to_string())))?;
 
         if src.starts_with("git://") {
             let mut parts = src.splitn(2, "#branch=");
@@ -149,7 +154,7 @@ impl Recipe {
             let branch = parts.next().map(str::to_string);
             Ok(Source::Git(url, branch))
         } else {
-            Ok(Source::Tar(src))
+            Ok(Source::Tar(src.to_string()))
         }
     }
 
@@ -161,19 +166,45 @@ impl Recipe {
     /// This calls the recipe's version(), so it will fail if that does.
     pub fn meta(&mut self) -> Result<PackageMeta> {
         let version = self.version()?;
-        let name = self.shell.get::<String>("name")
-            .ok_or(CookError::MissingVar("name".to_string()))?;
-        let depends = self.shell.get::<Array>("depends").unwrap_or(Array::new());
+        let variables = self.shell.variables();
+        let name = variables.get_str("name")
+            .or(Err(CookError::MissingVar("name".to_string())))?;
+        // TODO best way to handle incorrect type?
+        let depends = if let Some(Value::Array(arr)) = variables.get("depends") {
+            arr.iter().map(|d| {
+                if let Value::Str(s) = d {
+                    s.to_string()
+                } else {
+                    todo!();
+                }
+            }).collect()
+        } else {
+            Vec::new()
+        };
+
         Ok(PackageMeta {
-            name: name.clone(),
+            name: name.to_string(),
             version: version.to_string(),
             target: self.target.clone(),
-            depends: depends.to_vec(),
+            depends
         })
     }
 
-    fn build_depends(&self) -> Array {
-        self.shell.get("build_depends").unwrap_or(Array::new())
+    fn build_depends(&'a self) -> impl Iterator<Item = &'a str> {
+        // TODO best way to handle incorrect type?
+        let variables = self.shell.variables();
+        let deps = if let Some(Value::Array(arr)) = variables.get("build_depends") {
+            Some(arr.iter())
+        } else {
+            None
+        };
+        deps.into_iter().flatten().map(|d| {
+            if let Value::Str(s) = d {
+                s.deref()
+            } else {
+                todo!();
+            }
+        })
     }
 
     pub fn tar(&mut self) -> Result<()> {
@@ -254,7 +285,7 @@ impl Recipe {
     pub fn prepare(&self) -> Result<()> {
         self.unprepare()?;
 
-        for depend in self.build_depends().iter() {
+        for depend in self.build_depends() {
             // XXX have some way to rebuild iff no built debug; have two copies
             let mut recipe = Recipe::new(self.target.clone(), self.cookbook_dir.clone(), depend, self.debug)?;
             recipe.fetch()?;
@@ -296,6 +327,8 @@ impl Recipe {
 
     pub fn version(&mut self) -> Result<String> {
         let mut ver = String::new();
+        // TODO FIX
+        /*
         let res = self.shell.fork(Capture::Stdout, |shell| {
             call_func_src(shell, "version", &[]).unwrap();
         })?;
@@ -304,6 +337,7 @@ impl Recipe {
         if ver.ends_with("\n") {
             ver.pop();
         }
+        */
         Ok(ver)
     }
 }

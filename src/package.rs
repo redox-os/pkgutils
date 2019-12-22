@@ -24,7 +24,7 @@ impl Package {
         Ok(Package{archive: ar, path: path.as_ref().to_path_buf(), meta: None})
     }
 
-    pub fn install(&mut self, dest: &str)-> io::Result<()> {
+    pub fn install<P: AsRef<Path>>(&mut self, dest: P)-> io::Result<()> {
         self.archive.unpack(dest)?;
         Ok(())
     }
@@ -34,6 +34,10 @@ impl Package {
             println!("{}", i?.path()?.display());
         }
         Ok(())
+    }
+
+    pub fn archive(&self) -> &Archive<Decoder<BufReader<File>>> {
+        &self.archive
     }
 
     pub fn path(&self) -> &Path {
