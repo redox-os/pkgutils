@@ -1,5 +1,3 @@
-extern crate pkgutils;
-
 use std::path::PathBuf;
 
 pub fn db_location() -> String {

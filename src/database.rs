@@ -14,8 +14,8 @@ use ordermap::OrderMap;
 
 use toml::de;
 
-use PackageMeta;
-use Repo;
+use crate::PackageMeta;
+use crate::Repo;
 
 /// Error type for the `Database`. It's a combination of an `std::io::Error`,
 /// `toml::de::Error`, and a cyclic error that can occur during dependency

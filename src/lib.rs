@@ -1,16 +1,3 @@
-extern crate libflate;
-extern crate hyper;
-extern crate hyper_rustls;
-#[macro_use]
-extern crate serde_derive;
-extern crate sha3;
-extern crate tar;
-extern crate toml;
-extern crate pbr;
-extern crate petgraph;
-extern crate bidir_map;
-extern crate ordermap;
-
 use libflate::gzip::Encoder;
 use sha3::{Digest, Sha3_512};
 use std::str;
@@ -18,10 +5,10 @@ use std::fs::{self, File};
 use std::io::{self, stderr, Read, Write, BufWriter};
 use std::path::Path;
 
-pub use download::download;
-pub use packagemeta::{PackageMeta, PackageMetaList};
-pub use package::Package;
-pub use database::{Database, PackageDepends};
+pub use crate::download::download;
+pub use crate::packagemeta::{PackageMeta, PackageMetaList};
+pub use crate::package::Package;
+pub use crate::database::{Database, PackageDepends};
 
 mod download;
 mod packagemeta;

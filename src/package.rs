@@ -6,7 +6,7 @@ use std::io::{self, Error, ErrorKind, Read};
 use tar::{Archive, EntryType};
 use std::io::BufReader;
 
-use packagemeta::PackageMeta;
+use crate::packagemeta::PackageMeta;
 
 pub struct Package {
     archive: Archive<Decoder<BufReader<File>>>,

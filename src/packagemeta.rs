@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use toml::{self, to_string, from_str};
+use serde_derive::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct PackageMeta {

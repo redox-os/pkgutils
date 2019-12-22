@@ -1,9 +1,3 @@
-extern crate liner;
-extern crate pkgutils;
-extern crate version_compare;
-extern crate clap;
-extern crate ordermap;
-
 use pkgutils::{Database, Repo, Package, PackageDepends, PackageMeta, PackageMetaList};
 use std::{env, process};
 use std::error::Error;

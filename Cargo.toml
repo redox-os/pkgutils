@@ -6,6 +6,7 @@ license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
 repository = "https://gitlab.redox-os.org/redox-os/pkgutils"
 build = "build.rs"
+edition = "2018"
 
 [lib]
 name = "pkgutils"
