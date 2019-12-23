@@ -1,6 +1,3 @@
-extern crate pkgutils;
-extern crate ordermap;
-
 use ordermap::OrderMap;
 
 mod common;
