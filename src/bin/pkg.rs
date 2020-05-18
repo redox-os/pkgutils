@@ -88,42 +88,79 @@ fn upgrade(repo: Repo) -> io::Result<()> {
 fn main() {
     let matches = App::new("pkg")
         .about("A package management utility for Redox OS")
-        .arg(Arg::with_name("target").long("target").takes_value(true))
+        .arg(
+            Arg::with_name("target")
+                .help("The target architecture")
+                .long("target")
+                .takes_value(true),
+        )
         .subcommand(
             SubCommand::with_name("clean")
                 .about("Clean an extracted package")
-                .arg(Arg::with_name("package").multiple(true).required(true)),
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true)),
         )
         .subcommand(
             SubCommand::with_name("create")
                 .about("Create a package")
-                .arg(Arg::with_name("package").multiple(true).required(true)),
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true)),
         )
         .subcommand(
             SubCommand::with_name("extract")
                 .about("Extract a package")
-                .arg(Arg::with_name("package").multiple(true).required(true)),
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true)),
         )
         .subcommand(
             SubCommand::with_name("fetch")
                 .about("Download a package")
-                .arg(Arg::with_name("package").multiple(true).required(true)),
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true)),
         )
         .subcommand(
             SubCommand::with_name("install")
                 .about("Install a package")
-                .arg(Arg::with_name("package").multiple(true).required(true))
-                .arg(Arg::with_name("root").long("root").takes_value(true)),
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true))
+                .arg(
+                    Arg::with_name("root")
+                        .help("The root package directory")
+                        .long("root")
+                        .takes_value(true)),
         )
         .subcommand(
             SubCommand::with_name("list")
                 .about("List package contents")
-                .arg(Arg::with_name("package").multiple(true).required(true)),
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true)),
         )
         .subcommand(
             SubCommand::with_name("sign")
                 .about("Get a file signature")
-                .arg(Arg::with_name("file").multiple(true).required(true)),
+                .arg(
+                    Arg::with_name("file")
+                        .help("The file to obtain the signature of")
+                        .multiple(true)
+                        .required(true)),
         )
         .subcommand(SubCommand::with_name("upgrade").about("Upgrade all installed packages"))
         .get_matches();
