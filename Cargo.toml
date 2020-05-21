@@ -1,6 +1,6 @@
 [package]
 name = "redox_pkgutils"
-version = "0.1.5"
+version = "0.1.6"
 description = "Redox Packaging Utilities"
 license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
@@ -35,3 +35,8 @@ ordermap = "0.2.11"
 [dependencies.hyper]
 version = "0.10"
 default-features = false
+
+[patch.crates-io]
+ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-unix-0.13.5" }
+pbr = { git = "https://github.com/jackpot51/pb.git" }
+tar = { git = "https://github.com/jackpot51/tar-rs.git" }
