@@ -1,6 +1,6 @@
+use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use toml::{self, to_string, from_str};
-use serde_derive::{Serialize, Deserialize};
+use toml::{self, from_str, to_string};
 
 #[derive(Serialize, Deserialize)]
 pub struct PackageMeta {
@@ -21,7 +21,7 @@ impl PackageMeta {
     }
 
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-       from_str(text)
+        from_str(text)
     }
 
     pub fn to_toml(&self) -> String {
@@ -38,12 +38,12 @@ pub struct PackageMetaList {
 impl PackageMetaList {
     pub fn new() -> Self {
         PackageMetaList {
-            packages: BTreeMap::new()
+            packages: BTreeMap::new(),
         }
     }
 
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-       from_str(text)
+        from_str(text)
     }
 
     pub fn to_toml(&self) -> String {

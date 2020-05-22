@@ -101,7 +101,8 @@ fn main() {
                     Arg::with_name("package")
                         .help("The name of the package")
                         .multiple(true)
-                        .required(true)),
+                        .required(true),
+                ),
         )
         .subcommand(
             SubCommand::with_name("create")
@@ -110,7 +111,8 @@ fn main() {
                     Arg::with_name("package")
                         .help("The name of the package")
                         .multiple(true)
-                        .required(true)),
+                        .required(true),
+                ),
         )
         .subcommand(
             SubCommand::with_name("extract")
@@ -119,7 +121,8 @@ fn main() {
                     Arg::with_name("package")
                         .help("The name of the package")
                         .multiple(true)
-                        .required(true)),
+                        .required(true),
+                ),
         )
         .subcommand(
             SubCommand::with_name("fetch")
@@ -128,7 +131,8 @@ fn main() {
                     Arg::with_name("package")
                         .help("The name of the package")
                         .multiple(true)
-                        .required(true)),
+                        .required(true),
+                ),
         )
         .subcommand(
             SubCommand::with_name("install")
@@ -137,12 +141,14 @@ fn main() {
                     Arg::with_name("package")
                         .help("The name of the package")
                         .multiple(true)
-                        .required(true))
+                        .required(true),
+                )
                 .arg(
                     Arg::with_name("root")
                         .help("The root package directory")
                         .long("root")
-                        .takes_value(true)),
+                        .takes_value(true),
+                ),
         )
         .subcommand(
             SubCommand::with_name("list")
@@ -151,7 +157,8 @@ fn main() {
                     Arg::with_name("package")
                         .help("The name of the package")
                         .multiple(true)
-                        .required(true)),
+                        .required(true),
+                ),
         )
         .subcommand(
             SubCommand::with_name("sign")
@@ -160,7 +167,8 @@ fn main() {
                     Arg::with_name("file")
                         .help("The file to obtain the signature of")
                         .multiple(true)
-                        .required(true)),
+                        .required(true),
+                ),
         )
         .subcommand(SubCommand::with_name("upgrade").about("Upgrade all installed packages"))
         .get_matches();

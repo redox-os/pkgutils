@@ -1,9 +1,9 @@
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::io;
-use std::io::Read;
 use std::error;
 use std::fmt;
+use std::fs::File;
+use std::io;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use petgraph;
 use petgraph::graphmap::DiGraphMap;
@@ -82,15 +82,12 @@ impl PackageDepends {
                 let path = pathbuf.as_path().join(format!("{}.toml", pkg_name));
 
                 let mut input = String::new();
-                File::open(path.as_path().to_str().unwrap()).and_then(|mut f| {
-                    f.read_to_string(&mut input)
-                })?;
+                File::open(path.as_path().to_str().unwrap())
+                    .and_then(|mut f| f.read_to_string(&mut input))?;
 
                 Ok(PackageMeta::from_toml(&input)?.depends)
-            },
-            PackageDepends::Repository(ref repo) => {
-                Ok(repo.fetch_meta(pkg_name)?.depends)
             }
+            PackageDepends::Repository(ref repo) => Ok(repo.fetch_meta(pkg_name)?.depends),
         }
     }
 }
@@ -125,7 +122,10 @@ impl Database {
 
     /// Checks if a package is installed
     pub fn is_pkg_installed(&self, pkg_name: &str) -> bool {
-        let pkg_path_buf = self.installed_path.as_path().join(format!("{}.toml", pkg_name));
+        let pkg_path_buf = self
+            .installed_path
+            .as_path()
+            .join(format!("{}.toml", pkg_name));
         let installed = pkg_path_buf.as_path().exists();
         installed
     }
@@ -138,7 +138,11 @@ impl Database {
 
     /// Calculates the dependencies of the specified package, and appends them to
     /// `ordered_dependencies`.
-    pub fn calculate_depends(&self, pkg_name: &str, ordered_dependencies: &mut OrderMap<String, ()>) -> Result<(), DatabaseError> {
+    pub fn calculate_depends(
+        &self,
+        pkg_name: &str,
+        ordered_dependencies: &mut OrderMap<String, ()>,
+    ) -> Result<(), DatabaseError> {
         let mut graph = DiGraphMap::new();
 
         // Use bimap to intern strings and use integers for keys in graph because
@@ -154,7 +158,9 @@ impl Database {
             // There was a cyclic dependency. Since the graph is made up of numbers, the
             // name of the package that caused the cyclic dependency must be retrieved for
             // human readability.
-            Err(DatabaseError::Cycle(map.get_by_second(&err.node_id()).unwrap().to_string()))
+            Err(DatabaseError::Cycle(
+                map.get_by_second(&err.node_id()).unwrap().to_string(),
+            ))
         })?;
 
         for i in dependency_ids {
@@ -169,7 +175,12 @@ impl Database {
     }
 
     /// Helper function to calculate package dependencies.
-    fn calculate_depends_rec(&self, pkg_name: &str, map: &mut BidirMap<String, usize>, graph: &mut DiGraphMap<usize, u8>) -> Result<(), DatabaseError> {
+    fn calculate_depends_rec(
+        &self,
+        pkg_name: &str,
+        map: &mut BidirMap<String, usize>,
+        graph: &mut DiGraphMap<usize, u8>,
+    ) -> Result<(), DatabaseError> {
         let curr_node = *map.get_by_first(pkg_name).unwrap();
 
         let mut depends = self.get_pkg_depends(pkg_name)?;
