@@ -1,19 +1,19 @@
 use libflate::gzip::Encoder;
 use sha3::{Digest, Sha3_512};
-use std::str;
 use std::fs::{self, File};
-use std::io::{self, stderr, Read, Write, BufWriter};
+use std::io::{self, stderr, BufWriter, Read, Write};
 use std::path::Path;
+use std::str;
 
-pub use crate::download::download;
-pub use crate::packagemeta::{PackageMeta, PackageMetaList};
-pub use crate::package::Package;
 pub use crate::database::{Database, PackageDepends};
+pub use crate::download::download;
+pub use crate::package::Package;
+pub use crate::packagemeta::{PackageMeta, PackageMetaList};
 
-mod download;
-mod packagemeta;
-mod package;
 mod database;
+mod download;
+mod package;
+mod packagemeta;
 
 #[derive(Debug)]
 pub struct Repo {
@@ -49,7 +49,7 @@ impl Repo {
                     let mut data = String::new();
                     if let Ok(_) = file.read_to_string(&mut data) {
                         for line in data.lines() {
-                            if ! line.starts_with('#') {
+                            if !line.starts_with('#') {
                                 remotes.push(line.to_string());
                             }
                         }
@@ -61,7 +61,7 @@ impl Repo {
         Repo {
             local: format!("/tmp/pkg"),
             remotes: remotes,
-            target: target.to_string()
+            target: target.to_string(),
         }
     }
 
@@ -72,7 +72,10 @@ impl Repo {
             fs::create_dir_all(parent)?;
         }
 
-        let mut res = Err(io::Error::new(io::ErrorKind::NotFound, format!("no remote paths")));
+        let mut res = Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("no remote paths"),
+        ));
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}/{}", remote, self.target, file);
             res = download(&remote_path, &local_path).map(|_| local_path.clone());
@@ -107,8 +110,11 @@ impl Repo {
     }
 
     pub fn create(&self, package: &str) -> io::Result<String> {
-        if ! Path::new(package).is_dir() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} not found", package)));
+        if !Path::new(package).is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("{} not found", package),
+            ));
         }
 
         let sigfile = format!("{}.sig", package);
@@ -165,8 +171,11 @@ impl Repo {
 
         let tarfile = self.sync(&format!("{}.tar.gz", package))?;
 
-        if self.signature(&tarfile)? != expected  {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} not valid", package)));
+        if self.signature(&tarfile)? != expected {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{} not valid", package),
+            ));
         }
 
         Package::from_path(tarfile)

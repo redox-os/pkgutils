@@ -1,12 +1,12 @@
-use pkgutils::{Database, Repo, Package, PackageDepends, PackageMeta, PackageMetaList};
-use std::{env, process};
+use clap::{App, Arg, SubCommand};
+use ordermap::OrderMap;
+use pkgutils::{Database, Package, PackageDepends, PackageMeta, PackageMetaList, Repo};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::Path;
-use version_compare::{VersionCompare, CompOp};
-use clap::{App, SubCommand, Arg};
-use ordermap::OrderMap;
+use std::{env, process};
+use version_compare::{CompOp, VersionCompare};
 
 fn upgrade(repo: Repo) -> io::Result<()> {
     let mut local_list = PackageMetaList::new();
@@ -39,11 +39,14 @@ fn upgrade(repo: Repo) -> io::Result<()> {
             Ok(cmp) => match cmp {
                 CompOp::Lt => {
                     upgrades.push((package.clone(), version.clone(), remote_version.to_string()));
-                },
-                _ => ()
+                }
+                _ => (),
             },
             Err(_err) => {
-                println!("{}: version parsing error when comparing {} and {}", package, version, remote_version);
+                println!(
+                    "{}: version parsing error when comparing {} and {}",
+                    package, version, remote_version
+                );
             }
         }
     }
@@ -58,10 +61,7 @@ fn upgrade(repo: Repo) -> io::Result<()> {
         let line = liner::Context::new().read_line(
             "Do you want to upgrade these packages? (Y/n) ",
             None,
-            &mut liner::BasicCompleter::new(vec![
-                "yes",
-                "no"
-            ])
+            &mut liner::BasicCompleter::new(vec!["yes", "no"]),
         )?;
         match line.to_lowercase().as_str() {
             "" | "y" | "yes" => {
@@ -75,7 +75,7 @@ fn upgrade(repo: Repo) -> io::Result<()> {
                 for mut package in packages {
                     package.install("/")?;
                 }
-            },
+            }
             _ => {
                 println!("Cancelling upgrade.");
             }
@@ -87,51 +87,95 @@ fn upgrade(repo: Repo) -> io::Result<()> {
 
 fn main() {
     let matches = App::new("pkg")
-        .arg(Arg::with_name("target")
-             .long("target")
-             .takes_value(true)
-        ).subcommand(SubCommand::with_name("clean")
-            .arg(Arg::with_name("package")
-                 .multiple(true)
-                 .required(true)
-            )
-        ).subcommand(SubCommand::with_name("create")
-            .arg(Arg::with_name("package")
-                 .multiple(true)
-                 .required(true)
-            )
-        ).subcommand(SubCommand::with_name("extract")
-            .arg(Arg::with_name("package")
-                 .multiple(true)
-                 .required(true)
-            )
-        ).subcommand(SubCommand::with_name("fetch")
-            .arg(Arg::with_name("package")
-                 .multiple(true)
-                 .required(true)
-            )
-        ).subcommand(SubCommand::with_name("install")
-            .arg(Arg::with_name("package")
-                 .multiple(true)
-                 .required(true)
-            ).arg(Arg::with_name("root")
-                 .long("root")
-                 .takes_value(true)
-            )
-        ).subcommand(SubCommand::with_name("list")
-            .arg(Arg::with_name("package")
-                 .multiple(true)
-                 .required(true)
-            )
-        ).subcommand(SubCommand::with_name("sign")
-            .arg(Arg::with_name("file")
-                 .multiple(true)
-                 .required(true)
-            )
-        ).subcommand(SubCommand::with_name("upgrade")
-        ).get_matches();
+        .about("A package management utility for Redox OS")
+        .arg(
+            Arg::with_name("target")
+                .help("The target architecture")
+                .long("target")
+                .takes_value(true),
+        )
+        .subcommand(
+            SubCommand::with_name("clean")
+                .about("Clean an extracted package")
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("create")
+                .about("Create a package")
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("extract")
+                .about("Extract a package")
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("fetch")
+                .about("Download a package")
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("install")
+                .about("Install a package")
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("root")
+                        .help("The root package directory")
+                        .long("root")
+                        .takes_value(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("list")
+                .about("List package contents")
+                .arg(
+                    Arg::with_name("package")
+                        .help("The name of the package")
+                        .multiple(true)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("sign")
+                .about("Get a file signature")
+                .arg(
+                    Arg::with_name("file")
+                        .help("The file to obtain the signature of")
+                        .multiple(true)
+                        .required(true),
+                ),
+        )
+        .subcommand(SubCommand::with_name("upgrade").about("Upgrade all installed packages"))
+        .get_matches();
 
-    let target = matches.value_of("target").unwrap_or(env!("PKG_DEFAULT_TARGET"));
+    let target = matches
+        .value_of("target")
+        .unwrap_or(env!("PKG_DEFAULT_TARGET"));
 
     let repo = Repo::new(target);
     let database = Database::open("/pkg", PackageDepends::Repository(Repo::new(target)));
@@ -195,7 +239,7 @@ fn main() {
                     match Package::from_path(&path) {
                         Ok(p) => {
                             tar_gz_pkgs.push(p);
-                        },
+                        }
                         Err(e) => {
                             eprintln!("error during package open: {}", e);
                             if let Some(cause) = e.source() {
@@ -210,14 +254,14 @@ fn main() {
                     match database.calculate_depends(package, &mut dependencies) {
                         Ok(_) => {
                             dependencies.insert(package.to_string(), ());
-                        },
+                        }
                         Err(e) => {
                             eprintln!("error during dependency calculation: {}", e);
                             if let Some(cause) = e.source() {
                                 eprintln!("cause: {}", cause);
                             }
                             success = false;
-                        },
+                        }
                     }
                 }
             }

@@ -1,10 +1,10 @@
 use libflate::gzip::Decoder;
 use std::fs::File;
+use std::io::BufReader;
+use std::io::{self, Error, ErrorKind, Read};
 use std::path::Path;
 use std::path::PathBuf;
-use std::io::{self, Error, ErrorKind, Read};
 use tar::{Archive, EntryType};
-use std::io::BufReader;
 
 use crate::packagemeta::PackageMeta;
 
@@ -21,10 +21,14 @@ impl Package {
 
         let mut ar = Archive::new(decoder);
         ar.set_preserve_permissions(true);
-        Ok(Package{archive: ar, path: path.as_ref().to_path_buf(), meta: None})
+        Ok(Package {
+            archive: ar,
+            path: path.as_ref().to_path_buf(),
+            meta: None,
+        })
     }
 
-    pub fn install<P: AsRef<Path>>(&mut self, dest: P)-> io::Result<()> {
+    pub fn install<P: AsRef<Path>>(&mut self, dest: P) -> io::Result<()> {
         self.archive.unpack(dest)?;
         Ok(())
     }
@@ -49,21 +53,31 @@ impl Package {
             let mut toml = None;
             for entry in self.archive.entries()? {
                 let mut entry = entry?;
-                if entry.header().entry_type() != EntryType::Directory && entry.path()?.starts_with("pkg") {
+                if entry.header().entry_type() != EntryType::Directory
+                    && entry.path()?.starts_with("pkg")
+                {
                     if toml.is_none() {
                         let mut text = String::new();
                         entry.read_to_string(&mut text)?;
                         toml = Some(text);
                     } else {
-                        return Err(Error::new(ErrorKind::Other, "Multiple metadata files in package"));
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "Multiple metadata files in package",
+                        ));
                     }
                 }
             }
 
             if let Some(toml) = toml {
-                self.meta = Some(PackageMeta::from_toml(&toml).map_err(|e| Error::new(ErrorKind::Other, e))?);
+                self.meta = Some(
+                    PackageMeta::from_toml(&toml).map_err(|e| Error::new(ErrorKind::Other, e))?,
+                );
             } else {
-                return Err(Error::new(ErrorKind::NotFound, "Package metadata not found"));
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    "Package metadata not found",
+                ));
             }
         }
 

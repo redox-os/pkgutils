@@ -8,8 +8,6 @@ pub fn get_db() -> pkgutils::Database {
     let path = db_location();
     pkgutils::Database::open(
         format!("{}/pkg", path),
-        pkgutils::PackageDepends::Directory(
-            PathBuf::from(format!("{}/etc/pkg.d/pkglist", path))
-        )
+        pkgutils::PackageDepends::Directory(PathBuf::from(format!("{}/etc/pkg.d/pkglist", path))),
     )
 }
