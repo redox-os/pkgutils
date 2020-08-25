@@ -91,8 +91,8 @@ impl Repo {
         File::open(&file)?.read_to_end(&mut data)?;
 
         let mut hash = Sha3_512::default();
-        hash.input(&data);
-        let output = hash.result();
+        hash.update(&data);
+        let output = hash.finalize();
 
         let mut encoded = String::new();
         for b in output.iter() {
