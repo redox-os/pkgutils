@@ -10,7 +10,7 @@ use petgraph::graphmap::DiGraphMap;
 
 use bidir_map::BidirMap;
 
-use ordermap::OrderMap;
+use indexmap::IndexMap;
 
 use toml::de;
 
@@ -125,7 +125,7 @@ impl Database {
     pub fn calculate_depends(
         &self,
         pkg_name: &str,
-        ordered_dependencies: &mut OrderMap<String, ()>,
+        ordered_dependencies: &mut IndexMap<String, ()>,
     ) -> Result<(), DatabaseError> {
         let mut graph = DiGraphMap::new();
 
