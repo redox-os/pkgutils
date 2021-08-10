@@ -38,7 +38,3 @@ default-features = false
 
 [patch.crates-io]
 ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-unix-0.13.5" }
-
-# TODO: Remove this patch once https://github.com/alexcrichton/filetime/pull/71
-# is merged and a new crates.io version of filetime is released.
-filetime = { git = "https://gitlab.redox-os.org/redox-os/filetime.git", branch = "master" }
