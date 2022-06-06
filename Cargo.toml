@@ -33,7 +33,7 @@ bidir-map = "1.0.0"
 ordermap = "0.4.2"
 
 [dependencies.hyper]
-version = "0.10"
+version = "0.14"
 default-features = false
 
 [patch.crates-io]
