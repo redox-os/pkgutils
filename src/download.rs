@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fs::File;
 use std::io::{self, stderr, Read, Write};
 use std::time::Duration;
@@ -23,7 +22,7 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
     let mut response = match client.get(remote_path).send() {
         Ok(response) => response,
         Err(HyperError::Io(err)) => return Err(err),
-        Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err.description())),
+        Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err)),
     };
 
     match response.status {

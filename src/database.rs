@@ -37,23 +37,7 @@ impl fmt::Display for DatabaseError {
     }
 }
 
-impl error::Error for DatabaseError {
-    fn description(&self) -> &str {
-        match *self {
-            DatabaseError::Io(ref err) => err.description(),
-            DatabaseError::Toml(ref err) => err.description(),
-            DatabaseError::Cycle(_) => "Cyclic dependency",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            DatabaseError::Io(ref err) => Some(err),
-            DatabaseError::Toml(ref err) => Some(err),
-            DatabaseError::Cycle(_) => None,
-        }
-    }
-}
+impl error::Error for DatabaseError {}
 
 impl From<io::Error> for DatabaseError {
     fn from(err: io::Error) -> DatabaseError {
