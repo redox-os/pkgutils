@@ -18,7 +18,6 @@ path = "src/bin/pkg.rs"
 
 [dependencies]
 clap = { version = "2.33.3", default-features = false }
-hyper-rustls = "0.6"
 libflate = "1.0.2"
 redox_liner = "0.5.1"
 pbr = "1.0.3"
@@ -30,11 +29,15 @@ toml = "0.5.6"
 version-compare = "0.0.10"
 petgraph = "0.5.1"
 bidir-map = "1.0.0"
-ordermap = "0.4.2"
+hyper-tls = "0.5.0"
+indexmap = "1.9.3"
 
 [dependencies.hyper]
-version = "0.10"
+version = "0.14"
 default-features = false
+features = ["client", "http1", "tcp"]
 
-[patch.crates-io]
-ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-unix-0.13.5" }
+[dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "rt"]
+default-features = false

@@ -1,5 +1,5 @@
 use clap::{App, Arg, SubCommand};
-use ordermap::OrderMap;
+use indexmap::IndexMap;
 use pkgutils::{Database, Package, PackageDepends, PackageMeta, PackageMetaList, Repo};
 use std::error::Error;
 use std::fs::{self, File};
@@ -226,7 +226,7 @@ fn main() {
             }
         }
         ("install", Some(m)) => {
-            let mut dependencies = OrderMap::new();
+            let mut dependencies = IndexMap::new();
             let mut tar_gz_pkgs = Vec::new();
 
             // Calculate dependencies for packages listed in database

@@ -76,9 +76,12 @@ impl Repo {
             io::ErrorKind::NotFound,
             format!("no remote paths"),
         ));
+        let rn = tokio::runtime::Runtime::new().unwrap();
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}/{}", remote, self.target, file);
-            res = download(&remote_path, &local_path).map(|_| local_path.clone());
+            res = rn
+                .block_on(download(&remote_path, &local_path))
+                .map(|_| local_path.clone());
             if res.is_ok() {
                 break;
             }
