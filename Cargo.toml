@@ -30,7 +30,7 @@ toml = "0.5.6"
 version-compare = "0.0.10"
 petgraph = "0.5.1"
 bidir-map = "1.0.0"
-ordermap = "0.4.2"
+indexmap = "1"
 
 [dependencies.hyper]
 version = "0.10"

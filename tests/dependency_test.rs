@@ -1,4 +1,4 @@
-use ordermap::OrderMap;
+use indexmap::IndexMap;
 
 mod common;
 
@@ -24,7 +24,7 @@ fn test_get_pkg_depends() {
 fn test_calc_depends() {
     let db = common::get_db();
 
-    let mut pkgs = OrderMap::new();
+    let mut pkgs = IndexMap::new();
 
     db.calculate_depends("pkg1", &mut pkgs).unwrap();
 

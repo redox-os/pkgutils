@@ -347,12 +347,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
-name = "ordermap"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91409674c628d07a6b4b79cc877c6b63ba5ccbfbadddd77ca822f55069ed1bd4"
-
-[[package]]
 name = "pbr"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -418,8 +412,8 @@ dependencies = [
  "clap",
  "hyper",
  "hyper-rustls",
+ "indexmap",
  "libflate",
- "ordermap",
  "pbr",
  "petgraph",
  "redox_liner",
