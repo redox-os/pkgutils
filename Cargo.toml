@@ -2,12 +2,10 @@
 resolver = "2"
 members = [
     "pkg-lib",
-    "pkg-lib2",
     "pkg-cli",
-    #"pkg-gui",
+    "pkg-gui",
 ]
 default-members = [
-    "pkg-lib2", 
     "pkg-cli",
 ]
 
