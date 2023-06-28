@@ -115,5 +115,6 @@ fn main() {
         }
     }
 
-    library.apply().unwrap();
+    let error = library.apply();
+    println!("{:#?}", error);
 }

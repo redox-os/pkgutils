@@ -26,6 +26,8 @@ pkgar-core = "0.1"
 
 thiserror = "1"
 sodiumoxide = "*"
+
+#ring = "=0.17.0-not-released-yet"
 #tuf = "0.2.0" # why not?
 
 #hyper = { version = "0.14", default-features = false, features = ["client"] }
