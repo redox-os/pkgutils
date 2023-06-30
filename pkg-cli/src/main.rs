@@ -102,7 +102,7 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 
         for package in all_packages.iter() {
 
-            if patern.matches(&package) {
+            if patern.matches(package) {
                 packages.push(package.clone());
             }
 
@@ -156,6 +156,4 @@ fn main() {
         Ok(_) => println!("done"),
         Err(error) => println!("{:#?}", error),
     }
-    
-    return;
 }

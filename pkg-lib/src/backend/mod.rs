@@ -1,5 +1,6 @@
 pub mod reqwest_backend;
 pub mod pkgar_backend;
+mod tar;
 
 use std::{io, path::Path};
 use thiserror::Error;
