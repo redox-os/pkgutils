@@ -2,7 +2,6 @@ use std::{fs, path::Path};
 
 use pkgar::{PackageFile, Transaction};
 use pkgar_keys::PublicKeyFile;
-use sodiumoxide::crypto::sign::PublicKey;
 
 use crate::{repo_manager::RepoManager, PACKAGES_PATH, INSTALL_PATH, DOWNLOAD_PATH};
 
@@ -54,7 +53,7 @@ impl PkgarBackend {
         })
     }
 
-    fn get_pkey(&mut self) -> Result<PublicKey, Error> {
+    fn get_pkey(&mut self) -> Result<&PublicKeyFile, Error> {
 
         if self.pkey_file.is_none() {
             fs::create_dir_all("/tmp/pkg/")?;
@@ -67,7 +66,7 @@ impl PkgarBackend {
                 self.pkey_file = Some(PublicKeyFile::open("/tmp/pkg/pub_key.toml")?);
         }
 
-        Ok(self.pkey_file.as_ref().unwrap().pkey)
+        Ok(self.pkey_file.as_ref().unwrap())
     }
 
     fn get_package_head(&mut self, package: &String) -> Result<PackageFile, Error>{
@@ -76,13 +75,13 @@ impl PkgarBackend {
             INSTALL_PATH
         );
 
-        Ok(PackageFile::new(path, &self.get_pkey()?)?)
+        Ok(PackageFile::new(path, &self.get_pkey()?.pkey)?)
     }
 
     fn get_package(&mut self, package: &String) -> Result<PackageFile, Error>{
         Ok(PackageFile::new(
             format!("{}/{package}.pkgar", DOWNLOAD_PATH),
-            &self.get_pkey()?,
+            &self.get_pkey()?.pkey,
         )?)
     }
 

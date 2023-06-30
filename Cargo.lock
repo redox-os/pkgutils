@@ -2976,7 +2976,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_derive",
- "sodiumoxide",
  "tar",
  "thiserror",
  "tokio",
@@ -3860,7 +3859,6 @@ dependencies = [
  "ed25519",
  "libc",
  "libsodium-sys",
- "serde",
 ]
 
 [[package]]
