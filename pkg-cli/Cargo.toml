@@ -1,6 +1,6 @@
 [package]
 name = "pkg-cli"
-default-run = "pkg"
+default-run = "pkg-cli" # tmp
 description = "redox package manager cli"
 
 version.workspace = true
