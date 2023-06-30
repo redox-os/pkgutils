@@ -115,8 +115,10 @@ fn main() {
         }
     }
 
-    let error = library.apply();
-    println!("{:#?}", error);
-
+    match library.apply() {
+        Ok(_) => println!("done"),
+        Err(error) => println!("{:#?}", error),
+    }
+    
     return;
 }
