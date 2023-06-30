@@ -27,7 +27,6 @@ pub struct PkgarBackend {
 }
 
 impl PkgarBackend {
-    #[allow(dead_code)]
     pub fn new(repo_manager: RepoManager) -> Result<Self, Error> {
         let packages;
 
