@@ -4,11 +4,13 @@ use std::{
     path::Path,
 };
 
-use libflate::gzip::Decoder;
-use tar::Archive;
-use crate::{Callback, Error, repo_manager::RepoManager, PACKAGES_PATH, INSTALL_PATH, DOWNLOAD_PATH};
 use self::files::Packages;
 use super::Backend;
+use crate::{
+    repo_manager::RepoManager, Callback, Error, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH,
+};
+use libflate::gzip::Decoder;
+use tar::Archive;
 
 mod files;
 
@@ -20,7 +22,6 @@ pub struct TarBackend {
 impl TarBackend {
     #[allow(dead_code)]
     pub fn new(repo_manager: RepoManager) -> Result<Self, Error> {
-
         let packages;
 
         let packages_path = format!("{}/{}", INSTALL_PATH, PACKAGES_PATH);
@@ -83,7 +84,8 @@ impl TarBackend {
 
 impl Backend for TarBackend {
     fn install(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error> {
-        self.repo_manager.sync(&format!("{}.tar.gz", package), callback)?;
+        self.repo_manager
+            .sync(&format!("{}.tar.gz", package), callback)?;
         let path = format!("{}/{}.tar.gz", DOWNLOAD_PATH, package);
         let file = File::open(&path)?;
         let decoder = Decoder::new(BufReader::new(file))?;
@@ -112,7 +114,9 @@ impl Backend for TarBackend {
             entry.unpack_in(INSTALL_PATH)?;
         }
 
-        let sig = self.repo_manager.sync_and_read(&format!("{}.sig", package), callback)?;
+        let sig = self
+            .repo_manager
+            .sync_and_read(&format!("{}.sig", package), callback)?;
         self.packages.installed.insert(package, sig);
 
         Ok(())
@@ -128,7 +132,9 @@ impl Backend for TarBackend {
     }
 
     fn upgrade(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error> {
-        let sig = self.repo_manager.sync_and_read(&format!("{}.sig", package), callback)?;
+        let sig = self
+            .repo_manager
+            .sync_and_read(&format!("{}.sig", package), callback)?;
 
         if self.packages.installed[&package] == sig {
             return Ok(());
@@ -144,7 +150,9 @@ impl Backend for TarBackend {
     fn get_installed_packages(&self) -> Result<Vec<String>, Error> {
         Ok(self
             .packages
-            .installed.keys().map(|x| x.to_string())
+            .installed
+            .keys()
+            .map(|x| x.to_string())
             .collect())
     }
 }

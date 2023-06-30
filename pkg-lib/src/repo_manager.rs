@@ -1,17 +1,15 @@
-use std::{path::PathBuf, fs};
+use std::{fs, path::PathBuf};
 
-use crate::backend::{Error, DownloadBackend, Callback};
+use crate::backend::{Callback, DownloadBackend, Error};
 
 pub struct RepoManager {
     pub remotes: Vec<String>,
     pub download_path: PathBuf,
     pub download_backend: Box<dyn DownloadBackend>,
- }
+}
 
 impl RepoManager {
-
     pub fn sync(&self, file: &str, callback: &mut dyn Callback) -> Result<(), Error> {
-
         let local_path = if file.is_empty() {
             self.download_path.join("website")
         } else {
@@ -22,15 +20,16 @@ impl RepoManager {
             fs::create_dir_all(parent)?;
         }
 
-
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}", remote, file);
-            let res = self.download_backend.download(&remote_path, &local_path, callback);
+            let res = self
+                .download_backend
+                .download(&remote_path, &local_path, callback);
             if res.is_ok() {
                 return Ok(res?);
             }
         }
-        
+
         Err(Error::NoReposWereAdded)
     }
 

@@ -1,33 +1,32 @@
-pub mod reqwest_backend;
 pub mod pkgar_backend;
+pub mod reqwest_backend;
 mod tar;
 
 use std::{io, path::Path};
 use thiserror::Error;
-
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Please add repos")]
     NoReposWereAdded,
     #[error("Package not found")]
-    PackageNotFound( String ),
+    PackageNotFound(String),
     #[error("Path isn't a Valid Unicode String")]
-    PathIsNotValidUnitcode( String ),
+    PathIsNotValidUnitcode(String),
 
     #[error("Package is protected")]
-    ProtectedPackage( String ),
+    ProtectedPackage(String),
 
     #[error("IO error")]
-    IO( #[from] io::Error),
+    IO(#[from] io::Error),
     #[error("Download error")]
-    Download( #[from] DownloadError),
+    Download(#[from] DownloadError),
     #[error("Download error")]
-    TomlRead( #[from] toml::de::Error),
+    TomlRead(#[from] toml::de::Error),
     #[error("pkgar_keys error")]
-    PkgarKeys( #[from] pkgar_keys::Error),
+    PkgarKeys(#[from] pkgar_keys::Error),
     #[error("pkgar error")]
-    Pkgar( Box<pkgar::Error>),
+    Pkgar(Box<pkgar::Error>),
 }
 
 impl From<pkgar::Error> for Error {
@@ -49,7 +48,6 @@ pub trait Callback {
     fn update(&mut self, downloaded: u64);
     fn end(&mut self);
 }
-
 
 pub trait Backend {
     fn install(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error>;

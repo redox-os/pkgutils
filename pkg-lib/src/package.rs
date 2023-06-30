@@ -16,7 +16,7 @@ pub struct Package {
         self.name.cmp(&other.name)
     }
 
-    
+
 }*/
 
 impl Package {
@@ -30,8 +30,6 @@ impl Package {
         to_string(self).unwrap()
     }
 }
-
-
 
 #[derive(Debug)]
 pub struct PackageInfo {

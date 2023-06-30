@@ -3,14 +3,13 @@ use std::{fs, path::Path};
 use pkgar::{PackageFile, Transaction};
 use pkgar_keys::PublicKeyFile;
 
-use crate::{repo_manager::RepoManager, PACKAGES_PATH, INSTALL_PATH, DOWNLOAD_PATH};
+use crate::{repo_manager::RepoManager, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH};
 
 use self::packages::Packages;
 
 use super::{Backend, Callback, Error};
 
 mod packages;
-
 
 struct NoCallback {}
 impl Callback for NoCallback {
@@ -54,58 +53,46 @@ impl PkgarBackend {
     }
 
     fn get_pkey(&mut self) -> Result<&PublicKeyFile, Error> {
-
         if self.pkey_file.is_none() {
             fs::create_dir_all("/tmp/pkg/")?;
-                self.repo_manager.download_backend.download(
-                    "https://static.redox-os.org/pkg/id_ed25519.pub.toml",
-                    Path::new("/tmp/pkg/pub_key.toml"),
-                    &mut NoCallback {}
-                )?;
+            self.repo_manager.download_backend.download(
+                "https://static.redox-os.org/pkg/id_ed25519.pub.toml",
+                Path::new("/tmp/pkg/pub_key.toml"),
+                &mut NoCallback {},
+            )?;
 
-                self.pkey_file = Some(PublicKeyFile::open("/tmp/pkg/pub_key.toml")?);
+            self.pkey_file = Some(PublicKeyFile::open("/tmp/pkg/pub_key.toml")?);
         }
 
         Ok(self.pkey_file.as_ref().unwrap())
     }
 
-    fn get_package_head(&mut self, package: &String) -> Result<PackageFile, Error>{
-        let path = format!(
-            "{}/etc/pkg/packages/{package}.pkgar_head",
-            INSTALL_PATH
-        );
+    fn get_package_head(&mut self, package: &String) -> Result<PackageFile, Error> {
+        let path = format!("{}/etc/pkg/packages/{package}.pkgar_head", INSTALL_PATH);
 
         Ok(PackageFile::new(path, &self.get_pkey()?.pkey)?)
     }
 
-    fn get_package(&mut self, package: &String) -> Result<PackageFile, Error>{
+    fn get_package(&mut self, package: &String) -> Result<PackageFile, Error> {
         Ok(PackageFile::new(
             format!("{}/{package}.pkgar", DOWNLOAD_PATH),
             &self.get_pkey()?.pkey,
         )?)
     }
 
-    fn remove_package_head(&mut self, package: &String) -> Result<(), Error>{
-
-        let path = format!(
-            "{}/etc/pkg/packages/{package}.pkgar_head",
-            INSTALL_PATH
-        );
+    fn remove_package_head(&mut self, package: &String) -> Result<(), Error> {
+        let path = format!("{}/etc/pkg/packages/{package}.pkgar_head", INSTALL_PATH);
 
         fs::remove_file(path)?;
         Ok(())
     }
 
     fn create_head(&mut self, package: &String) -> Result<(), Error> {
-
         // creates a head file
         pkgar::split(
             "/tmp/pkg/pub_key.toml",
             format!("{}/{package}.pkgar", DOWNLOAD_PATH),
-            format!(
-                "{}/etc/pkg/packages/{package}.pkgar_head",
-                INSTALL_PATH
-            ),
+            format!("{}/etc/pkg/packages/{package}.pkgar_head", INSTALL_PATH),
             Option::<&str>::None,
         )?;
 
@@ -119,7 +106,8 @@ impl Backend for PkgarBackend {
         package: String,
         callback: &mut dyn crate::Callback,
     ) -> Result<(), Error> {
-        self.repo_manager.sync(&format!("{package}.pkgar"), callback)?;
+        self.repo_manager
+            .sync(&format!("{package}.pkgar"), callback)?;
 
         let mut pkg = self.get_package(&package)?;
 
@@ -146,10 +134,10 @@ impl Backend for PkgarBackend {
     }
 
     fn upgrade(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error> {
-
         let mut pkg = self.get_package_head(&package)?;
 
-        self.repo_manager.sync(&format!("{package}.pkgar"), callback)?;
+        self.repo_manager
+            .sync(&format!("{package}.pkgar"), callback)?;
         let mut pkg2 = self.get_package(&package)?;
 
         let mut update = Transaction::replace(&mut pkg, &mut pkg2, INSTALL_PATH)?;

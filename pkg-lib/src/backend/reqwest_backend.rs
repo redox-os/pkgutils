@@ -1,13 +1,12 @@
-use std::{fs::File, os::unix::prelude::FileExt, path::Path};
-use reqwest::Client;
-use crate::backend::Callback;
 use super::{DownloadBackend, DownloadError};
+use crate::backend::Callback;
+use reqwest::Client;
+use std::{fs::File, os::unix::prelude::FileExt, path::Path};
 
 #[derive(Clone, Copy)]
 pub struct ReqwestBackend {}
 
 impl DownloadBackend for ReqwestBackend {
-
     fn download(
         &self,
         remote_path: &str,
@@ -51,5 +50,5 @@ impl ReqwestBackend {
         callback.end();
 
         Ok(())
-    }    
+    }
 }

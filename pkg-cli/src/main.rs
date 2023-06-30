@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use pkg::{*, backend::Callback};
+use pkg::{backend::Callback, *};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -39,7 +39,7 @@ enum Commands {
     Update {
         /// package(s)
         packages: Vec<String>,
-        
+
         #[arg(short = 'a')]
         all: bool,
     },
@@ -89,7 +89,6 @@ impl Callback for CliPrint {
 }
 
 fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<String> {
-
     let mut packages = vec![];
     let all_packages = library.get_all_package_names().unwrap();
 
@@ -101,11 +100,9 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
         let patern = glob::Pattern::new(pattern_string).unwrap();
 
         for package in all_packages.iter() {
-
             if patern.matches(package) {
                 packages.push(package.clone());
             }
-
         }
     }
 
@@ -118,7 +115,6 @@ fn main() {
     };
 
     let mut library = Library::new(&mut cli).unwrap();
-    
 
     let args = Cli::parse();
 

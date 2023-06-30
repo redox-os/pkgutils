@@ -1,17 +1,19 @@
 use std::{cmp::Ordering, fs};
 
-use backend::{Error, Backend, Callback, pkgar_backend::PkgarBackend, reqwest_backend::ReqwestBackend};
+use backend::{
+    pkgar_backend::PkgarBackend, reqwest_backend::ReqwestBackend, Backend, Callback, Error,
+};
 use package::{Package, PackageInfo};
 use package_list::PackageList;
 use repo_manager::RepoManager;
 
-mod sorensen;
+pub mod backend;
 mod package;
 mod package_list;
-pub mod backend;
 mod repo_manager;
+mod sorensen;
 
-pub struct Library<'a> { 
+pub struct Library<'a> {
     package_list: PackageList,
     repo_manager: RepoManager,
     backend: Box<dyn Backend>,
@@ -27,10 +29,8 @@ const INSTALL_PATH: &str = "file:";
 const REPOS_PATH: &str = "etc/pkg/repos";
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
 
-
 impl<'a> Library<'a> {
-    pub fn new(callback: &'a mut dyn Callback) -> Result<Self, Error>{
-
+    pub fn new(callback: &'a mut dyn Callback) -> Result<Self, Error> {
         let mut remotes = vec![];
         remotes.push("https://static.redox-os.org/pkg/x86_64-unknown-redox".to_string());
 
@@ -52,7 +52,7 @@ impl<'a> Library<'a> {
             download_path: DOWNLOAD_PATH.into(),
             download_backend: Box::new(download_backend),
         };
-        
+
         let backend = PkgarBackend::new(repo_manager)?;
 
         let repo_manager = RepoManager {
@@ -61,11 +61,11 @@ impl<'a> Library<'a> {
             download_backend: Box::new(download_backend),
         };
 
-        Ok(Library {  
+        Ok(Library {
             repo_manager,
             package_list: PackageList::default(),
             backend: Box::new(backend),
-            callback
+            callback,
         })
     }
 
@@ -83,7 +83,7 @@ impl<'a> Library<'a> {
 
     pub fn uninstall(&mut self, packages: Vec<String>) -> Result<(), Error> {
         for package_name in packages {
-            if self.get_installed_packages()?.contains(&package_name){
+            if self.get_installed_packages()?.contains(&package_name) {
                 self.package_list.uninstall.push(package_name);
             }
         }
@@ -99,7 +99,7 @@ impl<'a> Library<'a> {
             }
         } else {
             for package_name in packages {
-                if self.get_installed_packages()?.contains(&package_name){
+                if self.get_installed_packages()?.contains(&package_name) {
                     self.package_list.uninstall.push(package_name);
                 }
             }
@@ -114,7 +114,7 @@ impl<'a> Library<'a> {
         let mut website = fs::read_to_string(self.repo_manager.download_path.join("website"))?;
 
         let mut names = vec![];
-        while let Some(end) = website.find(".toml</a>") { 
+        while let Some(end) = website.find(".toml</a>") {
             let mut i = end;
             loop {
                 let char = website.chars().nth(i).expect("this should work");
@@ -146,7 +146,7 @@ impl<'a> Library<'a> {
                 package.to_lowercase().as_bytes(),
                 name.to_lowercase().as_bytes(),
             );
-            
+
             if dst >= 0.2 {
                 rank += dst;
             }
@@ -173,7 +173,6 @@ impl<'a> Library<'a> {
     }
 
     pub fn apply(&mut self) -> Result<(), Error> {
-
         for package in self.package_list.uninstall.iter() {
             self.backend.uninstall(package.to_string())?;
         }
@@ -193,8 +192,9 @@ impl<'a> Library<'a> {
     }
 
     fn get_package(&mut self, package_name: &str) -> Result<Package, Error> {
-
-        let toml = self.repo_manager.sync_and_read(&format!("{package_name}.toml"), self.callback)
+        let toml = self
+            .repo_manager
+            .sync_and_read(&format!("{package_name}.toml"), self.callback)
             .map_err(|_| Error::PackageNotFound(package_name.to_owned()))?;
 
         Ok(Package::from_toml(&toml)?)
@@ -230,7 +230,9 @@ impl<'a> Library<'a> {
     }
 
     pub fn info(&mut self, package: String) -> Result<PackageInfo, Error> {
-        let sig = self.repo_manager.sync_and_read(&format!("{}.sig", package), self.callback)?;
+        let sig = self
+            .repo_manager
+            .sync_and_read(&format!("{}.sig", package), self.callback)?;
 
         let installed = self.backend.get_installed_packages()?.contains(&package);
         let package = self.get_package(&package)?;
@@ -245,6 +247,4 @@ impl<'a> Library<'a> {
             depends: package.depends,
         })
     }
-
 }
-
