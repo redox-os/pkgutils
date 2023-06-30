@@ -117,4 +117,6 @@ fn main() {
 
     let error = library.apply();
     println!("{:#?}", error);
+
+    return;
 }

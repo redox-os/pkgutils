@@ -19,8 +19,12 @@ pub struct Library<'a> {
 }
 
 const DOWNLOAD_PATH: &str = "/tmp/pkg_dowload/";
+#[cfg(target_os = "linux")]
 const INSTALL_PATH: &str = "/tmp/pkg_install/";
-const REPOS_PATH: &str = "/tmp/pkg_install/etc/pkg/repos";
+#[cfg(target_os = "redox")]
+const INSTALL_PATH: &str = "file:/";
+
+const REPOS_PATH: &str = "etc/pkg/repos";
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
 
 
