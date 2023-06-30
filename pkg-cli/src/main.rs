@@ -19,6 +19,9 @@ enum Commands {
     Install {
         /// package(s)
         packages: Vec<String>,
+
+        #[arg(short = 'a')]
+        all: bool,
     },
 
     /// uninstall package(s)
@@ -26,6 +29,9 @@ enum Commands {
     Uninstall {
         /// package(s)
         packages: Vec<String>,
+
+        #[arg(short = 'a')]
+        all: bool,
     },
 
     /// update package(s) if nothing is spesified updates all installed packages
@@ -33,6 +39,9 @@ enum Commands {
     Update {
         /// package(s)
         packages: Vec<String>,
+        
+        #[arg(short = 'a')]
+        all: bool,
     },
 
     /// search for a package
@@ -79,23 +88,51 @@ impl Callback for CliPrint {
     }
 }
 
+fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<String> {
+
+    let mut packages = vec![];
+    let all_packages = library.get_all_package_names().unwrap();
+
+    if all {
+        return all_packages;
+    }
+
+    for pattern_string in input.iter() {
+        let patern = glob::Pattern::new(pattern_string).unwrap();
+
+        for package in all_packages.iter() {
+
+            if patern.matches(&package) {
+                packages.push(package.clone());
+            }
+
+        }
+    }
+
+    packages
+}
+
 fn main() {
     let mut cli = CliPrint {
         pb: ProgressBar::hidden(),
     };
 
     let mut library = Library::new(&mut cli).unwrap();
+    
 
     let args = Cli::parse();
 
     match args.command {
-        Commands::Install { packages } => {
+        Commands::Install { packages, all } => {
+            let packages = procces_packages(packages, &mut library, all);
             library.install(packages).unwrap();
         }
-        Commands::Uninstall { packages } => {
+        Commands::Uninstall { packages, all } => {
+            let packages = procces_packages(packages, &mut library, all);
             library.uninstall(packages).unwrap();
         }
-        Commands::Update { packages } => {
+        Commands::Update { packages, all } => {
+            let packages = procces_packages(packages, &mut library, all);
             library.update(packages).unwrap();
         }
         Commands::Search { package } => {

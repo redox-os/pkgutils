@@ -12,7 +12,7 @@ pub mod backend;
 mod repo_manager;
 
 pub struct Library<'a> { 
-    pub package_list: PackageList,
+    package_list: PackageList,
     repo_manager: RepoManager,
     backend: Box<dyn Backend>,
     callback: &'a mut dyn Callback,
@@ -20,9 +20,9 @@ pub struct Library<'a> {
 
 const DOWNLOAD_PATH: &str = "/tmp/pkg_dowload/";
 #[cfg(target_os = "linux")]
-const INSTALL_PATH: &str = "/tmp/pkg_install/";
+const INSTALL_PATH: &str = "/tmp/pkg_install";
 #[cfg(target_os = "redox")]
-const INSTALL_PATH: &str = "file:/";
+const INSTALL_PATH: &str = "file:";
 
 const REPOS_PATH: &str = "etc/pkg/repos";
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
@@ -83,7 +83,9 @@ impl<'a> Library<'a> {
 
     pub fn uninstall(&mut self, packages: Vec<String>) -> Result<(), Error> {
         for package_name in packages {
-            self.package_list.uninstall.push(package_name);
+            if self.get_installed_packages()?.contains(&package_name){
+                self.package_list.uninstall.push(package_name);
+            }
         }
 
         Ok(())
@@ -97,14 +99,16 @@ impl<'a> Library<'a> {
             }
         } else {
             for package_name in packages {
-                self.package_list.install.push(package_name);
+                if self.get_installed_packages()?.contains(&package_name){
+                    self.package_list.uninstall.push(package_name);
+                }
             }
         }
 
         Ok(())
     }
 
-    fn get_all_package_names(&mut self) -> Result<Vec<String>, Error> {
+    pub fn get_all_package_names(&mut self) -> Result<Vec<String>, Error> {
         // get website html
         self.repo_manager.sync("", self.callback)?;
         let mut website = fs::read_to_string(self.repo_manager.download_path.join("website"))?;
@@ -142,9 +146,9 @@ impl<'a> Library<'a> {
                 package.to_lowercase().as_bytes(),
                 name.to_lowercase().as_bytes(),
             );
+            
             if dst >= 0.2 {
                 rank += dst;
-                //println!("{dst}");
             }
 
             if name.contains(package) {

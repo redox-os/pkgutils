@@ -14,5 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 pkg-lib = { path = "../pkg-lib" }
+
 clap = { version = "4.3", features = ["cargo", "derive"] }
-indicatif = "0.17.5"
+glob = "0.3"
+
+indicatif = "0.17"
