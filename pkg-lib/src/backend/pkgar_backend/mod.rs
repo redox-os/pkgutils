@@ -24,7 +24,7 @@ pub struct PkgarBackend {
     pkey_file: Option<PublicKeyFile>,
 }
 
-const PACKAGES_DIR: &str = "pkg";
+const PACKAGES_DIR: &str = "pkg/packages";
 
 impl PkgarBackend {
     pub fn new(repo_manager: RepoManager) -> Result<Self, Error> {
