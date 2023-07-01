@@ -24,6 +24,8 @@ pub struct PkgarBackend {
     pkey_file: Option<PublicKeyFile>,
 }
 
+const PACKAGES_DIR: &str = "pkg";
+
 impl PkgarBackend {
     pub fn new(repo_manager: RepoManager) -> Result<Self, Error> {
         let packages;
@@ -43,7 +45,7 @@ impl PkgarBackend {
             }
         }
 
-        fs::create_dir_all(format!("{}/etc/pkg/packages/", INSTALL_PATH))?;
+        fs::create_dir_all(format!("{}/{}", INSTALL_PATH, PACKAGES_DIR))?;
 
         Ok(PkgarBackend {
             packages,
@@ -68,7 +70,7 @@ impl PkgarBackend {
     }
 
     fn get_package_head(&mut self, package: &String) -> Result<PackageFile, Error> {
-        let path = format!("{}/etc/pkg/packages/{package}.pkgar_head", INSTALL_PATH);
+        let path = format!("{}/{}/{package}.pkgar_head", INSTALL_PATH, PACKAGES_DIR);
 
         Ok(PackageFile::new(path, &self.get_pkey()?.pkey)?)
     }
@@ -81,7 +83,7 @@ impl PkgarBackend {
     }
 
     fn remove_package_head(&mut self, package: &String) -> Result<(), Error> {
-        let path = format!("{}/etc/pkg/packages/{package}.pkgar_head", INSTALL_PATH);
+        let path = format!("{}/{}/{package}.pkgar_head", INSTALL_PATH, PACKAGES_DIR);
 
         fs::remove_file(path)?;
         Ok(())
@@ -92,7 +94,7 @@ impl PkgarBackend {
         pkgar::split(
             "/tmp/pkg/pub_key.toml",
             format!("{}/{package}.pkgar", DOWNLOAD_PATH),
-            format!("{}/etc/pkg/packages/{package}.pkgar_head", INSTALL_PATH),
+            format!("{}/{}/{package}.pkgar_head", INSTALL_PATH, PACKAGES_DIR),
             Option::<&str>::None,
         )?;
 
@@ -149,7 +151,7 @@ impl Backend for PkgarBackend {
     }
 
     fn get_installed_packages(&self) -> Result<Vec<String>, Error> {
-        let entries = fs::read_dir(format!("{}/etc/pkg/packages/", INSTALL_PATH))?;
+        let entries = fs::read_dir(format!("{}/{}", INSTALL_PATH, PACKAGES_DIR))?;
 
         let mut packages = vec![];
 
@@ -161,8 +163,10 @@ impl Backend for PkgarBackend {
                 "file name isn't UTF-8",
             )))?;
 
-            let package = file_name_str.replace(".pkgar_head", "");
-            packages.push(package);
+            if file_name_str.ends_with(".pkgar_head") {
+                let package = file_name_str.replace(".pkgar_head", "");
+                packages.push(package);
+            }
         }
 
         Ok(packages)
