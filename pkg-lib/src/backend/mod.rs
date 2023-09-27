@@ -1,6 +1,7 @@
 pub mod pkgar_backend;
 pub mod reqwest_backend;
 mod tar;
+pub mod hyper_backend;
 
 use std::{io, path::Path};
 use thiserror::Error;
@@ -45,7 +46,7 @@ pub enum DownloadError {
 
 pub trait Callback {
     fn start(&mut self, length: u64, file: &str);
-    fn update(&mut self, downloaded: u64);
+    fn update(&mut self, downloaded: usize);
     fn end(&mut self);
 }
 

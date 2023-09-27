@@ -14,7 +14,7 @@ mod packages;
 struct NoCallback {}
 impl Callback for NoCallback {
     fn start(&mut self, _: u64, _: &str) {}
-    fn update(&mut self, _: u64) {}
+    fn update(&mut self, _: usize) {}
     fn end(&mut self) {}
 }
 

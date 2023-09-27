@@ -39,11 +39,11 @@ impl ReqwestBackend {
         callback.start(len.unwrap_or_default(), remote_path);
 
         while let Some(chunk) = res.chunk().await? {
-            let chunk_len = chunk.len() as u64;
+            let chunk_len = chunk.len();
 
             callback.update(offset + chunk_len);
 
-            output.write_at(&chunk, offset)?;
+            output.write_at(&chunk, offset as u64)?;
             offset += chunk_len;
         }
 

@@ -79,12 +79,13 @@ impl Callback for CliPrint {
         self.pb.set_message(msg);
     }
 
-    fn update(&mut self, downloaded: u64) {
-        self.pb.set_position(downloaded);
+    fn update(&mut self, downloaded: usize) {
+        self.pb.set_position(downloaded as u64);
     }
 
     fn end(&mut self) {
-        println!();
+        self.pb.finish();
+        //println!();
     }
 }
 
@@ -110,6 +111,8 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 }
 
 fn main() {
+    // std::env::set_var("RUST_BACKTRACE", "1");
+
     let mut cli = CliPrint {
         pb: ProgressBar::hidden(),
     };
