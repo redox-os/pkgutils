@@ -13,11 +13,11 @@ name = "pkg"
 [dependencies]
 serde = "1"
 serde_derive = "1"
-toml = "0.7"
+toml = "0.8.2"
 
 #sha3 = "0.10"
 
-libflate = "1.4"
+libflate = "2.0.0"
 tar = "0.4"
 
 pkgar = "0.1"
@@ -26,8 +26,8 @@ pkgar-core = "0.1"
 
 thiserror = "1"
 
-#ring = "=0.17.0-not-released-yet"
 #tuf = "0.2.0" # why not?
+ureq = "2.8.0"
 
 hyper = { version = "0.14", default-features = false, features = ["client"] }
 hyper-rustls = { version = "0.24", features = [ "webpki-roots" ] }
@@ -36,6 +36,6 @@ rustls-pemfile = "1.0"
 
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls"] }
 
-tokio = { version = "=1.23.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 
 

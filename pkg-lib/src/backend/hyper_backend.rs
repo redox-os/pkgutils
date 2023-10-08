@@ -23,6 +23,10 @@ impl DownloadBackend for HyperBackend {
     }
 }
 
+// thread 'main' panicked at pkg-lib/src/backend/hyper_backend.rs:62:20:
+// called `Result::unwrap()` on an `Err` value: hyper::Error(Canceled, hyper::Error(IncompleteMessage))
+
+
 impl HyperBackend {
     #[tokio::main]
     async fn async_download(
@@ -101,6 +105,7 @@ impl HyperBackend {
         }*/
         //println!("Body:\n{}", String::from_utf8_lossy(&body));
 
+        callback.end();
         Ok(())
     }
 }
