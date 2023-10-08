@@ -3,6 +3,7 @@ pub mod tar;
 pub mod reqwest_backend;
 pub mod hyper_backend;
 pub mod ureq_backend;
+pub mod curl_backend;
 
 use std::{io, path::Path};
 use thiserror::Error;

@@ -27,6 +27,9 @@ pkgar-core = "0.1"
 thiserror = "1"
 
 #tuf = "0.2.0" # why not?
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
+
+#networking
 ureq = "2.8.0"
 
 hyper = { version = "0.14", default-features = false, features = ["client"] }
@@ -36,6 +39,5 @@ rustls-pemfile = "1.0"
 
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls"] }
 
-tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
-
+curl = "0.4"
 

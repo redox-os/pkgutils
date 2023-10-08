@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fs};
 
 use backend::{
-    pkgar_backend::PkgarBackend, Backend, Callback, Error, ureq_backend::UreqBackend,
+    pkgar_backend::PkgarBackend, Backend, Callback, Error, curl_backend::CurlBackend,
 };
 use package::{Package, PackageInfo};
 use package_list::PackageList;
@@ -45,7 +45,7 @@ impl<'a> Library<'a> {
             }
         }
 
-        let download_backend = UreqBackend {};
+        let download_backend = CurlBackend {};
 
         let repo_manager = RepoManager {
             remotes: remotes.clone(),
