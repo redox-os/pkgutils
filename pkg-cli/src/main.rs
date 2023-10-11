@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use pkg::{backend::Callback, *};
+use pkg::{net_backend::Callback, *};
 
 use indicatif::{ProgressBar, ProgressStyle};
 

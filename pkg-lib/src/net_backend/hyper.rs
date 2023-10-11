@@ -84,26 +84,6 @@ impl HyperBackend {
             callback.update(offset);
         }
 
-        /*let body = res.into_body();
-        
-
-        let bytes = to_bytes(body)
-            .await.unwrap();
-
-
-        callback.start(len, remote_path);
-
-        for byte in bytes {
-            
-            //println!("test {offset}");
-            callback.update(offset + 1);
-
-            output.write_all(&[byte]).unwrap();
-            //output.write_at(&[byte], offset)?;
-            offset += 1;
-
-        }*/
-        //println!("Body:\n{}", String::from_utf8_lossy(&body));
 
         callback.end();
         Ok(())

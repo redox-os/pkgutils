@@ -1,12 +1,11 @@
 pub mod pkgar_backend;
 pub mod tar;
-pub mod reqwest_backend;
-pub mod hyper_backend;
-pub mod ureq_backend;
-pub mod curl_backend;
+// pub mod curl_backend;
 
-use std::{io, path::Path};
+use std::io;
 use thiserror::Error;
+
+use crate::net_backend::{DownloadError, Callback};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -38,34 +37,10 @@ impl From<pkgar::Error> for Error {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum DownloadError {
-    #[error("Reqwest backend faild")]
-    Reqwest(#[from] reqwest::Error),
-    #[error("IO error")]
-    IO(#[from] io::Error),
-}
-
-pub trait Callback {
-    fn start(&mut self, length: u64, file: &str);
-    // todo: change to increment
-    fn update(&mut self, downloaded: usize);
-    fn end(&mut self);
-    // todo add error handeling
-}
 
 pub trait Backend {
     fn install(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error>;
     fn uninstall(&mut self, package: String) -> Result<(), Error>;
     fn upgrade(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error>;
     fn get_installed_packages(&self) -> Result<Vec<String>, Error>;
-}
-
-pub trait DownloadBackend {
-    fn download(
-        &self,
-        remote_path: &str,
-        local_path: &Path,
-        callback: &mut dyn Callback,
-    ) -> Result<(), DownloadError>;
 }

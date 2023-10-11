@@ -1,8 +1,9 @@
 use std::{cmp::Ordering, fs};
 
 use backend::{
-    pkgar_backend::PkgarBackend, Backend, Callback, Error, curl_backend::CurlBackend,
+    pkgar_backend::PkgarBackend, Backend, Error
 };
+use net_backend::{Callback, DefaultNetBackend};
 use package::{Package, PackageInfo};
 use package_list::PackageList;
 use repo_manager::RepoManager;
@@ -12,6 +13,7 @@ mod package;
 mod package_list;
 mod repo_manager;
 mod sorensen;
+pub mod net_backend;
 
 pub struct Library<'a> {
     package_list: PackageList,
@@ -45,7 +47,7 @@ impl<'a> Library<'a> {
             }
         }
 
-        let download_backend = CurlBackend {};
+        let download_backend = DefaultNetBackend {};
 
         let repo_manager = RepoManager {
             remotes: remotes.clone(),

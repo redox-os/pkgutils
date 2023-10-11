@@ -1,6 +1,7 @@
 use std::{fs, path::PathBuf};
 
-use crate::backend::{Callback, DownloadBackend, Error};
+use crate::{backend::Error, net_backend::Callback};
+use crate::net_backend::DownloadBackend;
 
 pub struct RepoManager {
     pub remotes: Vec<String>,

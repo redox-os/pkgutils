@@ -1,5 +1,5 @@
 use super::{DownloadBackend, DownloadError};
-use crate::backend::Callback;
+use crate::net_backend::Callback;
 use reqwest::Client;
 use std::{fs::File, os::unix::prelude::FileExt, path::Path};
 
@@ -26,7 +26,7 @@ impl ReqwestBackend {
         callback: &mut dyn Callback,
     ) -> Result<(), DownloadError> {
         let mut res = Client::builder()
-            .use_rustls_tls()
+            //.use_rustls_tls()
             .build()?
             .get(remote_path)
             .send()
