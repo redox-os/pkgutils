@@ -30,14 +30,14 @@ thiserror = "1"
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 
 #networking
-ureq = "2.8.0"
+ureq = "=0.7"
 
-hyper = { version = "0.14", default-features = false, features = ["client"] }
-hyper-rustls = { version = "0.24", features = [ "webpki-roots" ] }
-rustls = "0.21"
-rustls-pemfile = "1.0"
+#hyper = { version = "0.14", default-features = false, features = ["client"] }
+#hyper-rustls = { version = "0.24", features = [ "webpki-roots" ] }
+#rustls = "0.21"
+#rustls-pemfile = "1.0"
 
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls"] }
+#reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls"] }
 
 # curl = "0.4"
 

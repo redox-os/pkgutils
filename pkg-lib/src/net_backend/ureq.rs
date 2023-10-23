@@ -16,7 +16,7 @@ impl DownloadBackend for UreqBackend {
     ) -> Result<(), DownloadError> {
 
         let resp = ureq::get(remote_path)
-            .call().unwrap();
+            .call();//.unwrap();
 
         let len: u64 = resp.header("Content-Length").unwrap_or("0").parse().unwrap();
 

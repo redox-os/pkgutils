@@ -3,12 +3,12 @@ use std::{path::Path, io};
 use thiserror::Error;
 
 //mod reqwest;
-//mod ureq;
-mod hyper;
+mod ureq;
+//mod hyper;
 
 //pub use reqwest::ReqwestBackend as DefaultNetBackend;
-pub use hyper::HyperBackend as DefaultNetBackend;
-
+//pub use hyper::HyperBackend as DefaultNetBackend;
+pub use ureq::UreqBackend as DefaultNetBackend;
 
 pub trait DownloadBackend {
     fn download(
@@ -30,8 +30,8 @@ pub trait Callback {
 
 #[derive(Error, Debug)]
 pub enum DownloadError {
-    #[error("Reqwest backend faild")]
-    Reqwest(#[from] reqwest::Error),
+    //#[error("Reqwest backend faild")]
+    //Reqwest(#[from] reqwest::Error),
     #[error("IO error")]
     IO(#[from] io::Error),
 }
