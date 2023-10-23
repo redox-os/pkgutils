@@ -3,12 +3,14 @@ use std::{path::Path, io};
 use thiserror::Error;
 
 //mod reqwest;
-mod ureq;
+//mod ureq;
 //mod hyper;
+mod old_hyper;
 
 //pub use reqwest::ReqwestBackend as DefaultNetBackend;
 //pub use hyper::HyperBackend as DefaultNetBackend;
-pub use ureq::UreqBackend as DefaultNetBackend;
+pub use old_hyper::HyperBackend as DefaultNetBackend;
+//pub use ureq::UreqBackend as DefaultNetBackend;
 
 pub trait DownloadBackend {
     fn download(
