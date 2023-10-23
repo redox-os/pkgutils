@@ -26,11 +26,7 @@ impl RepoManager {
             let res = self
                 .download_backend
                 .download(&remote_path, &local_path, callback);
-            println!("{res:#?}");
             return Ok(res.unwrap());
-            /*if res.is_ok() {
-                return Ok(res?);
-            }*/
         }
 
         Err(Error::NoReposWereAdded)
