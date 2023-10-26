@@ -1,12 +1,12 @@
 pub mod pkgar_backend;
 pub mod tar;
-// pub mod curl_backend;
 
 use std::io;
 use thiserror::Error;
 
 use crate::net_backend::{DownloadError, Callback};
 
+// this feals wrong
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Please add repos")]

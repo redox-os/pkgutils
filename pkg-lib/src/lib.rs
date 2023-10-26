@@ -28,12 +28,15 @@ const INSTALL_PATH: &str = "/tmp/pkg_install";
 #[cfg(target_os = "redox")]
 const INSTALL_PATH: &str = "file:";
 
+// make them not relative
+// make repos a folder
 const REPOS_PATH: &str = "etc/pkg/repos";
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
 
 impl<'a> Library<'a> {
     pub fn new(callback: &'a mut dyn Callback) -> Result<Self, Error> {
         let mut remotes = vec![];
+        // only add this is none were added
         remotes.push("https://static.redox-os.org/pkg/x86_64-unknown-redox".to_string());
 
         let repos_path = format!("{}/{}", INSTALL_PATH, REPOS_PATH);
@@ -162,6 +165,7 @@ impl<'a> Library<'a> {
             }
         }
 
+        // this is hard to read
         result.as_mut_slice().sort_by(|a, b| {
             let check1 = b.1.partial_cmp(&a.1);
             if check1 == Some(Ordering::Equal) {
@@ -179,7 +183,7 @@ impl<'a> Library<'a> {
             self.backend.uninstall(package.to_string())?;
         }
 
-        let install = self.get_dependecies(&self.package_list.install.clone())?;
+        let install = self.with_dependecies(&self.package_list.install.clone())?;
 
         for package in install.iter() {
             if self.backend.get_installed_packages()?.contains(package) {
@@ -193,6 +197,7 @@ impl<'a> Library<'a> {
         Ok(())
     }
 
+    // hard to read
     fn get_package(&mut self, package_name: &str) -> Result<Package, Error> {
         let toml = self
             .repo_manager
@@ -202,7 +207,7 @@ impl<'a> Library<'a> {
         Ok(Package::from_toml(&toml)?)
     }
 
-    pub fn get_dependecies(&mut self, packages: &Vec<String>) -> Result<Vec<String>, Error> {
+    pub fn with_dependecies(&mut self, packages: &Vec<String>) -> Result<Vec<String>, Error> {
         let mut list = vec![];
         for package in packages {
             self.get_dependecies_recursive(package, &mut list)?;
@@ -243,7 +248,9 @@ impl<'a> Library<'a> {
             installed,
             version: package.version,
             target: package.target,
+            // this can be implemented
             download_size: "not implemented".to_string(),
+            // this can't
             install_size: "not implemented".to_string(),
             checksum: sig,
             depends: package.depends,

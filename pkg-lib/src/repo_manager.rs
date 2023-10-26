@@ -9,6 +9,7 @@ pub struct RepoManager {
     pub download_backend: Box<dyn DownloadBackend>,
 }
 
+// change to sync_toml, sync_pkgar, and read variants
 impl RepoManager {
     pub fn sync(&self, file: &str, callback: &mut dyn Callback) -> Result<(), Error> {
         let local_path = if file.is_empty() {

@@ -3,8 +3,8 @@ use pkg::{net_backend::Callback, *};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
-/// redox package manager
-#[derive(Debug, Parser)] // requires `derive` feature
+/// Redox Package Manager
+#[derive(Debug, Parser)]
 #[command(name = "pkg")]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -35,7 +35,6 @@ enum Commands {
     },
 
     /// update package(s) if nothing is spesified updates all installed packages
-    #[command(arg_required_else_help = true)]
     Update {
         /// package(s)
         packages: Vec<String>,
@@ -73,6 +72,7 @@ impl Callback for CliPrint {
             .unwrap()
             .progress_chars("#>-"));
 
+        // do actual parsing not this
         let mut msg = file.replace("https://static.redox-os.org/pkg/", "");
         msg = msg.replace("x86_64-unknown-redox/", "");
 
@@ -85,7 +85,6 @@ impl Callback for CliPrint {
 
     fn end(&mut self) {
         self.pb.finish();
-        //println!();
     }
 }
 
@@ -155,4 +154,5 @@ fn main() {
         Ok(_) => println!("done"),
         Err(error) => println!("{:#?}", error),
     }
+    // it doesn't allways exit on redox
 }

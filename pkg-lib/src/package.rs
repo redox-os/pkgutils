@@ -15,8 +15,6 @@ pub struct Package {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.name.cmp(&other.name)
     }
-
-
 }*/
 
 impl Package {
@@ -27,6 +25,7 @@ impl Package {
     #[allow(dead_code)]
     pub fn to_toml(&self) -> String {
         // to_string *should* be safe to unwrap for this struct
+        // use error handeling callbacks for this
         to_string(self).unwrap()
     }
 }
@@ -38,6 +37,7 @@ pub struct PackageInfo {
     pub target: String,
 
     pub download_size: String,
+    // this can't be implemented
     pub install_size: String,
 
     pub checksum: String,

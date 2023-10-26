@@ -11,6 +11,7 @@ use super::{Backend, Callback, Error};
 
 mod packages;
 
+// this feals wrong
 struct NoCallback {}
 impl Callback for NoCallback {
     fn start(&mut self, _: u64, _: &str) {}
