@@ -1,12 +1,12 @@
 pub mod pkgar_backend;
-pub mod tar;
+//pub mod tar;
 
 use std::io;
 use thiserror::Error;
 
 use crate::net_backend::{DownloadError, Callback};
 
-// this feals wrong
+// todo: make this better
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Please add repos")]
@@ -39,8 +39,8 @@ impl From<pkgar::Error> for Error {
 
 
 pub trait Backend {
-    fn install(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error>;
+    fn install(&mut self, package: String) -> Result<(), Error>;
     fn uninstall(&mut self, package: String) -> Result<(), Error>;
-    fn upgrade(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error>;
+    fn upgrade(&mut self, package: String) -> Result<(), Error>;
     fn get_installed_packages(&self) -> Result<Vec<String>, Error>;
 }

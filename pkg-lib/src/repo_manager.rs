@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
 use crate::{backend::Error, net_backend::Callback};
@@ -7,16 +9,45 @@ pub struct RepoManager {
     pub remotes: Vec<String>,
     pub download_path: PathBuf,
     pub download_backend: Box<dyn DownloadBackend>,
+
+    pub callback: Rc<RefCell<dyn Callback>>,
 }
 
 // change to sync_toml, sync_pkgar, and read variants
 impl RepoManager {
-    pub fn sync(&self, file: &str, callback: &mut dyn Callback) -> Result<(), Error> {
-        let local_path = if file.is_empty() {
-            self.download_path.join("website")
-        } else {
-            self.download_path.join(file)
-        };
+
+    pub fn sync_toml(&self, package_name: &str) -> String {
+        self.sync_and_read(&format!("{package_name}.toml")).unwrap()
+    }
+
+    pub fn sync_pkgar(&self, package_name: &str) {
+        self.sync(&format!("{package_name}.pkgar")).unwrap()
+    }
+
+    pub fn sync_sig(&self, package_name: &str) -> String {
+        self.sync_and_read(&format!("{package_name}.sig")).unwrap()
+    }
+
+    pub fn sync_website(&self) -> String {
+        let local_path = &self.download_path.join("website");
+
+        if let Some(parent) = local_path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+
+        for remote in self.remotes.iter() {
+            let res = self
+                .download_backend
+                .download(&remote, &local_path, self.callback.clone());
+            res.unwrap();
+            break; 
+        }
+        fs::read_to_string(self.download_path.join("website")).unwrap()
+    }
+
+
+    pub fn sync(&self, file: &str) -> Result<(), Error> {
+        let local_path = self.download_path.join(file);
 
         if let Some(parent) = local_path.parent() {
             fs::create_dir_all(parent)?;
@@ -26,15 +57,15 @@ impl RepoManager {
             let remote_path = format!("{}/{}", remote, file);
             let res = self
                 .download_backend
-                .download(&remote_path, &local_path, callback);
+                .download(&remote_path, &local_path, self.callback.clone());
             return Ok(res.unwrap());
         }
 
         Err(Error::NoReposWereAdded)
     }
 
-    pub fn sync_and_read(&self, file: &str, callback: &mut dyn Callback) -> Result<String, Error> {
-        self.sync(file, callback)?;
+    pub fn sync_and_read(&self, file: &str) -> Result<String, Error> {
+        self.sync(file)?;
 
         Ok(fs::read_to_string(self.download_path.join(file))?)
     }

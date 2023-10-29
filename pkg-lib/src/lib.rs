@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fs};
+use std::{cmp::Ordering, fs, rc::Rc, cell::RefCell};
 
 use backend::{
     pkgar_backend::PkgarBackend, Backend, Error
@@ -15,11 +15,10 @@ mod repo_manager;
 mod sorensen;
 pub mod net_backend;
 
-pub struct Library<'a> {
+pub struct Library {
     package_list: PackageList,
     repo_manager: RepoManager,
     backend: Box<dyn Backend>,
-    callback: &'a mut dyn Callback,
 }
 
 const DOWNLOAD_PATH: &str = "/tmp/pkg_dowload/";
@@ -33,8 +32,8 @@ const INSTALL_PATH: &str = "file:";
 const REPOS_PATH: &str = "etc/pkg/repos";
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
 
-impl<'a> Library<'a> {
-    pub fn new(callback: &'a mut dyn Callback) -> Result<Self, Error> {
+impl Library {
+    pub fn new(callback: Rc<RefCell<dyn Callback>>) -> Result<Self, Error> {
         let mut remotes = vec![];
         // only add this is none were added
         remotes.push("https://static.redox-os.org/pkg/x86_64-unknown-redox".to_string());
@@ -56,21 +55,23 @@ impl<'a> Library<'a> {
             remotes: remotes.clone(),
             download_path: DOWNLOAD_PATH.into(),
             download_backend: Box::new(download_backend),
+            callback: callback.clone(),
         };
 
-        let backend = PkgarBackend::new(repo_manager)?;
+        let backend = PkgarBackend::new(repo_manager, callback.clone())?;
 
+        // make this not repeating
         let repo_manager = RepoManager {
-            remotes,
+            remotes: remotes.clone(),
             download_path: DOWNLOAD_PATH.into(),
             download_backend: Box::new(download_backend),
+            callback: callback.clone(),
         };
 
         Ok(Library {
             repo_manager,
             package_list: PackageList::default(),
             backend: Box::new(backend),
-            callback,
         })
     }
 
@@ -115,8 +116,7 @@ impl<'a> Library<'a> {
 
     pub fn get_all_package_names(&mut self) -> Result<Vec<String>, Error> {
         // get website html
-        self.repo_manager.sync("", self.callback)?;
-        let mut website = fs::read_to_string(self.repo_manager.download_path.join("website"))?;
+        let mut website = self.repo_manager.sync_website();
 
         let mut names = vec![];
         while let Some(end) = website.find(".toml</a>") {
@@ -185,11 +185,11 @@ impl<'a> Library<'a> {
 
         let install = self.with_dependecies(&self.package_list.install.clone())?;
 
-        for package in install.iter() {
-            if self.backend.get_installed_packages()?.contains(package) {
-                self.backend.upgrade(package.into(), self.callback)?;
+        for package in install.into_iter() {
+            if self.backend.get_installed_packages()?.contains(&package) {
+                self.backend.upgrade(package)?;
             } else {
-                self.backend.install(package.into(), self.callback)?;
+                self.backend.install(package)?;
             }
         }
 
@@ -201,8 +201,7 @@ impl<'a> Library<'a> {
     fn get_package(&mut self, package_name: &str) -> Result<Package, Error> {
         let toml = self
             .repo_manager
-            .sync_and_read(&format!("{package_name}.toml"), self.callback)
-            .map_err(|_| Error::PackageNotFound(package_name.to_owned()))?;
+            .sync_toml(package_name);
 
         Ok(Package::from_toml(&toml)?)
     }
@@ -239,7 +238,7 @@ impl<'a> Library<'a> {
     pub fn info(&mut self, package: String) -> Result<PackageInfo, Error> {
         let sig = self
             .repo_manager
-            .sync_and_read(&format!("{}.sig", package), self.callback)?;
+            .sync_sig(&package);
 
         let installed = self.backend.get_installed_packages()?.contains(&package);
         let package = self.get_package(&package)?;
@@ -250,8 +249,6 @@ impl<'a> Library<'a> {
             target: package.target,
             // this can be implemented
             download_size: "not implemented".to_string(),
-            // this can't
-            install_size: "not implemented".to_string(),
             checksum: sig,
             depends: package.depends,
         })

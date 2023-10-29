@@ -1,34 +1,24 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, rc::Rc, cell::RefCell};
 
 use pkgar::{PackageFile, Transaction};
 use pkgar_keys::PublicKeyFile;
 
 use crate::{repo_manager::RepoManager, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH};
-
 use self::packages::Packages;
-
 use super::{Backend, Callback, Error};
 
 mod packages;
 
-// this feals wrong
-struct NoCallback {}
-impl Callback for NoCallback {
-    fn start(&mut self, _: u64, _: &str) {}
-    fn update(&mut self, _: usize) {}
-    fn end(&mut self) {}
-}
-
 pub struct PkgarBackend {
     packages: Packages,
     repo_manager: RepoManager,
-    pkey_file: Option<PublicKeyFile>,
+    pkey_file: PublicKeyFile,
 }
 
 const PACKAGES_DIR: &str = "pkg/packages";
 
 impl PkgarBackend {
-    pub fn new(repo_manager: RepoManager) -> Result<Self, Error> {
+    pub fn new(repo_manager: RepoManager, callback: Rc<RefCell<dyn Callback>>) -> Result<Self, Error> {
         let packages;
 
         let packages_path = format!("{}/{}", INSTALL_PATH, PACKAGES_PATH);
@@ -47,39 +37,32 @@ impl PkgarBackend {
         }
 
         fs::create_dir_all(format!("{}/{}", INSTALL_PATH, PACKAGES_DIR))?;
+        
+        fs::create_dir_all("/tmp/pkg/")?;
+        repo_manager.download_backend.download(
+            "https://static.redox-os.org/pkg/id_ed25519.pub.toml",
+            Path::new("/tmp/pkg/pub_key.toml"),
+            callback
+        )?;
+
 
         Ok(PkgarBackend {
             packages,
             repo_manager,
-            pkey_file: None,
+            pkey_file: PublicKeyFile::open("/tmp/pkg/pub_key.toml")?
         })
-    }
-
-    fn get_pkey(&mut self) -> Result<&PublicKeyFile, Error> {
-        if self.pkey_file.is_none() {
-            fs::create_dir_all("/tmp/pkg/")?;
-            self.repo_manager.download_backend.download(
-                "https://static.redox-os.org/pkg/id_ed25519.pub.toml",
-                Path::new("/tmp/pkg/pub_key.toml"),
-                &mut NoCallback {},
-            )?;
-
-            self.pkey_file = Some(PublicKeyFile::open("/tmp/pkg/pub_key.toml")?);
-        }
-
-        Ok(self.pkey_file.as_ref().unwrap())
     }
 
     fn get_package_head(&mut self, package: &String) -> Result<PackageFile, Error> {
         let path = format!("{}/{}/{package}.pkgar_head", INSTALL_PATH, PACKAGES_DIR);
 
-        Ok(PackageFile::new(path, &self.get_pkey()?.pkey)?)
+        Ok(PackageFile::new(path, &self.pkey_file.pkey)?)
     }
 
     fn get_package(&mut self, package: &String) -> Result<PackageFile, Error> {
         Ok(PackageFile::new(
             format!("{}/{package}.pkgar", DOWNLOAD_PATH),
-            &self.get_pkey()?.pkey,
+            &self.pkey_file.pkey,
         )?)
     }
 
@@ -107,10 +90,8 @@ impl Backend for PkgarBackend {
     fn install(
         &mut self,
         package: String,
-        callback: &mut dyn crate::Callback,
     ) -> Result<(), Error> {
-        self.repo_manager
-            .sync(&format!("{package}.pkgar"), callback)?;
+        self.repo_manager.sync_pkgar(&package);
 
         let mut pkg = self.get_package(&package)?;
 
@@ -136,11 +117,10 @@ impl Backend for PkgarBackend {
         Ok(())
     }
 
-    fn upgrade(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error> {
+    fn upgrade(&mut self, package: String) -> Result<(), Error> {
         let mut pkg = self.get_package_head(&package)?;
 
-        self.repo_manager
-            .sync(&format!("{package}.pkgar"), callback)?;
+        self.repo_manager.sync_pkgar(&package);
         let mut pkg2 = self.get_package(&package)?;
 
         let mut update = Transaction::replace(&mut pkg, &mut pkg2, INSTALL_PATH)?;

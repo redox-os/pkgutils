@@ -1,4 +1,4 @@
-use std::{path::Path, io};
+use std::{path::Path, io, rc::Rc, cell::RefCell};
 
 use thiserror::Error;
 
@@ -17,17 +17,24 @@ pub trait DownloadBackend {
         &self,
         remote_path: &str,
         local_path: &Path,
-        callback: &mut dyn Callback,
+        callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError>;
+
+    fn file_size(&self) -> Option<usize> {
+        None
+    }
 }
 
 // why is callback here
 pub trait Callback {
-    fn start(&mut self, length: u64, file: &str);
-    // change to increment
-    fn update(&mut self, downloaded: usize);
-    fn end(&mut self);
-    // add error handeling
+    fn start_download(&mut self, length: u64, file: &str);
+    fn increment_downloaded(&mut self, downloaded: usize);
+    fn end_download(&mut self);
+
+    fn conflict(&mut self) {}
+    
+    // todo: add error handeling
+    fn error(&mut self) {}
 }
 
 // this feals wrong

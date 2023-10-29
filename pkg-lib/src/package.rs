@@ -37,8 +37,7 @@ pub struct PackageInfo {
     pub target: String,
 
     pub download_size: String,
-    // this can't be implemented
-    pub install_size: String,
+    // pub install_size: String,
 
     pub checksum: String,
     pub depends: Vec<String>,

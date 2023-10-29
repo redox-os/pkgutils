@@ -17,8 +17,8 @@ toml = "0.8.2"
 
 #sha3 = "0.10"
 
-libflate = "2.0.0"
-tar = "0.4"
+#libflate = "2.0.0"
+#tar = "0.4"
 
 pkgar = "0.1"
 pkgar-keys = "0.1"
@@ -26,14 +26,13 @@ pkgar-core = "0.1"
 
 thiserror = "1"
 
-#tuf = "0.2.0" # why not?
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 
 #networking
-#ureq = "=0.7"
 hyper-rustls = "0.6"
 hyper = { version = "0.10", default-features = false}
 
+#ureq = "=0.7"
 
 #hyper = { version = "0.14", default-features = false, features = ["client"] }
 #hyper-rustls = { version = "0.24", features = [ "webpki-roots" ] }

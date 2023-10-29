@@ -1,3 +1,5 @@
+use std::{rc::Rc, cell::RefCell};
+
 use clap::{Parser, Subcommand};
 use pkg::{net_backend::Callback, *};
 
@@ -61,12 +63,13 @@ enum Commands {
     List,
 }
 
-struct CliPrint {
+#[derive(Clone)]
+struct BasicCallback {
     pb: ProgressBar,
 }
 
-impl Callback for CliPrint {
-    fn start(&mut self, length: u64, file: &str) {
+impl Callback for BasicCallback {
+    fn start_download(&mut self, length: u64, file: &str) {
         self.pb = ProgressBar::new(length);
         self.pb.set_style(ProgressStyle::with_template("{msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
             .unwrap()
@@ -79,11 +82,10 @@ impl Callback for CliPrint {
         self.pb.set_message(msg);
     }
 
-    fn update(&mut self, downloaded: usize) {
+    fn increment_downloaded(&mut self, downloaded: usize) {
         self.pb.set_position(downloaded as u64);
     }
-
-    fn end(&mut self) {
+    fn end_download(&mut self) {
         self.pb.finish();
     }
 }
@@ -112,15 +114,16 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 fn main() {
     // std::env::set_var("RUST_BACKTRACE", "1");
 
-    let mut cli = CliPrint {
+    let cli = BasicCallback {
         pb: ProgressBar::hidden(),
     };
 
-    let mut library = Library::new(&mut cli).unwrap();
+    let mut library = Library::new(Rc::new(RefCell::new(cli))).unwrap();
 
     let args = Cli::parse();
 
     match args.command {
+
         Commands::Install { packages, all } => {
             let packages = procces_packages(packages, &mut library, all);
             library.install(packages).unwrap();
@@ -154,5 +157,5 @@ fn main() {
         Ok(_) => println!("done"),
         Err(error) => println!("{:#?}", error),
     }
-    // it doesn't allways exit on redox
+    // todo: doesn't allways exit on redox
 }

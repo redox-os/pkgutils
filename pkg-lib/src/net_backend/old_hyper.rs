@@ -1,4 +1,4 @@
-use std::{path::Path, fs::File, io::{Write, self, Read}, time::Duration};
+use std::{path::Path, fs::File, io::{Write, self, Read}, time::Duration, rc::Rc, cell::RefCell};
 
 
 use hyper::{Client, net::HttpsConnector, status::StatusCode, header::ContentLength, Error};
@@ -16,7 +16,7 @@ impl DownloadBackend for HyperBackend {
         &self,
         remote_path: &str,
         local_path: &Path,
-        callback: &mut dyn Callback,
+        callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError> {
         let mut client = Client::with_connector(HttpsConnector::new(TlsClient::new()));
         client.set_read_timeout(Some(Duration::new(5, 0)));
@@ -27,9 +27,9 @@ impl DownloadBackend for HyperBackend {
             Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err).into()),
         };
 
+        let mut callback = callback.borrow_mut();
         match response.status {
             StatusCode::Ok => {
-                let mut count = 0;
                 let length = response
                     .headers
                     .get::<ContentLength>()
@@ -37,7 +37,7 @@ impl DownloadBackend for HyperBackend {
 
                 let mut file = File::create(&local_path)?;
                 
-                callback.start(length as u64, remote_path);
+                callback.start_download(length as u64, remote_path);
 
                 loop {
                     let mut buf = [0; 8192];
@@ -45,11 +45,11 @@ impl DownloadBackend for HyperBackend {
                     if res == 0 {
                         break;
                     }
-                    count += file.write(&buf[..res])?;
-                    callback.update(count);
+                    let new_bytes = file.write(&buf[..res])?;
+                    callback.increment_downloaded(new_bytes);
                 }
 
-                callback.end();
+                callback.end_download();
                 file.sync_all()?;
             }
             _ => {}
