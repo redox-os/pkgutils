@@ -83,10 +83,11 @@ impl Callback for BasicCallback {
     }
 
     fn increment_downloaded(&mut self, downloaded: usize) {
-        self.pb.set_position(downloaded as u64);
+        self.pb.inc(downloaded as u64);
     }
     fn end_download(&mut self) {
         self.pb.finish();
+        println!();
     }
 }
 
