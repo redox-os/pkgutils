@@ -4,7 +4,7 @@ pub mod pkgar_backend;
 use std::io;
 use thiserror::Error;
 
-use crate::net_backend::{DownloadError, Callback};
+use crate::net_backend::{Callback, DownloadError};
 
 // todo: make this better
 #[derive(Error, Debug)]
@@ -36,7 +36,6 @@ impl From<pkgar::Error> for Error {
         Error::Pkgar(Box::new(value))
     }
 }
-
 
 pub trait Backend {
     fn install(&mut self, package: String) -> Result<(), Error>;

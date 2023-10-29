@@ -1,4 +1,4 @@
-use std::{path::Path, io, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, io, path::Path, rc::Rc};
 
 use thiserror::Error;
 
@@ -32,7 +32,7 @@ pub trait Callback {
     fn end_download(&mut self);
 
     fn conflict(&mut self) {}
-    
+
     // todo: add error handeling
     fn error(&mut self) {}
 }

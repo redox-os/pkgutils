@@ -1,12 +1,16 @@
-use std::{path::Path, fs::File, io::{Write, self, Read}, time::Duration, rc::Rc, cell::RefCell};
+use std::{
+    cell::RefCell,
+    fs::File,
+    io::{self, Read, Write},
+    path::Path,
+    rc::Rc,
+    time::Duration,
+};
 
-
-use hyper::{Client, net::HttpsConnector, status::StatusCode, header::ContentLength, Error};
+use hyper::{header::ContentLength, net::HttpsConnector, status::StatusCode, Client, Error};
 use hyper_rustls::TlsClient;
 
-use super::{DownloadBackend, DownloadError, Callback};
-
-
+use super::{Callback, DownloadBackend, DownloadError};
 
 #[derive(Clone, Copy)]
 pub struct HyperBackend {}
@@ -34,7 +38,7 @@ impl DownloadBackend for HyperBackend {
                 .get::<ContentLength>()
                 .map_or(0, |h| h.0 as usize);
             let mut file = File::create(local_path)?;
-            
+
             callback.start_download(length as u64, remote_path);
             loop {
                 let mut buf = [0; 8192];
@@ -49,8 +53,6 @@ impl DownloadBackend for HyperBackend {
             file.sync_all()?;
         }
 
-
         Ok(())
     }
 }
-

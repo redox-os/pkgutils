@@ -1,11 +1,11 @@
-use std::{fs, path::Path, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, fs, path::Path, rc::Rc};
 
 use pkgar::{PackageFile, Transaction};
 use pkgar_keys::PublicKeyFile;
 
-use crate::{repo_manager::RepoManager, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH};
 use self::packages::Packages;
 use super::{Backend, Callback, Error};
+use crate::{repo_manager::RepoManager, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH};
 
 mod packages;
 
@@ -18,7 +18,10 @@ pub struct PkgarBackend {
 const PACKAGES_DIR: &str = "pkg/packages";
 
 impl PkgarBackend {
-    pub fn new(repo_manager: RepoManager, callback: Rc<RefCell<dyn Callback>>) -> Result<Self, Error> {
+    pub fn new(
+        repo_manager: RepoManager,
+        callback: Rc<RefCell<dyn Callback>>,
+    ) -> Result<Self, Error> {
         let packages;
 
         let packages_path = format!("{}/{}", INSTALL_PATH, PACKAGES_PATH);
@@ -37,19 +40,18 @@ impl PkgarBackend {
         }
 
         fs::create_dir_all(format!("{}/{}", INSTALL_PATH, PACKAGES_DIR))?;
-        
+
         fs::create_dir_all("/tmp/pkg/")?;
         repo_manager.download_backend.download(
             "https://static.redox-os.org/pkg/id_ed25519.pub.toml",
             Path::new("/tmp/pkg/pub_key.toml"),
-            callback
+            callback,
         )?;
-
 
         Ok(PkgarBackend {
             packages,
             repo_manager,
-            pkey_file: PublicKeyFile::open("/tmp/pkg/pub_key.toml")?
+            pkey_file: PublicKeyFile::open("/tmp/pkg/pub_key.toml")?,
         })
     }
 
@@ -87,10 +89,7 @@ impl PkgarBackend {
 }
 
 impl Backend for PkgarBackend {
-    fn install(
-        &mut self,
-        package: String,
-    ) -> Result<(), Error> {
+    fn install(&mut self, package: String) -> Result<(), Error> {
         self.repo_manager.sync_pkgar(&package);
 
         let mut pkg = self.get_package(&package)?;

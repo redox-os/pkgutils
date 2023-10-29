@@ -1,19 +1,17 @@
-use std::{cmp::Ordering, fs, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
 
-use backend::{
-    pkgar_backend::PkgarBackend, Backend, Error
-};
+use backend::{pkgar_backend::PkgarBackend, Backend, Error};
 use net_backend::{Callback, DefaultNetBackend};
 use package::{Package, PackageInfo};
 use package_list::PackageList;
 use repo_manager::RepoManager;
 
 pub mod backend;
+pub mod net_backend;
 mod package;
 mod package_list;
 mod repo_manager;
 mod sorensen;
-pub mod net_backend;
 
 pub struct Library {
     package_list: PackageList,
@@ -199,9 +197,7 @@ impl Library {
 
     // hard to read
     fn get_package(&mut self, package_name: &str) -> Result<Package, Error> {
-        let toml = self
-            .repo_manager
-            .sync_toml(package_name);
+        let toml = self.repo_manager.sync_toml(package_name);
 
         Ok(Package::from_toml(&toml)?)
     }
@@ -236,9 +232,7 @@ impl Library {
     }
 
     pub fn info(&mut self, package: String) -> Result<PackageInfo, Error> {
-        let sig = self
-            .repo_manager
-            .sync_sig(&package);
+        let sig = self.repo_manager.sync_sig(&package);
 
         let installed = self.backend.get_installed_packages()?.contains(&package);
         let package = self.get_package(&package)?;

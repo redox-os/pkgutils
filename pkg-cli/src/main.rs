@@ -1,4 +1,4 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use clap::{Parser, Subcommand};
 use pkg::{net_backend::Callback, *};
@@ -123,7 +123,6 @@ fn main() {
     let args = Cli::parse();
 
     match args.command {
-
         Commands::Install { packages, all } => {
             let packages = procces_packages(packages, &mut library, all);
             library.install(packages).unwrap();

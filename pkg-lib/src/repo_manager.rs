@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
-use crate::{backend::Error, net_backend::Callback};
 use crate::net_backend::DownloadBackend;
+use crate::{backend::Error, net_backend::Callback};
 
 pub struct RepoManager {
     pub remotes: Vec<String>,
@@ -15,7 +15,6 @@ pub struct RepoManager {
 
 // change to sync_toml, sync_pkgar, and read variants
 impl RepoManager {
-
     pub fn sync_toml(&self, package_name: &str) -> String {
         self.sync_and_read(&format!("{package_name}.toml")).unwrap()
     }
@@ -40,12 +39,11 @@ impl RepoManager {
                 .download_backend
                 .download(remote, local_path, self.callback.clone());
             if res.is_ok() {
-                break; 
+                break;
             }
         }
         fs::read_to_string(self.download_path.join("website")).unwrap()
     }
-
 
     pub fn sync(&self, file: &str) -> Result<(), Error> {
         let local_path = self.download_path.join(file);
@@ -56,9 +54,9 @@ impl RepoManager {
 
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}", remote, file);
-            let res = self
-                .download_backend
-                .download(&remote_path, &local_path, self.callback.clone());
+            let res =
+                self.download_backend
+                    .download(&remote_path, &local_path, self.callback.clone());
             if res.is_ok() {
                 return Ok(());
             }
