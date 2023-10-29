@@ -28,32 +28,27 @@ impl DownloadBackend for HyperBackend {
         };
 
         let mut callback = callback.borrow_mut();
-        match response.status {
-            StatusCode::Ok => {
-                let length = response
-                    .headers
-                    .get::<ContentLength>()
-                    .map_or(0, |h| h.0 as usize);
-
-                let mut file = File::create(&local_path)?;
-                
-                callback.start_download(length as u64, remote_path);
-
-                loop {
-                    let mut buf = [0; 8192];
-                    let res = response.read(&mut buf)?;
-                    if res == 0 {
-                        break;
-                    }
-                    let new_bytes = file.write(&buf[..res])?;
-                    callback.increment_downloaded(new_bytes);
+        if let StatusCode::Ok = response.status {
+            let length = response
+                .headers
+                .get::<ContentLength>()
+                .map_or(0, |h| h.0 as usize);
+            let mut file = File::create(local_path)?;
+            
+            callback.start_download(length as u64, remote_path);
+            loop {
+                let mut buf = [0; 8192];
+                let res = response.read(&mut buf)?;
+                if res == 0 {
+                    break;
                 }
-
-                callback.end_download();
-                file.sync_all()?;
+                let new_bytes = file.write(&buf[..res])?;
+                callback.increment_downloaded(new_bytes);
             }
-            _ => {}
+            callback.end_download();
+            file.sync_all()?;
         }
+
 
         Ok(())
     }

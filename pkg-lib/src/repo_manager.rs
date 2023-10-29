@@ -38,9 +38,10 @@ impl RepoManager {
         for remote in self.remotes.iter() {
             let res = self
                 .download_backend
-                .download(&remote, &local_path, self.callback.clone());
-            res.unwrap();
-            break; 
+                .download(remote, local_path, self.callback.clone());
+            if res.is_ok() {
+                break; 
+            }
         }
         fs::read_to_string(self.download_path.join("website")).unwrap()
     }
@@ -58,9 +59,12 @@ impl RepoManager {
             let res = self
                 .download_backend
                 .download(&remote_path, &local_path, self.callback.clone());
-            return Ok(res.unwrap());
+            if res.is_ok() {
+                return Ok(());
+            }
         }
 
+        // todo: change to no valid repos found
         Err(Error::NoReposWereAdded)
     }
 
