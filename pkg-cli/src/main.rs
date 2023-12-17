@@ -26,9 +26,9 @@ enum Commands {
         all: bool,
     },
 
-    /// uninstall package(s)
+    /// remove package(s)
     #[command(arg_required_else_help = true)]
-    Uninstall {
+    Remove {
         /// package(s)
         packages: Vec<String>,
 
@@ -128,7 +128,7 @@ fn main() {
             let packages = procces_packages(packages, &mut library, all);
             library.install(packages).unwrap();
         }
-        Commands::Uninstall { packages, all } => {
+        Commands::Remove { packages, all } => {
             let packages = procces_packages(packages, &mut library, all);
             library.uninstall(packages).unwrap();
         }
@@ -153,9 +153,7 @@ fn main() {
         }
     }
 
-    match library.apply() {
-        Ok(_) => println!("done"),
-        Err(error) => println!("{:#?}", error),
-    }
-    // todo: doesn't allways exit on redox
+    library.apply();
+    
+    return;
 }
