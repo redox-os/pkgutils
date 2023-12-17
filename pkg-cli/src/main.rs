@@ -127,14 +127,20 @@ fn main() {
         Commands::Install { packages, all } => {
             let packages = procces_packages(packages, &mut library, all);
             library.install(packages).unwrap();
+            library.apply();
+            return;
         }
         Commands::Remove { packages, all } => {
             let packages = procces_packages(packages, &mut library, all);
             library.uninstall(packages).unwrap();
+            library.apply();
+            return;
         }
         Commands::Update { packages, all } => {
             let packages = procces_packages(packages, &mut library, all);
             library.update(packages).unwrap();
+            library.apply();
+            return;
         }
         Commands::Search { package } => {
             let packages = library.search(&package).unwrap();
@@ -153,7 +159,4 @@ fn main() {
         }
     }
 
-    library.apply();
-    
-    return;
 }
