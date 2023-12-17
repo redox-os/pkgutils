@@ -159,4 +159,6 @@ fn main() {
         }
     }
 
+    println!("done");
+
 }
