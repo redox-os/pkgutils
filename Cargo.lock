@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "redox_pkgutils"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "bidir-map",
  "clap",

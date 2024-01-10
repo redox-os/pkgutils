@@ -59,7 +59,7 @@ fn upgrade(repo: Repo) -> io::Result<()> {
         }
 
         let line = liner::Context::new().read_line(
-            "Do you want to upgrade these packages? (Y/n) ",
+            liner::Prompt::from("Do you want to upgrade these packages? (Y/n) "),
             None,
             &mut liner::BasicCompleter::new(vec!["yes", "no"]),
         )?;
