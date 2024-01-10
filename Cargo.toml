@@ -1,6 +1,6 @@
 [package]
 name = "redox_pkgutils"
-version = "0.1.6"
+version = "0.1.7"
 description = "Redox Packaging Utilities"
 license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
