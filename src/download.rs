@@ -35,6 +35,7 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
 
             let mut file = File::create(&local_path)?;
             let mut pb = ProgressBar::new(length as u64);
+            pb.set_max_refresh_rate(Some(Duration::new(1, 0)));
             pb.set_units(Units::Bytes);
             loop {
                 let mut buf = [0; 8192];
