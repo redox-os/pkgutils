@@ -11,14 +11,18 @@ use hyper_rustls::TlsClient;
 
 use pbr::{ProgressBar, Units};
 
-pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
+pub fn download_client() -> Client {
+    let mut client = Client::with_connector(HttpsConnector::new(TlsClient::new()));
+    client.set_read_timeout(Some(Duration::new(5, 0)));
+    client.set_write_timeout(Some(Duration::new(5, 0)));
+    client
+}
+
+pub fn download(client: &Client, remote_path: &str, local_path: &str) -> io::Result<()> {
     let mut stderr = stderr();
 
     write!(stderr, "* Requesting {}\n", remote_path)?;
 
-    let mut client = Client::with_connector(HttpsConnector::new(TlsClient::new()));
-    client.set_read_timeout(Some(Duration::new(5, 0)));
-    client.set_write_timeout(Some(Duration::new(5, 0)));
     let mut response = match client.get(remote_path).send() {
         Ok(response) => response,
         Err(HyperError::Io(err)) => return Err(err),
