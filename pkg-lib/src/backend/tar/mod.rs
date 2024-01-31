@@ -1,5 +1,3 @@
-// do we even need this backend?
-
 use std::{
     fs::{self, File},
     io::BufReader,
@@ -9,7 +7,7 @@ use std::{
 use self::files::Packages;
 use super::Backend;
 use crate::{
-    repo_manager::RepoManager, Callback, Error, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH,
+    repo_manager::RepoManager, Error, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH,
 };
 use libflate::gzip::Decoder;
 use tar::Archive;
@@ -85,15 +83,15 @@ impl TarBackend {
 }
 
 impl Backend for TarBackend {
-    fn install(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error> {
-        self.repo_manager
-            .sync(&format!("{}.tar.gz", package), callback)?;
+    fn install(&mut self, package: String) -> Result<(), Error> {
+        self.repo_manager.sync_tar(&package);
         let path = format!("{}/{}.tar.gz", DOWNLOAD_PATH, package);
         let file = File::open(&path)?;
         let decoder = Decoder::new(BufReader::new(file))?;
 
         let mut ar = Archive::new(decoder);
         ar.set_preserve_permissions(true);
+
 
         if !self.packages.files.contains_key(&package) {
             self.packages.files.insert(package.clone(), vec![]);
@@ -116,11 +114,8 @@ impl Backend for TarBackend {
             entry.unpack_in(INSTALL_PATH)?;
         }
 
-        let sig = self
-            .repo_manager
-            .sync_and_read(&format!("{}.sig", package), callback)?;
+        let sig = self.repo_manager.sync_sig(&package);
         self.packages.installed.insert(package, sig);
-
         Ok(())
     }
 
@@ -133,10 +128,8 @@ impl Backend for TarBackend {
         Ok(())
     }
 
-    fn upgrade(&mut self, package: String, callback: &mut dyn Callback) -> Result<(), Error> {
-        let sig = self
-            .repo_manager
-            .sync_and_read(&format!("{}.sig", package), callback)?;
+    fn upgrade(&mut self, package: String) -> Result<(), Error> {
+        let sig = self.repo_manager.sync_sig(&package);
 
         if self.packages.installed[&package] == sig {
             return Ok(());
@@ -144,7 +137,7 @@ impl Backend for TarBackend {
 
         self.uninstall_package(&package)?;
 
-        self.install(package, callback)?;
+        self.install(package)?;
 
         Ok(())
     }

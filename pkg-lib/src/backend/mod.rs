@@ -1,5 +1,5 @@
 pub mod pkgar_backend;
-//pub mod tar;
+pub mod tar;
 
 use std::io;
 use thiserror::Error;
@@ -10,7 +10,7 @@ use crate::net_backend::{Callback, DownloadError};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Please add repos")]
-    NoReposWereAdded,
+    ValidRepoNotFound,
     #[error("Package not found")]
     PackageNotFound(String),
     #[error("Path isn't a Valid Unicode String")]

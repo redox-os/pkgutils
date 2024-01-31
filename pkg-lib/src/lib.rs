@@ -1,6 +1,8 @@
 use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
 
-use backend::{pkgar_backend::PkgarBackend, Backend, Error};
+use backend::tar::TarBackend;
+//use backend::pkgar_backend::PkgarBackend;
+use backend::{Backend, Error};
 use net_backend::{Callback, DefaultNetBackend};
 use package::{Package, PackageInfo};
 use package_list::PackageList;
@@ -23,7 +25,7 @@ const DOWNLOAD_PATH: &str = "/tmp/pkg_dowload/";
 #[cfg(target_os = "linux")]
 const INSTALL_PATH: &str = "/tmp/pkg_install";
 #[cfg(target_os = "redox")]
-const INSTALL_PATH: &str = "file:";
+const INSTALL_PATH: &str = "/";
 
 // make them not relative
 // make repos a folder
@@ -56,7 +58,7 @@ impl Library {
             callback: callback.clone(),
         };
 
-        let backend = PkgarBackend::new(repo_manager, callback.clone())?;
+        let backend = TarBackend::new(repo_manager)?;//PkgarBackend::new(repo_manager, callback.clone())?;
 
         // make this not repeating
         let repo_manager = RepoManager {

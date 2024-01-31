@@ -17,8 +17,8 @@ toml = "0.8.2"
 
 #sha3 = "0.10"
 
-#libflate = "2.0.0"
-#tar = "0.4"
+libflate = "2.0.0"
+tar = "0.4"
 
 pkgar = "0.1"
 pkgar-keys = "0.1"

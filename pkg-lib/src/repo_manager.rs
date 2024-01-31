@@ -13,7 +13,6 @@ pub struct RepoManager {
     pub callback: Rc<RefCell<dyn Callback>>,
 }
 
-// change to sync_toml, sync_pkgar, and read variants
 impl RepoManager {
     pub fn sync_toml(&self, package_name: &str) -> String {
         self.sync_and_read(&format!("{package_name}.toml")).unwrap()
@@ -21,6 +20,10 @@ impl RepoManager {
 
     pub fn sync_pkgar(&self, package_name: &str) {
         self.sync(&format!("{package_name}.pkgar")).unwrap()
+    }
+
+    pub fn sync_tar(&self, package_name: &str) {
+        self.sync(&format!("{package_name}.tar.gz")).unwrap()
     }
 
     pub fn sync_sig(&self, package_name: &str) -> String {
@@ -62,8 +65,7 @@ impl RepoManager {
             }
         }
 
-        // todo: change to no valid repos found
-        Err(Error::NoReposWereAdded)
+        Err(Error::ValidRepoNotFound)
     }
 
     pub fn sync_and_read(&self, file: &str) -> Result<String, Error> {
