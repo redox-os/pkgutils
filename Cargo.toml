@@ -1,40 +1,23 @@
-[package]
+[workspace]
+resolver = "2"
+members = [
+    "pkg-lib",
+    "pkg-cli",
+    #"pkg-gui",
+]
+default-members = [
+    "pkg-cli",
+]
+
+[workspace.package]
 name = "redox_pkgutils"
 version = "0.1.8"
 description = "Redox Packaging Utilities"
 license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
 repository = "https://gitlab.redox-os.org/redox-os/pkgutils"
-build = "build.rs"
 edition = "2018"
 
-[lib]
-name = "pkgutils"
-path = "src/lib.rs"
-
-[[bin]]
-name = "pkg"
-path = "src/bin/pkg.rs"
-
-[dependencies]
-clap = { version = "2.33.3", default-features = false }
-hyper-rustls = "0.6"
-libflate = "1.0.2"
-redox_liner = "0.5.1"
-pbr = "1.0.3"
-serde = "1.0.115"
-serde_derive = "1.0.115"
-sha3 = "0.9.1"
-tar = "0.4.29"
-toml = "0.5.6"
-version-compare = "0.0.10"
-petgraph = "0.5.1"
-bidir-map = "1.0.0"
-indexmap = "1"
-
-[dependencies.hyper]
-version = "0.10"
-default-features = false
-
 [patch.crates-io]
+#ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-0.16.20" }
 ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-unix-0.13.5" }
