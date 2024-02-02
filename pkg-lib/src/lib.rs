@@ -1,3 +1,5 @@
+//#![cfg_attr(target_os = "redox", feature(io_error_more))]
+
 use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
 
 use backend::tar::TarBackend;

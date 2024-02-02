@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File},
-    io::BufReader,
+    io::{BufReader, ErrorKind},
     path::Path,
 };
 
@@ -69,7 +69,13 @@ impl TarBackend {
                 let path = Path::new(INSTALL_PATH).join(path);
 
                 if path.is_dir() {
-                    fs::remove_dir_all(path)?;
+                    match fs::remove_dir(path) {
+                        Ok(_) => { },
+                        //#[cfg(target_os = "redox")]
+                        //Err(e) => { if e.kind() == ErrorKind::DirectoryNotEmpty { println!("{path:?} is not empty") } },
+                        Err(_) => { }
+                    }
+                    //fs::remove_dir_all(path)?;
                 } else if path.is_file() {
                     fs::remove_file(path)?;
                 }
