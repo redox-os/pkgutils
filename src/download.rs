@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, stderr, Write};
 use std::str::FromStr;
+use std::time::Duration;
 
 use hyper::client::{Client, HttpConnector};
 use hyper::header::CONTENT_LENGTH;
@@ -11,13 +12,17 @@ use hyper_rustls::HttpsConnector;
 
 use pbr::{ProgressBar, Units};
 
-pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
+pub fn download_client() -> Client<HttpsConnector<HttpConnector>, Body> {
+    let https = HttpsConnector::new(1);
+    let client: Client<HttpsConnector<HttpConnector>, Body> = Client::builder().build(https);
+    client
+}
+
+pub fn download(client: &Client<HttpsConnector<HttpConnector>, Body>, remote_path: &str, local_path: &str) -> io::Result<()> {
     let mut stderr = stderr();
 
     write!(stderr, "* Requesting {}\n", remote_path)?;
 
-    let https = HttpsConnector::new(1);
-    let client: Client<HttpsConnector<HttpConnector>, Body> = Client::builder().build(https);
     let uri = Uri::from_str(remote_path).expect("invalid uri");
     let response = match client.get(uri).wait() {
         Ok(response) => response,
@@ -34,6 +39,7 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
 
             let mut file = File::create(&local_path)?;
             let mut pb = ProgressBar::new(length as u64);
+            pb.set_max_refresh_rate(Some(Duration::new(1, 0)));
             pb.set_units(Units::Bytes);
             let body = response.into_body();
             body.for_each(|chunk| {
