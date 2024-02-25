@@ -1,5 +1,6 @@
 use clap::{App, Arg, SubCommand};
 use indexmap::IndexMap;
+use liner::Prompt;
 use pkgutils::{Database, Package, PackageDepends, PackageMeta, PackageMetaList, Repo};
 use std::error::Error;
 use std::fs::{self, File};
@@ -59,7 +60,7 @@ fn upgrade(repo: Repo) -> io::Result<()> {
         }
 
         let line = liner::Context::new().read_line(
-            "Do you want to upgrade these packages? (Y/n) ",
+            Prompt::from("Do you want to upgrade these packages? (Y/n) "),
             None,
             &mut liner::BasicCompleter::new(vec!["yes", "no"]),
         )?;
