@@ -5,9 +5,8 @@ use std::time::Duration;
 
 use hyper::client::{Client, HttpConnector};
 use hyper::header::CONTENT_LENGTH;
-use hyper::rt::{Future, Stream};  
-use hyper::{Body, StatusCode};
-use hyper::Uri;
+use hyper::rt::{Future, Stream};
+use hyper::{Body, StatusCode, Uri};
 use hyper_rustls::HttpsConnector;
 
 use pbr::{ProgressBar, Units};
@@ -18,7 +17,11 @@ pub fn download_client() -> Client<HttpsConnector<HttpConnector>, Body> {
     client
 }
 
-pub fn download(client: &Client<HttpsConnector<HttpConnector>, Body>, remote_path: &str, local_path: &str) -> io::Result<()> {
+pub fn download(
+    client: &Client<HttpsConnector<HttpConnector>, Body>,
+    remote_path: &str,
+    local_path: &str,
+) -> io::Result<()> {
     let mut stderr = stderr();
 
     write!(stderr, "* Requesting {}\n", remote_path)?;
@@ -43,12 +46,13 @@ pub fn download(client: &Client<HttpsConnector<HttpConnector>, Body>, remote_pat
             pb.set_units(Units::Bytes);
             let body = response.into_body();
             body.for_each(|chunk| {
-                let a =  file.write_all(&chunk)
-                .map_err(|e| panic!("error={}", e));
+                let result = file.write_all(&chunk).map_err(|e| panic!("error={}", e));
                 count += chunk.len();
                 pb.set(count as u64);
-               a
-            }).wait().expect("failed");
+                result
+            })
+            .wait()
+            .expect("failed to write file");
 
             let _ = write!(stderr, "\n");
 

@@ -1,6 +1,4 @@
-use hyper::client::HttpConnector;
-use hyper::Body;
-use hyper_rustls::HttpsConnector;
+use hyper::{Client, client::HttpConnector, Body};
 use libflate::gzip::Encoder;
 use sha3::{Digest, Sha3_512};
 use std::fs::{self, File};
@@ -22,7 +20,7 @@ mod packagemeta;
 pub struct Repo {
     local: String,
     remotes: Vec<String>,
-    client: hyper::Client<HttpsConnector<HttpConnector>, Body>,
+    client: Client<hyper_rustls::HttpsConnector<HttpConnector>, Body>,
     target: String,
 }
 
