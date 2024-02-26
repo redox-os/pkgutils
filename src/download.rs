@@ -1,72 +1,51 @@
 use std::fs::File;
-use std::io::{self, stderr, Write};
-use std::str::FromStr;
+use std::io::{self, stderr, Read, Write};
 use std::time::Duration;
-
-use hyper::client::{Client, HttpConnector};
-use hyper::header::CONTENT_LENGTH;
-use hyper::rt::{Future, Stream};
-use hyper::{Body, StatusCode, Uri};
-use hyper_rustls::HttpsConnector;
 
 use pbr::{ProgressBar, Units};
 
-pub fn download_client() -> Client<HttpsConnector<HttpConnector>, Body> {
-    let https = HttpsConnector::new(1);
-    let client: Client<HttpsConnector<HttpConnector>, Body> = Client::builder().build(https);
-    client
-}
-
-pub fn download(
-    client: &Client<HttpsConnector<HttpConnector>, Body>,
-    remote_path: &str,
-    local_path: &str,
-) -> io::Result<()> {
+pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
     let mut stderr = stderr();
 
     write!(stderr, "* Requesting {}\n", remote_path)?;
 
-    let uri = Uri::from_str(remote_path).expect("invalid uri");
-    let response = match client.get(uri).wait() {
-        Ok(response) => response,
-        Err(err) => return Err(io::Error::new(io::ErrorKind::Other, err)),
-    };
+    let response = ureq::get(remote_path)
+        .timeout_read(5000)
+        .timeout_write(5000)
+        .call();
 
-    match response.status() {
-        StatusCode::OK => {
-            let mut count = 0;
-            let length = response
-                .headers()
-                .get(CONTENT_LENGTH)
-                .map_or(0, |_h| 0 as usize);
+    if response.ok() {
+        let mut count = 0;
+        let length = response.header("Content-Length").map_or(0, |_h| 0 as usize);
 
-            let mut file = File::create(&local_path)?;
-            let mut pb = ProgressBar::new(length as u64);
-            pb.set_max_refresh_rate(Some(Duration::new(1, 0)));
-            pb.set_units(Units::Bytes);
-            let body = response.into_body();
-            body.for_each(|chunk| {
-                let result = file.write_all(&chunk).map_err(|e| panic!("error={}", e));
-                count += chunk.len();
-                pb.set(count as u64);
-                result
-            })
-            .wait()
-            .expect("failed to write file");
+        let mut file = File::create(&local_path)?;
+        let mut pb = ProgressBar::new(length as u64);
+        pb.set_max_refresh_rate(Some(Duration::new(1, 0)));
+        pb.set_units(Units::Bytes);
 
-            let _ = write!(stderr, "\n");
+        let mut reader = response.into_reader();
 
-            file.sync_all()?;
-
-            Ok(())
+        loop {
+            let mut buf = [0; 8192];
+            let res = reader.read(&mut buf)?;
+            if res == 0 {
+                break;
+            }
+            count += file.write(&buf[..res])?;
+            pb.set(count as u64);
         }
-        _ => {
-            let _ = write!(stderr, "* Failure {}\n", response.status());
 
-            Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("{} not found", remote_path),
-            ))
-        }
+        let _ = write!(stderr, "\n");
+
+        file.sync_all()?;
+
+        Ok(())
+    } else {
+        let _ = write!(stderr, "* Failure {}\n", response.status());
+
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} not found", remote_path),
+        ))
     }
 }
