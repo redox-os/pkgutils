@@ -16,10 +16,10 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
 
     if response.ok() {
         let mut count = 0;
-        let length = response.header("Content-Length").map_or(0, |_h| 0 as usize);
-
+        let length = response.header("Content-Length").expect("Can't get content-length");
+        let length: u64 = length.parse().expect("Unable to parse content-length");
         let mut file = File::create(&local_path)?;
-        let mut pb = ProgressBar::new(length as u64);
+        let mut pb = ProgressBar::new(length);
         pb.set_max_refresh_rate(Some(Duration::new(1, 0)));
         pb.set_units(Units::Bytes);
 
@@ -27,11 +27,11 @@ pub fn download(remote_path: &str, local_path: &str) -> io::Result<()> {
 
         loop {
             let mut buf = [0; 8192];
-            let res = reader.read(&mut buf)?;
+            let res = reader.read(&mut buf).expect("Read failed");
             if res == 0 {
                 break;
             }
-            count += file.write(&buf[..res])?;
+            count += file.write(&buf[..res]).expect("Write failed");
             pb.set(count as u64);
         }
 
