@@ -21,6 +21,7 @@ impl Package {
 
         let mut ar = Archive::new(decoder);
         ar.set_preserve_permissions(true);
+        ar.set_preserve_mtime(false);
         Ok(Package {
             archive: ar,
             path: path.as_ref().to_path_buf(),
