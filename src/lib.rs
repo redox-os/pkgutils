@@ -6,7 +6,7 @@ use std::path::Path;
 use std::str;
 
 pub use crate::database::{Database, PackageDepends};
-pub use crate::download::{download, download_client};
+pub use crate::download::download;
 pub use crate::package::Package;
 pub use crate::packagemeta::{PackageMeta, PackageMetaList};
 
@@ -19,7 +19,6 @@ mod packagemeta;
 pub struct Repo {
     local: String,
     remotes: Vec<String>,
-    client: hyper::Client,
     target: String,
 }
 
@@ -62,7 +61,6 @@ impl Repo {
         Repo {
             local: format!("/tmp/pkg"),
             remotes,
-            client: download_client(),
             target: target.to_string(),
         }
     }
@@ -80,7 +78,7 @@ impl Repo {
         ));
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}/{}", remote, self.target, file);
-            res = download(&self.client, &remote_path, &local_path).map(|_| local_path.clone());
+            res = download(&remote_path, &local_path).map(|_| local_path.clone());
             if res.is_ok() {
                 break;
             }
