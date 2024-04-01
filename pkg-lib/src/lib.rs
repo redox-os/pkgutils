@@ -2,8 +2,8 @@
 
 use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
 
-use backend::tar::TarBackend;
-//use backend::pkgar_backend::PkgarBackend;
+//use backend::tar::TarBackend;
+use backend::pkgar_backend::PkgarBackend;
 use backend::{Backend, Error};
 use net_backend::{Callback, DefaultNetBackend};
 use package::{Package, PackageInfo};
@@ -60,9 +60,10 @@ impl Library {
             callback: callback.clone(),
         };
 
-        let backend = TarBackend::new(repo_manager)?;//PkgarBackend::new(repo_manager, callback.clone())?;
+        //let backend = TarBackend::new(repo_manager)?;
+        let backend = PkgarBackend::new(repo_manager, callback.clone())?;
 
-        // make this not repeating
+        // TODO: Dont init it multiple times
         let repo_manager = RepoManager {
             remotes: remotes.clone(),
             download_path: DOWNLOAD_PATH.into(),
