@@ -17,25 +17,24 @@ name = "pkg"
 path = "src/bin/pkg.rs"
 
 [dependencies]
-clap = { version = "2.33.3", default-features = false }
-hyper-rustls = "0.6"
-libflate = "1.0.2"
-redox_liner = "0.5.1"
-pbr = "1.0.3"
-serde = "1.0.115"
-serde_derive = "1.0.115"
-sha3 = "0.9.1"
-tar = "0.4.29"
-toml = "0.5.6"
-version-compare = "0.0.10"
-petgraph = "0.5.1"
-bidir-map = "1.0.0"
-indexmap = "1"
+bidir-map = "1"
+clap = { version = "2", default-features = false }
+indexmap = "2"
+libflate = "2"
+pbr = "1"
+petgraph = "0.6"
+redox_liner = "0.5"
+serde = "1"
+serde_derive = "1"
+sha3 = "0.10"
+tar = "0.4"
+toml = "0.8"
+version-compare = "0.0"
 
-[dependencies.hyper]
-version = "0.10"
+[dependencies.reqwest]
+version = "0.12"
 default-features = false
+features = ["blocking", "rustls-tls"]
 
 [patch.crates-io]
-ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-unix-0.13.5" }
 cc-11 = { git = "https://github.com/tea/cc-rs", branch="riscv-abi-arch-fix", package = "cc" }

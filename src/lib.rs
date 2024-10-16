@@ -19,7 +19,7 @@ mod packagemeta;
 pub struct Repo {
     local: String,
     remotes: Vec<String>,
-    client: hyper::Client,
+    client: reqwest::blocking::Client,
     target: String,
 }
 
