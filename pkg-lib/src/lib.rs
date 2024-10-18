@@ -1,17 +1,21 @@
 //#![cfg_attr(target_os = "redox", feature(io_error_more))]
 
-use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, fs, path::Path, rc::Rc};
 
 use backend::pkgar_backend::PkgarBackend;
-use backend::{Backend, Error};
-use net_backend::{Callback, DefaultNetBackend, DownloadBackend};
-use package::{Package, PackageInfo};
+use backend::Backend;
+use net_backend::{DefaultNetBackend, DownloadBackend};
 use package_list::PackageList;
 use repo_manager::RepoManager;
 
+pub use backend::Error;
+pub use callback::Callback;
+pub use package::{Package, PackageInfo, PackageName};
+
 pub mod backend;
+pub mod callback;
 pub mod net_backend;
-mod package;
+pub mod package;
 mod package_list;
 mod repo_manager;
 mod sorensen;
@@ -23,29 +27,36 @@ pub struct Library {
 }
 
 const DOWNLOAD_PATH: &str = "/tmp/pkg_dowload/";
-#[cfg(target_os = "linux")]
-const INSTALL_PATH: &str = "/tmp/pkg_install";
-#[cfg(target_os = "redox")]
-const INSTALL_PATH: &str = "/";
 
 // make them not relative
-// make repos a folder
-const REPOS_PATH: &str = "etc/pkg/repos";
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
 
 impl Library {
-    pub fn new(callback: Rc<RefCell<dyn Callback>>) -> Result<Self, Error> {
-        let mut remotes = vec![];
-        // only add this is none were added
-        remotes.push("https://static.redox-os.org/pkg/x86_64-unknown-redox".to_string());
+    pub fn new<P: AsRef<Path>>(
+        install_path: P,
+        target: &str,
+        callback: Rc<RefCell<dyn Callback>>,
+    ) -> Result<Self, Error> {
+        let install_path = install_path.as_ref();
 
-        let repos_path = format!("{}/{}", INSTALL_PATH, REPOS_PATH);
-        let file = fs::read_to_string(repos_path);
-
-        if let Ok(data) = file {
-            for line in data.lines() {
-                if !line.starts_with('#') {
-                    remotes.push(line.to_string());
+        let mut remotes = Vec::new();
+        {
+            let repos_path = install_path.join("etc/pkg.d");
+            let mut repo_files = Vec::new();
+            for entry_res in fs::read_dir(&repos_path)? {
+                let entry = entry_res?;
+                let path = entry.path();
+                if path.is_file() {
+                    repo_files.push(path);
+                }
+            }
+            repo_files.sort();
+            for repo_file in repo_files {
+                let data = fs::read_to_string(repo_file)?;
+                for line in data.lines() {
+                    if !line.starts_with('#') {
+                        remotes.push(format!("{}/{target}", line.trim()));
+                    }
                 }
             }
         }
@@ -59,8 +70,7 @@ impl Library {
             callback: callback.clone(),
         };
 
-        //let backend = TarBackend::new(repo_manager)?;
-        let backend = PkgarBackend::new(repo_manager, callback.clone())?;
+        let backend = PkgarBackend::new(install_path, repo_manager, callback.clone())?;
 
         // TODO: Dont init it multiple times
         let repo_manager = RepoManager {
@@ -77,11 +87,11 @@ impl Library {
         })
     }
 
-    pub fn get_installed_packages(&self) -> Result<Vec<String>, Error> {
+    pub fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error> {
         self.backend.get_installed_packages()
     }
 
-    pub fn install(&mut self, packages: Vec<String>) -> Result<(), Error> {
+    pub fn install(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
         for package_name in packages {
             self.package_list.install.push(package_name);
         }
@@ -89,7 +99,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn uninstall(&mut self, packages: Vec<String>) -> Result<(), Error> {
+    pub fn uninstall(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
         for package_name in packages {
             if self.get_installed_packages()?.contains(&package_name) {
                 self.package_list.uninstall.push(package_name);
@@ -100,10 +110,10 @@ impl Library {
     }
 
     /// if packages is empty then update all installed packages
-    pub fn update(&mut self, packages: Vec<String>) -> Result<(), Error> {
+    pub fn update(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
         if packages.is_empty() {
             for package_name in &self.backend.get_installed_packages()? {
-                self.package_list.install.push(package_name.to_string());
+                self.package_list.install.push(package_name.clone());
             }
         } else {
             for package_name in packages {
@@ -116,7 +126,8 @@ impl Library {
         Ok(())
     }
 
-    pub fn get_all_package_names(&mut self) -> Result<Vec<String>, Error> {
+    pub fn get_all_package_names(&mut self) -> Result<Vec<PackageName>, Error> {
+        //TODO: use repo.toml
         // get website html
         let mut website = self.repo_manager.sync_website();
 
@@ -130,9 +141,9 @@ impl Library {
                 }
                 i -= 1;
             }
-            let package_name = &website[i + 1..end];
-            if !names.contains(&package_name.to_string()) {
-                names.push(package_name.to_string());
+            let package_name = PackageName::new(&website[i + 1..end])?;
+            if !names.contains(&package_name) {
+                names.push(package_name);
             }
 
             website = website.replacen(".toml</a>", "", 1);
@@ -141,7 +152,7 @@ impl Library {
         Ok(names)
     }
 
-    pub fn search(&mut self, package: &str) -> Result<Vec<(String, f64)>, Error> {
+    pub fn search(&mut self, package: &str) -> Result<Vec<(PackageName, f64)>, Error> {
         let names = self.get_all_package_names()?;
 
         let mut result = vec![];
@@ -151,14 +162,14 @@ impl Library {
 
             let dst = sorensen::distance(
                 package.to_lowercase().as_bytes(),
-                name.to_lowercase().as_bytes(),
+                name.as_str().to_lowercase().as_bytes(),
             );
 
             if dst >= 0.2 {
                 rank += dst;
             }
 
-            if name.contains(package) {
+            if name.as_str().contains(package) {
                 rank += 0.01;
             }
 
@@ -182,7 +193,7 @@ impl Library {
 
     pub fn apply(&mut self) -> Result<(), Error> {
         for package in self.package_list.uninstall.iter() {
-            self.backend.uninstall(package.to_string())?;
+            self.backend.uninstall(package.clone())?;
         }
 
         let install = self.with_dependecies(&self.package_list.install.clone())?;
@@ -200,13 +211,16 @@ impl Library {
     }
 
     // hard to read
-    fn get_package(&mut self, package_name: &str) -> Result<Package, Error> {
+    fn get_package(&mut self, package_name: &PackageName) -> Result<Package, Error> {
         let toml = self.repo_manager.sync_toml(package_name);
 
         Ok(Package::from_toml(&toml)?)
     }
 
-    pub fn with_dependecies(&mut self, packages: &Vec<String>) -> Result<Vec<String>, Error> {
+    pub fn with_dependecies(
+        &mut self,
+        packages: &Vec<PackageName>,
+    ) -> Result<Vec<PackageName>, Error> {
         let mut list = vec![];
         for package in packages {
             self.get_dependecies_recursive(package, &mut list)?;
@@ -217,8 +231,8 @@ impl Library {
 
     fn get_dependecies_recursive(
         &mut self,
-        package_name: &str,
-        list: &mut Vec<String>,
+        package_name: &PackageName,
+        list: &mut Vec<PackageName>,
     ) -> Result<(), Error> {
         let package = self.get_package(package_name)?;
         for dep in &package.depends {
@@ -235,7 +249,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn info(&mut self, package: String) -> Result<PackageInfo, Error> {
+    pub fn info(&mut self, package: PackageName) -> Result<PackageInfo, Error> {
         let installed = self.backend.get_installed_packages()?.contains(&package);
         let package = self.get_package(&package)?;
 

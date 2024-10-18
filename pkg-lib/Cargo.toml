@@ -11,6 +11,7 @@ license.workspace = true
 name = "pkg"
 
 [dependencies]
+indicatif = { version = "0.17", optional = true }
 pkgar = "0.1"
 pkgar-core = "0.1"
 pkgar-keys = "0.1"

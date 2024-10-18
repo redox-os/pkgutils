@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
 use crate::net_backend::DownloadBackend;
-use crate::{backend::Error, net_backend::Callback};
+use crate::{backend::Error, Callback, PackageName};
 
 pub struct RepoManager {
     pub remotes: Vec<String>,
@@ -14,11 +14,12 @@ pub struct RepoManager {
 }
 
 impl RepoManager {
-    pub fn sync_toml(&self, package_name: &str) -> String {
+    pub fn sync_toml(&self, package_name: &PackageName) -> String {
+        //TODO: just load directly into memory
         self.sync_and_read(&format!("{package_name}.toml")).unwrap()
     }
 
-    pub fn sync_pkgar(&self, package_name: &str) {
+    pub fn sync_pkgar(&self, package_name: &PackageName) {
         self.sync(&format!("{package_name}.pkgar")).unwrap()
     }
 

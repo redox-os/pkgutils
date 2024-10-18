@@ -1,9 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use clap::{Parser, Subcommand};
-use pkg::{net_backend::Callback, *};
-
-use indicatif::{ProgressBar, ProgressStyle};
+use pkg::{callback::IndicatifCallback, Library, PackageName};
 
 /// Redox Package Manager
 #[derive(Debug, Parser)]
@@ -63,35 +61,7 @@ enum Commands {
     List,
 }
 
-#[derive(Clone)]
-struct BasicCallback {
-    pb: ProgressBar,
-}
-
-impl Callback for BasicCallback {
-    fn start_download(&mut self, length: u64, file: &str) {
-        self.pb = ProgressBar::new(length);
-        self.pb.set_style(ProgressStyle::with_template("{msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
-            .unwrap()
-            .progress_chars("#>-"));
-
-        // do actual parsing not this
-        let mut msg = file.replace("https://static.redox-os.org/pkg/", "");
-        msg = msg.replace("x86_64-unknown-redox/", "");
-
-        self.pb.set_message(msg);
-    }
-
-    fn increment_downloaded(&mut self, downloaded: usize) {
-        self.pb.inc(downloaded as u64);
-    }
-    fn end_download(&mut self) {
-        self.pb.finish();
-        println!();
-    }
-}
-
-fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<String> {
+fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<PackageName> {
     let mut packages = vec![];
     let all_packages = library.get_all_package_names().unwrap();
 
@@ -100,10 +70,10 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
     }
 
     for pattern_string in input.iter() {
-        let patern = glob::Pattern::new(pattern_string).unwrap();
+        let pattern = glob::Pattern::new(pattern_string).unwrap();
 
         for package in all_packages.iter() {
-            if patern.matches(package) {
+            if pattern.matches(package.as_str()) {
                 packages.push(package.clone());
             }
         }
@@ -113,13 +83,15 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 }
 
 fn main() {
-    // std::env::set_var("RUST_BACKTRACE", "1");
+    let callback = IndicatifCallback::new();
 
-    let cli = BasicCallback {
-        pb: ProgressBar::hidden(),
+    let (install_path, target) = if cfg!(target_os = "redox") {
+        ("/", env!("TARGET"))
+    } else {
+        ("/tmp/pkg_install", "x86_64-unknown-redox")
     };
 
-    let mut library = Library::new(Rc::new(RefCell::new(cli))).unwrap();
+    let mut library = Library::new(install_path, target, Rc::new(RefCell::new(callback))).unwrap();
 
     let args = Cli::parse();
 
@@ -142,6 +114,7 @@ fn main() {
             return;
         }
         Commands::Info { package } => {
+            let package = PackageName::new(package).unwrap();
             let info = library.info(package).unwrap();
             println!("{:#?}", info);
             return;

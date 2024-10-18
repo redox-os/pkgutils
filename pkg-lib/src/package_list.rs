@@ -1,7 +1,9 @@
+use crate::PackageName;
+
 #[derive(Default)]
 pub struct PackageList {
-    pub install: Vec<String>,
-    pub uninstall: Vec<String>,
-    //pub upgrade: Vec<String>,
-    //pub downgrade: Vec<String>,
+    pub install: Vec<PackageName>,
+    pub uninstall: Vec<PackageName>,
+    //pub upgrade: Vec<PackageName>,
+    //pub downgrade: Vec<PackageName>,
 }

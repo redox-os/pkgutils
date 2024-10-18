@@ -1,8 +1,10 @@
 use serde_derive::{Deserialize, Serialize};
 
+use crate::PackageName;
+
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Packages {
-    pub protected: Vec<String>,
+    pub protected: Vec<PackageName>,
 }
 
 impl Packages {
