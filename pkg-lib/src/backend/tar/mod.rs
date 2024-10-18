@@ -6,9 +6,7 @@ use std::{
 
 use self::files::Packages;
 use super::Backend;
-use crate::{
-    repo_manager::RepoManager, Error, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH,
-};
+use crate::{repo_manager::RepoManager, Error, DOWNLOAD_PATH, INSTALL_PATH, PACKAGES_PATH};
 use libflate::gzip::Decoder;
 use tar::Archive;
 
@@ -70,10 +68,10 @@ impl TarBackend {
 
                 if path.is_dir() {
                     match fs::remove_dir(path) {
-                        Ok(_) => { },
+                        Ok(_) => {}
                         //#[cfg(target_os = "redox")]
                         //Err(e) => { if e.kind() == ErrorKind::DirectoryNotEmpty { println!("{path:?} is not empty") } },
-                        Err(_) => { }
+                        Err(_) => {}
                     }
                     //fs::remove_dir_all(path)?;
                 } else if path.is_file() {
@@ -97,7 +95,6 @@ impl Backend for TarBackend {
 
         let mut ar = Archive::new(decoder);
         ar.set_preserve_permissions(true);
-
 
         if !self.packages.files.contains_key(&package) {
             self.packages.files.insert(package.clone(), vec![]);

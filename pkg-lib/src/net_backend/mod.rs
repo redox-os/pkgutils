@@ -2,17 +2,15 @@ use std::{cell::RefCell, io, path::Path, rc::Rc};
 
 use thiserror::Error;
 
-//mod reqwest;
-//mod hyper;
-//mod ureq;
-mod old_hyper;
+mod reqwest_backend;
 
-//pub use reqwest::ReqwestBackend as DefaultNetBackend;
-//pub use hyper::HyperBackend as DefaultNetBackend;
-//pub use ureq::UreqBackend as DefaultNetBackend;
-pub use old_hyper::HyperBackend as DefaultNetBackend;
+pub use reqwest_backend::ReqwestBackend as DefaultNetBackend;
 
 pub trait DownloadBackend {
+    fn new() -> Result<Self, DownloadError>
+    where
+        Self: Sized;
+
     fn download(
         &self,
         remote_path: &str,
@@ -40,8 +38,8 @@ pub trait Callback {
 // this feals wrong
 #[derive(Error, Debug)]
 pub enum DownloadError {
-    //#[error("Reqwest backend faild")]
-    //Reqwest(#[from] reqwest::Error),
-    #[error("IO error")]
+    #[error("reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+    #[error("IO error: {0}")]
     IO(#[from] io::Error),
 }

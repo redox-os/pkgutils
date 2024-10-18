@@ -38,11 +38,19 @@ impl RepoManager {
         }
 
         for remote in self.remotes.iter() {
-            let res = self
+            match self
                 .download_backend
-                .download(remote, local_path, self.callback.clone());
-            if res.is_ok() {
-                break;
+                .download(remote, local_path, self.callback.clone())
+            {
+                Ok(()) => {
+                    break;
+                }
+                Err(err) => {
+                    eprintln!(
+                        "failed to download {:?} to {:?}: {}",
+                        remote, local_path, err
+                    );
+                }
             }
         }
         fs::read_to_string(self.download_path.join("website")).unwrap()

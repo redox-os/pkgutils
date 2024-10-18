@@ -5,7 +5,7 @@ use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
 use backend::tar::TarBackend;
 //use backend::pkgar_backend::PkgarBackend;
 use backend::{Backend, Error};
-use net_backend::{Callback, DefaultNetBackend};
+use net_backend::{Callback, DefaultNetBackend, DownloadBackend};
 use package::{Package, PackageInfo};
 use package_list::PackageList;
 use repo_manager::RepoManager;
@@ -51,12 +51,12 @@ impl Library {
             }
         }
 
-        let download_backend = DefaultNetBackend {};
+        let download_backend = DefaultNetBackend::new()?;
 
         let repo_manager = RepoManager {
             remotes: remotes.clone(),
             download_path: DOWNLOAD_PATH.into(),
-            download_backend: Box::new(download_backend),
+            download_backend: Box::new(download_backend.clone()),
             callback: callback.clone(),
         };
 
