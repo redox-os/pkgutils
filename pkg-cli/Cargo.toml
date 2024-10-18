@@ -1,0 +1,21 @@
+[package]
+name = "pkg-cli"
+default-run = "pkg"
+description = "redox package manager cli"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "pkg"
+path = "src/main.rs"
+
+[dependencies]
+pkg-lib = { path = "../pkg-lib" }
+
+clap = { version = "4.3", features = ["cargo", "derive"] }
+glob = "0.3"
+
+indicatif = "0.17"
