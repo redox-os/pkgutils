@@ -34,10 +34,6 @@ impl DownloadBackend for ReqwestBackend {
         let mut resp = self.client.get(remote_path).send()?;
 
         let len: u64 = resp.content_length().unwrap_or(0);
-        eprintln!(
-            "Downloading {:?} to {:?} with length {}",
-            remote_path, local_path, len
-        );
 
         let mut output = File::create(local_path)?;
 
