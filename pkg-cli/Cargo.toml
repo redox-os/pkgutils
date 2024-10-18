@@ -1,5 +1,5 @@
 [package]
-name = "pkg-cli"
+name = "redox-pkg-cli"
 default-run = "pkg"
 description = "redox package manager cli"
 
@@ -13,7 +13,7 @@ name = "pkg"
 path = "src/main.rs"
 
 [dependencies]
-pkg-lib = { path = "../pkg-lib" }
+redox-pkg = { path = "../pkg-lib" }
 
 clap = { version = "4.3", features = ["cargo", "derive"] }
 glob = "0.3"

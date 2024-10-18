@@ -863,34 +863,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
-name = "pkg-cli"
-version = "0.1.8"
-dependencies = [
- "clap 4.5.20",
- "glob",
- "indicatif",
- "pkg-lib",
-]
-
-[[package]]
 name = "pkg-config"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "953ec861398dccce10c670dfeaf3ec4911ca479e9c02154b3a215178c5f566f2"
-
-[[package]]
-name = "pkg-lib"
-version = "0.1.8"
-dependencies = [
- "pkgar",
- "pkgar-core",
- "pkgar-keys",
- "reqwest",
- "serde",
- "serde_derive",
- "thiserror",
- "toml",
-]
 
 [[package]]
 name = "pkgar"
@@ -1074,6 +1050,30 @@ checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "redox-pkg"
+version = "0.1.0"
+dependencies = [
+ "pkgar",
+ "pkgar-core",
+ "pkgar-keys",
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "redox-pkg-cli"
+version = "0.1.0"
+dependencies = [
+ "clap 4.5.20",
+ "glob",
+ "indicatif",
+ "redox-pkg",
 ]
 
 [[package]]
