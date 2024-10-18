@@ -1150,8 +1150,7 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.17.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+source = "git+https://gitlab.redox-os.org/redox-os/ring.git?branch=redox-0.17.8#fce20f12b6aad164a1a7e13ae1dcb46422b171c0"
 dependencies = [
  "cc",
  "cfg-if 1.0.0",

@@ -15,3 +15,7 @@ license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
 repository = "https://gitlab.redox-os.org/redox-os/pkgutils"
 edition = "2021"
+
+[patch.crates-io]
+# https://github.com/briansmith/ring/issues/1999
+ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-0.17.8" }
