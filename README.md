@@ -8,15 +8,13 @@ This repository contains utilities for package management on Redox. Currently, o
 ## `pkg`
 The command `pkg` is the primary package management utility for Redox OS. In its current state, `pkg` supports the following commands:
 
-| Command   | Functionality                  |
-|-----------|--------------------------------|
-| `clean`   | Clean an extracted package     |
-| `create`  | Create a package               |
-| `extract` | Extract a package              |
-| `fetch`   | Download a package             |
-| `install` | Install a package              |
-| `list`    | List package contents          |
-| `sign`    | Get a file signature           |
-| `upgrade` | Upgrade all installed packages |
+| Command     | Functionality                  |
+|-------------|--------------------------------|
+| `install`   | Install packages               |
+| `uninstall` | Uninstall packages             |
+| `update`    | Update packages (all if empty) |
+| `search`    | Search for a package           |
+| `info`      | Package info                   |
+| `list`      | List of installed packages     |
 
 For more detailed information on how to invoke these subcommands, please run `pkg help <SUBCOMMAND>` in your terminal.

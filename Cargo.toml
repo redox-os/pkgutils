@@ -1,40 +1,23 @@
-[package]
+[workspace]
+resolver = "2"
+members = [
+    "pkg-lib",
+    "pkg-cli",
+    #"pkg-gui",
+]
+default-members = [
+    "pkg-cli",
+]
+
+[workspace.package]
 name = "redox_pkgutils"
-version = "0.1.9"
+version = "0.1.8"
 description = "Redox Packaging Utilities"
 license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
 repository = "https://gitlab.redox-os.org/redox-os/pkgutils"
-build = "build.rs"
 edition = "2018"
 
-[lib]
-name = "pkgutils"
-path = "src/lib.rs"
-
-[[bin]]
-name = "pkg"
-path = "src/bin/pkg.rs"
-
-[dependencies]
-bidir-map = "1"
-clap = { version = "2", default-features = false }
-indexmap = "2"
-libflate = "2"
-pbr = "1"
-petgraph = "0.6"
-redox_liner = "0.5"
-serde = "1"
-serde_derive = "1"
-sha3 = "0.10"
-tar = "0.4"
-toml = "0.8"
-version-compare = "0.0"
-
-[dependencies.reqwest]
-version = "0.12"
-default-features = false
-features = ["blocking", "rustls-tls"]
-
 [patch.crates-io]
-cc-11 = { git = "https://github.com/tea/cc-rs", branch="riscv-abi-arch-fix", package = "cc" }
+#ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-0.16.20" }
+ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-unix-0.13.5" }
