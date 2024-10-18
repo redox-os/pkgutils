@@ -11,13 +11,11 @@ license.workspace = true
 name = "pkg"
 
 [dependencies]
-libflate = "2.0.0"
 pkgar = "0.1"
 pkgar-core = "0.1"
 pkgar-keys = "0.1"
 serde = "1"
 serde_derive = "1"
-tar = "0.4"
 thiserror = "1"
 toml = "0.8.2"
 

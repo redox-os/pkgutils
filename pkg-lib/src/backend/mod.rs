@@ -1,5 +1,4 @@
 pub mod pkgar_backend;
-pub mod tar;
 
 use std::io;
 use thiserror::Error;

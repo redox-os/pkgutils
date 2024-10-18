@@ -22,14 +22,6 @@ impl RepoManager {
         self.sync(&format!("{package_name}.pkgar")).unwrap()
     }
 
-    pub fn sync_tar(&self, package_name: &str) {
-        self.sync(&format!("{package_name}.tar.gz")).unwrap()
-    }
-
-    pub fn sync_sig(&self, package_name: &str) -> String {
-        self.sync_and_read(&format!("{package_name}.sig")).unwrap()
-    }
-
     pub fn sync_website(&self) -> String {
         let local_path = &self.download_path.join("website");
 

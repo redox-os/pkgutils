@@ -3,7 +3,6 @@
 use std::{cell::RefCell, cmp::Ordering, fs, rc::Rc};
 
 use backend::pkgar_backend::PkgarBackend;
-// use backend::tar::TarBackend;
 use backend::{Backend, Error};
 use net_backend::{Callback, DefaultNetBackend, DownloadBackend};
 use package::{Package, PackageInfo};
@@ -237,8 +236,6 @@ impl Library {
     }
 
     pub fn info(&mut self, package: String) -> Result<PackageInfo, Error> {
-        let sig = self.repo_manager.sync_sig(&package);
-
         let installed = self.backend.get_installed_packages()?.contains(&package);
         let package = self.get_package(&package)?;
 
@@ -248,7 +245,6 @@ impl Library {
             target: package.target,
             // this can be implemented
             download_size: "not implemented".to_string(),
-            checksum: sig,
             depends: package.depends,
         })
     }
