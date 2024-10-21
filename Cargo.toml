@@ -19,3 +19,4 @@ edition = "2021"
 [patch.crates-io]
 # https://github.com/briansmith/ring/issues/1999
 ring = { git = "https://gitlab.redox-os.org/redox-os/ring.git", branch = "redox-0.17.8" }
+cc-11 = { git = "https://github.com/tea/cc-rs", branch="riscv-abi-arch-fix", package = "cc" }
