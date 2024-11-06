@@ -31,7 +31,7 @@ impl DownloadBackend for ReqwestBackend {
     ) -> Result<(), DownloadError> {
         let mut callback = callback.borrow_mut();
 
-        let mut resp = self.client.get(remote_path).send()?;
+        let mut resp = self.client.get(remote_path).send()?.error_for_status()?;
 
         let len: u64 = resp.content_length().unwrap_or(0);
 
