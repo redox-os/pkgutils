@@ -15,7 +15,7 @@ pub enum Error {
     #[error("Package {0:?} name invalid")]
     PackageNameInvalid(String),
     #[error("Path {0:?} isn't a Valid Unicode String")]
-    PathIsNotValidUnitcode(String),
+    PathIsNotValidUnicode(String),
 
     #[error("Package {0:?} is protected")]
     ProtectedPackage(PackageName),

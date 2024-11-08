@@ -14,9 +14,13 @@ pub struct RepoManager {
 }
 
 impl RepoManager {
-    pub fn sync_toml(&self, package_name: &PackageName) -> String {
+    pub fn sync_toml(&self, package_name: &PackageName) -> Result<String, Error> {
         //TODO: just load directly into memory
-        self.sync_and_read(&format!("{package_name}.toml")).unwrap()
+        match self.sync_and_read(&format!("{package_name}.toml")) {
+            Ok(toml) => Ok(toml),
+            Err(Error::ValidRepoNotFound) => Err(Error::PackageNotFound(package_name.to_owned())),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn sync_pkgar(&self, package_name: &PackageName) {
