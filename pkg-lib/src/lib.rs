@@ -212,7 +212,7 @@ impl Library {
 
     // hard to read
     fn get_package(&mut self, package_name: &PackageName) -> Result<Package, Error> {
-        let toml = self.repo_manager.sync_toml(package_name);
+        let toml = self.repo_manager.sync_toml(package_name)?;
 
         Ok(Package::from_toml(&toml)?)
     }
