@@ -23,8 +23,12 @@ impl RepoManager {
         }
     }
 
-    pub fn sync_pkgar(&self, package_name: &PackageName) {
-        self.sync(&format!("{package_name}.pkgar")).unwrap()
+    pub fn sync_pkgar(&self, package_name: &PackageName) -> Result<(), Error> {
+        match self.sync(&format!("{package_name}.pkgar")) {
+            Ok(_) => Ok(()),
+            Err(Error::ValidRepoNotFound) => Err(Error::PackageNotFound(package_name.to_owned())),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn sync_website(&self) -> String {

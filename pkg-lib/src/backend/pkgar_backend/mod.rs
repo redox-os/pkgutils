@@ -108,7 +108,7 @@ impl PkgarBackend {
 
 impl Backend for PkgarBackend {
     fn install(&mut self, package: PackageName) -> Result<(), Error> {
-        self.repo_manager.sync_pkgar(&package);
+        self.repo_manager.sync_pkgar(&package)?;
 
         let mut pkg = self.get_package(&package)?;
 
@@ -137,7 +137,7 @@ impl Backend for PkgarBackend {
     fn upgrade(&mut self, package: PackageName) -> Result<(), Error> {
         let mut pkg = self.get_package_head(&package)?;
 
-        self.repo_manager.sync_pkgar(&package);
+        self.repo_manager.sync_pkgar(&package)?;
         let mut pkg2 = self.get_package(&package)?;
 
         let mut update = Transaction::replace(&mut pkg, &mut pkg2, &self.install_path)?;
