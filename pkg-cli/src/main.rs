@@ -110,7 +110,9 @@ fn main() {
         }
         Commands::Search { package } => {
             let packages = library.search(&package).unwrap();
-            println!("{:?}", packages);
+            for (name, ver) in packages {
+                println!("{} {}", name, ver);   
+            }
             return;
         }
         Commands::Info { package } => {
