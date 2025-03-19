@@ -16,6 +16,8 @@ pub enum Error {
     PackageNameInvalid(String),
     #[error("Path {0:?} isn't a Valid Unicode String")]
     PathIsNotValidUnicode(String),
+    #[error("You don't have permissions required for this action, try performing it as root")]
+    MissingPermissions,
 
     #[error("Package {0:?} is protected")]
     ProtectedPackage(PackageName),
