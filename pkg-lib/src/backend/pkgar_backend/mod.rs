@@ -43,7 +43,8 @@ impl PkgarBackend {
             Err(_) => {
                 packages = Packages::default();
                 fs::create_dir_all(Path::new(&packages_path).parent().unwrap())?;
-                fs::write(packages_path, packages.to_toml())?;
+                let write_result = fs::write(packages_path, packages.to_toml());
+                PkgarBackend::check_write_result(write_result)?;
             }
         }
 
@@ -102,6 +103,17 @@ impl PkgarBackend {
             Option::<&str>::None,
         )?;
 
+        Ok(())
+    }
+
+    fn check_write_result(write_result: Result<(), std::io::Error>) -> Result<(), Error> {
+        if let Err(error) = write_result {
+            if error.kind() == std::io::ErrorKind::PermissionDenied {
+                return Err(Error::MissingPermissions);
+            } else {
+                return Err(Error::IO(error));
+            }
+        }
         Ok(())
     }
 }
@@ -174,6 +186,7 @@ impl Backend for PkgarBackend {
 impl Drop for PkgarBackend {
     fn drop(&mut self) {
         let packages_path = self.install_path.join(PACKAGES_PATH);
-        fs::write(packages_path, self.packages.to_toml()).unwrap();
+        let write_result = fs::write(packages_path, self.packages.to_toml());
+        PkgarBackend::check_write_result(write_result).unwrap();
     }
 }
