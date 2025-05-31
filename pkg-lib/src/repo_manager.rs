@@ -64,6 +64,10 @@ impl RepoManager {
             fs::create_dir_all(parent)?;
         }
 
+        if local_path.exists() {
+            return Ok(());
+        }
+        
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}", remote, file);
             let res =
