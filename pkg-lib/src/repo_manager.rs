@@ -9,6 +9,7 @@ pub struct RepoManager {
     pub remotes: Vec<String>,
     pub download_path: PathBuf,
     pub download_backend: Box<dyn DownloadBackend>,
+    pub prefer_cache: bool,
 
     pub callback: Rc<RefCell<dyn Callback>>,
 }
@@ -38,7 +39,7 @@ impl RepoManager {
             fs::create_dir_all(parent)?;
         }
 
-        if local_path.exists() {
+        if self.prefer_cache && local_path.exists() {
             return Ok(());
         }
         

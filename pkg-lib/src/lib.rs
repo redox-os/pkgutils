@@ -1,6 +1,6 @@
 //#![cfg_attr(target_os = "redox", feature(io_error_more))]
 
-use std::{cell::RefCell, cmp::Ordering, fs, path::Path, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, fs, path::{Path, PathBuf}, rc::Rc};
 
 use backend::pkgar_backend::PkgarBackend;
 use backend::Backend;
@@ -25,7 +25,7 @@ pub struct Library {
     backend: Box<dyn Backend>,
 }
 
-const DOWNLOAD_PATH: &str = "/tmp/pkg_dowload/";
+const DOWNLOAD_PATH: &str = "/tmp/pkg_download/";
 
 // make them not relative
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
@@ -61,12 +61,14 @@ impl Library {
         }
 
         let download_backend = DefaultNetBackend::new()?;
+        let prefer_cache = PathBuf::from(DOWNLOAD_PATH).join("prefer_cache").exists();
 
         let repo_manager = RepoManager {
             remotes: remotes.clone(),
             download_path: DOWNLOAD_PATH.into(),
             download_backend: Box::new(download_backend.clone()),
             callback: callback.clone(),
+            prefer_cache,
         };
 
         let backend = PkgarBackend::new(install_path, repo_manager, callback.clone())?;
