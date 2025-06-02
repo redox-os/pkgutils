@@ -22,7 +22,6 @@ mod sorensen;
 
 pub struct Library {
     package_list: PackageList,
-    repo_manager: RepoManager,
     backend: Box<dyn Backend>,
 }
 
@@ -72,16 +71,7 @@ impl Library {
 
         let backend = PkgarBackend::new(install_path, repo_manager, callback.clone())?;
 
-        // TODO: Dont init it multiple times
-        let repo_manager = RepoManager {
-            remotes: remotes.clone(),
-            download_path: DOWNLOAD_PATH.into(),
-            download_backend: Box::new(download_backend),
-            callback: callback.clone(),
-        };
-
         Ok(Library {
-            repo_manager,
             package_list: PackageList::default(),
             backend: Box::new(backend),
         })
@@ -127,29 +117,21 @@ impl Library {
     }
 
     pub fn get_all_package_names(&mut self) -> Result<Vec<PackageName>, Error> {
-        //TODO: use repo.toml
-        // get website html
-        let mut website = self.repo_manager.sync_website();
-
-        let mut names = vec![];
-        while let Some(end) = website.find(".toml</a>") {
-            let mut i = end;
-            loop {
-                let char = website.chars().nth(i).expect("this should work");
-                if char == '>' {
-                    break;
-                }
-                i -= 1;
-            }
-            let package_name = PackageName::new(&website[i + 1..end])?;
-            if !names.contains(&package_name) {
-                names.push(package_name);
-            }
-
-            website = website.replacen(".toml</a>", "", 1);
-        }
-
-        Ok(names)
+        let repository = self.backend.get_repository_detail()?;
+        let list = repository
+            .packages
+            .keys()
+            .cloned()
+            .fold(Vec::new(), |mut acc, x| {
+                match PackageName::new(x) {
+                    Ok(name) => {
+                        acc.push(name);
+                    }
+                    Err(_) => {}
+                };
+                acc
+            });
+        Ok(list)
     }
 
     pub fn search(&mut self, package: &str) -> Result<Vec<(PackageName, f64)>, Error> {
@@ -210,13 +192,6 @@ impl Library {
         Ok(())
     }
 
-    // hard to read
-    fn get_package(&mut self, package_name: &PackageName) -> Result<Package, Error> {
-        let toml = self.repo_manager.sync_toml(package_name)?;
-
-        Ok(Package::from_toml(&toml)?)
-    }
-
     pub fn with_dependecies(
         &mut self,
         packages: &Vec<PackageName>,
@@ -234,9 +209,9 @@ impl Library {
         package_name: &PackageName,
         list: &mut Vec<PackageName>,
     ) -> Result<(), Error> {
-        let package = self.get_package(package_name)?;
+        let package = self.backend.get_package_detail(package_name)?;
         for dep in &package.depends {
-            let package = self.get_package(dep)?;
+            let package = self.backend.get_package_detail(dep)?;
 
             if list.contains(&package.name) {
                 continue;
@@ -251,7 +226,7 @@ impl Library {
 
     pub fn info(&mut self, package: PackageName) -> Result<PackageInfo, Error> {
         let installed = self.backend.get_installed_packages()?.contains(&package);
-        let package = self.get_package(&package)?;
+        let package = self.backend.get_package_detail(&package)?;
 
         Ok(PackageInfo {
             installed,

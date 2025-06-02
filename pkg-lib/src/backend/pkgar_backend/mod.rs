@@ -10,7 +10,7 @@ use pkgar_keys::PublicKeyFile;
 
 use self::packages::Packages;
 use super::{Backend, Callback, Error};
-use crate::{repo_manager::RepoManager, PackageName, DOWNLOAD_PATH, PACKAGES_PATH};
+use crate::{package::Repository, repo_manager::RepoManager, Package, PackageName, DOWNLOAD_PATH, PACKAGES_PATH};
 
 mod packages;
 
@@ -80,6 +80,10 @@ impl PkgarBackend {
             format!("{}/{package}.pkgar", DOWNLOAD_PATH),
             &self.pkey_file.pkey,
         )?)
+    }
+
+    fn get_package_toml(&self, package: &PackageName) -> Result<String, Error> {
+        self.repo_manager.sync_toml(package)
     }
 
     fn remove_package_head(&mut self, package: &PackageName) -> Result<(), Error> {
@@ -160,6 +164,19 @@ impl Backend for PkgarBackend {
         Ok(())
     }
 
+    fn get_package_detail(&self, package: &PackageName) -> Result<Package, Error> {
+        let toml = self.get_package_toml(package)?;
+
+        Ok(Package::from_toml(&toml)?)
+    }
+
+    fn get_repository_detail(&self) -> Result<Repository, Error> {
+        let repo_str = PackageName::new("repo".to_string())?;
+        let toml = self.get_package_toml(&repo_str)?;
+
+        Ok(Repository::from_toml(&toml)?)
+    }
+
     fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error> {
         let entries = fs::read_dir(self.install_path.join(PACKAGES_DIR))?;
 
@@ -181,6 +198,8 @@ impl Backend for PkgarBackend {
 
         Ok(packages)
     }
+
+
 }
 
 impl Drop for PkgarBackend {
