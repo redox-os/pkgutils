@@ -198,8 +198,6 @@ impl Backend for PkgarBackend {
 
         Ok(packages)
     }
-
-
 }
 
 impl Drop for PkgarBackend {
