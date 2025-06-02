@@ -3,7 +3,7 @@ pub mod pkgar_backend;
 use std::io;
 use thiserror::Error;
 
-use crate::{net_backend::DownloadError, Callback, PackageName};
+use crate::{net_backend::DownloadError, package::Repository, Callback, Package, PackageName};
 
 // todo: make this better
 #[derive(Error, Debug)]
@@ -45,4 +45,6 @@ pub trait Backend {
     fn uninstall(&mut self, package: PackageName) -> Result<(), Error>;
     fn upgrade(&mut self, package: PackageName) -> Result<(), Error>;
     fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error>;
+    fn get_package_detail(&self, package: &PackageName) -> Result<Package, Error>;
+    fn get_repository_detail(&self) -> Result<Repository, Error>;
 }
