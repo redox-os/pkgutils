@@ -18,3 +18,11 @@ The command `pkg` is the primary package management utility for Redox OS. In its
 | `list`      | List of installed packages     |
 
 For more detailed information on how to invoke these subcommands, please run `pkg help <SUBCOMMAND>` in your terminal.
+
+## testing
+
+To run tests, run
+
+```sh
+cargo test -p redox-pkg --features indicatif 
+```
