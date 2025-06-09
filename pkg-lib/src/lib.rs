@@ -38,7 +38,15 @@ impl Library {
     ) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
 
-        let mut remotes = Vec::new();
+        let download_backend = DefaultNetBackend::new()?;
+
+        let mut repo_manager = RepoManager {
+            remotes: Vec::new(),
+            download_path: DOWNLOAD_PATH.into(),
+            download_backend: Box::new(download_backend.clone()),
+            callback: callback.clone(),
+        };
+
         {
             let repos_path = install_path.join("etc/pkg.d");
             let mut repo_files = Vec::new();
@@ -54,22 +62,13 @@ impl Library {
                 let data = fs::read_to_string(repo_file)?;
                 for line in data.lines() {
                     if !line.starts_with('#') {
-                        remotes.push(format!("{}/{target}", line.trim()));
+                        repo_manager.add_remote(line.trim(), target)?;
                     }
                 }
             }
         }
 
-        let download_backend = DefaultNetBackend::new()?;
-
-        let repo_manager = RepoManager {
-            remotes: remotes.clone(),
-            download_path: DOWNLOAD_PATH.into(),
-            download_backend: Box::new(download_backend.clone()),
-            callback: callback.clone(),
-        };
-
-        let backend = PkgarBackend::new(install_path, repo_manager, callback.clone())?;
+        let backend = PkgarBackend::new(install_path, repo_manager)?;
 
         Ok(Library {
             package_list: PackageList::default(),
