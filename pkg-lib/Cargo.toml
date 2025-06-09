@@ -9,6 +9,11 @@ license.workspace = true
 
 [lib]
 name = "pkg"
+doctest = false
+
+[[test]]
+name = "integration_test"
+path = "tests/integration_test.rs"
 
 [dependencies]
 indicatif = { version = "0.17", optional = true }
