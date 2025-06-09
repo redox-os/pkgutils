@@ -92,8 +92,10 @@ impl RepoManager {
     }
 
     pub fn sync_and_read(&self, file: &str) -> Result<String, Error> {
-        self.sync(file)?;
-
-        Ok(fs::read_to_string(self.download_path.join(file))?)
+        match self.sync(file) {
+            Ok(_) => Ok(fs::read_to_string(self.download_path.join(file))?),
+            Err(Error::RepoCacheExists(path)) => Ok(fs::read_to_string(path)?),
+            Err(e) => Err(e),
+        }
     }
 }
