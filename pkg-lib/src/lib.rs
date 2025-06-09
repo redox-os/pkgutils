@@ -1,6 +1,12 @@
 //#![cfg_attr(target_os = "redox", feature(io_error_more))]
 
-use std::{cell::RefCell, cmp::Ordering, fs, path::{Path, PathBuf}, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::Ordering,
+    fs,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use backend::pkgar_backend::PkgarBackend;
 use backend::Backend;
@@ -38,7 +44,17 @@ impl Library {
     ) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
 
-        let mut remotes = Vec::new();
+        let download_backend = DefaultNetBackend::new()?;
+        let prefer_cache = PathBuf::from(DOWNLOAD_PATH).join("prefer_cache").exists();
+
+        let mut repo_manager = RepoManager {
+            remotes: Vec::new(),
+            download_path: DOWNLOAD_PATH.into(),
+            download_backend: Box::new(download_backend.clone()),
+            callback: callback.clone(),
+            prefer_cache,
+        };
+
         {
             let repos_path = install_path.join("etc/pkg.d");
             let mut repo_files = Vec::new();
@@ -54,24 +70,13 @@ impl Library {
                 let data = fs::read_to_string(repo_file)?;
                 for line in data.lines() {
                     if !line.starts_with('#') {
-                        remotes.push(format!("{}/{target}", line.trim()));
+                        repo_manager.add_remote(line.trim(), target)?;
                     }
                 }
             }
         }
 
-        let download_backend = DefaultNetBackend::new()?;
-        let prefer_cache = PathBuf::from(DOWNLOAD_PATH).join("prefer_cache").exists();
-
-        let repo_manager = RepoManager {
-            remotes: remotes.clone(),
-            download_path: DOWNLOAD_PATH.into(),
-            download_backend: Box::new(download_backend.clone()),
-            callback: callback.clone(),
-            prefer_cache,
-        };
-
-        let backend = PkgarBackend::new(install_path, repo_manager, callback.clone())?;
+        let backend = PkgarBackend::new(install_path, repo_manager)?;
 
         Ok(Library {
             package_list: PackageList::default(),

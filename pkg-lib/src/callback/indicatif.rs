@@ -1,4 +1,5 @@
 use indicatif::{ProgressBar, ProgressStyle};
+use reqwest::Url;
 
 use crate::Callback;
 
@@ -22,9 +23,13 @@ impl Callback for IndicatifCallback {
             .unwrap()
             .progress_chars("#>-"));
 
-        // do actual parsing not this
-        let mut msg = file.replace("https://static.redox-os.org/pkg/", "");
-        msg = msg.replace("x86_64-unknown-redox/", "");
+        let msg = match Url::parse(file) {
+            Err(_) => file.to_owned(),
+            Ok(url) => url
+                .path_segments()
+                .and_then(|segments| segments.last())
+                .unwrap_or(file).to_owned(),
+        };
 
         self.pb.set_message(msg);
     }
