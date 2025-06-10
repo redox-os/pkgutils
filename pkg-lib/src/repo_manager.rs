@@ -34,12 +34,16 @@ impl RepoManager {
             .to_owned();
         fs::create_dir_all(PUB_DIR)?;
         let pubkey = format!("{}/pub_key_{}.toml", PUB_DIR, host);
+        let local_keypath = Path::new(&pubkey);
         let remote_keypath = format!("{}/{}", path, PUB_TOML);
-        self.download_backend.download(
-            &remote_keypath,
-            Path::new(&pubkey),
-            self.callback.clone(),
-        )?;
+
+        if !self.prefer_cache || !local_keypath.exists() {
+            self.download_backend.download(
+                &remote_keypath,
+                local_keypath,
+                self.callback.clone(),
+            )?;
+        }
 
         self.remotes.push(RemotePath {
             path: format!("{}/{}", path, target),
