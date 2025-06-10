@@ -12,7 +12,7 @@ pub enum Error {
     ValidRepoNotFound,
     #[error("Repository path is not valid")]
     RepoPathInvalid,
-    #[error("Package {0:?} source repo not found")]
+    #[error("Cached package {0:?} source repo is not found")]
     RepoCacheNotFound(PackageName),
     #[error("Package cache exists at {0:?}")]
     RepoCacheExists(PathBuf),

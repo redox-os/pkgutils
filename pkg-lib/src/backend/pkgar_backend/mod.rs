@@ -82,7 +82,7 @@ impl PkgarBackend {
                 }
             }
         }
-        Err(Error::RepoCacheNotFound(package.to_owned()))
+        Err(Error::RepoCacheNotFound(package.clone()))
     }
 
     fn get_package_pkgar(&self, package: &PackageName) -> Result<&RemotePath, Error> {
@@ -98,6 +98,8 @@ impl PkgarBackend {
                     }
                 }
             }
+
+            return Err(Error::RepoCacheNotFound(package.clone()));
         }
 
         r
