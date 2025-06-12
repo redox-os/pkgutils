@@ -1322,7 +1322,7 @@ dependencies = [
 
 [[package]]
 name = "redox-pkg"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "indicatif",
@@ -1338,7 +1338,7 @@ dependencies = [
 
 [[package]]
 name = "redox-pkg-cli"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "clap 4.5.40",
  "glob",
