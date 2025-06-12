@@ -34,6 +34,8 @@ pub enum Error {
     PkgarKeys(#[from] pkgar_keys::Error),
     #[error("pkgar error: {0}")]
     Pkgar(Box<pkgar::Error>),
+    #[error("pkgar error: {0}")]
+    PkgarAnyhow(#[from] anyhow::Error)
 }
 
 impl From<pkgar::Error> for Error {
