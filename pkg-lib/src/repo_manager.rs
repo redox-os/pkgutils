@@ -31,32 +31,6 @@ impl RepoManager {
         }
     }
 
-    pub fn sync_website(&self) -> String {
-        let local_path = &self.download_path.join("website");
-
-        if let Some(parent) = local_path.parent() {
-            fs::create_dir_all(parent).unwrap();
-        }
-
-        for remote in self.remotes.iter() {
-            match self
-                .download_backend
-                .download(remote, local_path, self.callback.clone())
-            {
-                Ok(()) => {
-                    break;
-                }
-                Err(err) => {
-                    eprintln!(
-                        "failed to download {:?} to {:?}: {}",
-                        remote, local_path, err
-                    );
-                }
-            }
-        }
-        fs::read_to_string(self.download_path.join("website")).unwrap()
-    }
-
     pub fn sync(&self, file: &str) -> Result<(), Error> {
         let local_path = self.download_path.join(file);
 

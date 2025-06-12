@@ -1,5 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
-use std::fmt;
+use std::{collections::HashMap, fmt};
 use toml::{self, from_str, to_string};
 
 use crate::Error;
@@ -81,4 +81,15 @@ pub struct PackageInfo {
     pub download_size: String,
     // pub install_size: String,
     pub depends: Vec<PackageName>,
+}
+
+ #[derive(Debug, serde::Deserialize)]
+pub struct Repository {
+    pub packages: HashMap<String, String>,
+}
+
+impl Repository {
+    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
+        from_str(text)
+    }
 }
