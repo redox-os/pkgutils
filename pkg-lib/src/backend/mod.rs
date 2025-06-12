@@ -3,13 +3,15 @@ pub mod pkgar_backend;
 use std::io;
 use thiserror::Error;
 
-use crate::{net_backend::DownloadError, package::Repository, Callback, Package, PackageName};
+use crate::{net_backend::DownloadError, package::Repository, Package, PackageName};
 
 // todo: make this better
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Please add repos")]
     ValidRepoNotFound,
+    #[error("Repository path is not valid")]
+    RepoPathInvalid,
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
     #[error("Package {0:?} name invalid")]
