@@ -101,14 +101,15 @@ impl Library {
 
     /// if packages is empty then update all installed packages
     pub fn update(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
+        let installed_packages = self.get_installed_packages()?;
         if packages.is_empty() {
-            for package_name in &self.backend.get_installed_packages()? {
+            for package_name in &installed_packages {
                 self.package_list.install.push(package_name.clone());
             }
         } else {
             for package_name in packages {
-                if self.get_installed_packages()?.contains(&package_name) {
-                    self.package_list.uninstall.push(package_name);
+                if installed_packages.contains(&package_name) {
+                    self.package_list.install.push(package_name);
                 }
             }
         }
