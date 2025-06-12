@@ -16,7 +16,9 @@ fn test_pkg_install() -> Result<(), Box<dyn std::error::Error>> {
     let tmp_dir = std::env::current_dir()?.join("tests/staging");
 
     // Simulate redox OS pkg library
-    fs::remove_dir_all(&tmp_dir)?;
+    if tmp_dir.exists() {
+        fs::remove_dir_all(&tmp_dir)?;
+    }
     let pkg_d_dir = tmp_dir.join("etc/pkg.d");
     fs::create_dir_all(&pkg_d_dir)?;
     let source_file = pkg_d_dir.join("50_redox");
