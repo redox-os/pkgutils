@@ -210,16 +210,13 @@ impl Library {
         list: &mut Vec<PackageName>,
     ) -> Result<(), Error> {
         let package = self.backend.get_package_detail(package_name)?;
-        for dep in &package.depends {
-            let package = self.backend.get_package_detail(dep)?;
-
-            if list.contains(&package.name) {
-                continue;
-            }
-
-            list.push(package.name.clone());
-            self.get_dependecies_recursive(package_name, list)?;
+        if list.contains(&package.name) {
+            return Ok(());
         }
+        for dep in &package.depends {
+            self.get_dependecies_recursive(&dep, list)?;
+        }
+
         list.push(package.name);
         Ok(())
     }
