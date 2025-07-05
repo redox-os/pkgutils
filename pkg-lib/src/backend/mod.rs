@@ -1,6 +1,6 @@
 pub mod pkgar_backend;
 
-use std::io;
+use std::{io, path::PathBuf};
 use thiserror::Error;
 
 use crate::{net_backend::DownloadError, package::Repository, Package, PackageName};
@@ -12,6 +12,10 @@ pub enum Error {
     ValidRepoNotFound,
     #[error("Repository path is not valid")]
     RepoPathInvalid,
+    #[error("Cached package {0:?} source repo is not found")]
+    RepoCacheNotFound(PackageName),
+    #[error("Package cache exists at {0:?}")]
+    RepoCacheExists(PathBuf),
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
     #[error("Package {0:?} name invalid")]

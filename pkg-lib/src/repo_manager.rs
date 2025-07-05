@@ -11,6 +11,7 @@ pub struct RepoManager {
     pub remotes: Vec<RemotePath>,
     pub download_path: PathBuf,
     pub download_backend: Box<dyn DownloadBackend>,
+    pub prefer_cache: bool,
 
     pub callback: Rc<RefCell<dyn Callback>>,
 }
@@ -33,9 +34,16 @@ impl RepoManager {
             .to_owned();
         fs::create_dir_all(PUB_DIR)?;
         let pubkey = format!("{}/pub_key_{}.toml", PUB_DIR, host);
+        let local_keypath = Path::new(&pubkey);
         let remote_keypath = format!("{}/{}", path, PUB_TOML);
-        self.download_backend
-            .download(&remote_keypath, Path::new(&pubkey), self.callback.clone())?;
+
+        if !self.prefer_cache || !local_keypath.exists() {
+            self.download_backend.download(
+                &remote_keypath,
+                local_keypath,
+                self.callback.clone(),
+            )?;
+        }
 
         self.remotes.push(RemotePath {
             path: format!("{}/{}", path, target),
@@ -70,6 +78,10 @@ impl RepoManager {
             fs::create_dir_all(parent)?;
         }
 
+        if self.prefer_cache && local_path.exists() {
+            return Err(Error::RepoCacheExists(local_path));
+        }
+
         for remote in self.remotes.iter() {
             let remote_path = format!("{}/{}", remote.path, file);
             let res =
@@ -84,8 +96,10 @@ impl RepoManager {
     }
 
     pub fn sync_and_read(&self, file: &str) -> Result<String, Error> {
-        self.sync(file)?;
-
-        Ok(fs::read_to_string(self.download_path.join(file))?)
+        match self.sync(file) {
+            Ok(_) => Ok(fs::read_to_string(self.download_path.join(file))?),
+            Err(Error::RepoCacheExists(path)) => Ok(fs::read_to_string(path)?),
+            Err(e) => Err(e),
+        }
     }
 }
