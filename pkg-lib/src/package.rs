@@ -1,8 +1,9 @@
+use std::{borrow::Borrow, collections::HashMap, env, fmt, fs};
+
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt};
 use toml::{self, from_str, to_string};
 
-use crate::Error;
+use crate::{recipes::find, Error};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct Package {
@@ -15,13 +16,72 @@ pub struct Package {
     pub depends: Vec<PackageName>,
 }
 
-/*impl Ord for Package {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.name.cmp(&other.name)
-    }
-}*/
-
 impl Package {
+    pub fn new(name: &str) -> Result<Self, String> {
+        let name: PackageName = name.try_into().map_err(|e| format!("{e:?}"))?;
+        let dir = find(name.as_str());
+        if dir.is_none() {
+            return Err(format!("failed to find recipe directory '{}'", name));
+        }
+        let dir = dir.unwrap();
+        let target =
+            env::var("TARGET").map_err(|err| format!("failed to read TARGET: {:?}", err))?;
+
+        let file = dir.join("target").join(target).join("stage.toml");
+        if !file.is_file() {
+            return Err(format!("failed to find package file '{}'", file.display()));
+        }
+
+        let toml = fs::read_to_string(&file).map_err(|err| {
+            format!(
+                "failed to read package file '{}': {}\n{:#?}",
+                file.display(),
+                err,
+                err
+            )
+        })?;
+
+        toml::from_str(&toml).map_err(|err| {
+            format!(
+                "failed to parse package file '{}': {}\n{:#?}",
+                file.display(),
+                err,
+                err
+            )
+        })
+    }
+
+    pub fn new_recursive(names: &[&str], recursion: usize) -> Result<Vec<Self>, String> {
+        if recursion == 0 {
+            return Err(format!(
+                "recursion limit while processing build dependencies: {:#?}",
+                names
+            ));
+        }
+
+        let mut packages = Vec::new();
+        for name in names {
+            let package = Self::new(name)?;
+
+            // TODO: Ugly vec
+            let dependencies: Vec<_> = package.depends.iter().map(Borrow::borrow).collect();
+            let dependencies = Self::new_recursive(&dependencies, recursion - 1)
+                .map_err(|err| format!("{}: failed on loading dependencies:\n{}", name, err))?;
+
+            for dependency in dependencies {
+                if !packages.contains(&dependency) {
+                    packages.push(dependency);
+                }
+            }
+
+            if !packages.contains(&package) {
+                packages.push(package);
+            }
+        }
+
+        Ok(packages)
+    }
+
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
         from_str(text)
     }
@@ -29,12 +89,12 @@ impl Package {
     #[allow(dead_code)]
     pub fn to_toml(&self) -> String {
         // to_string *should* be safe to unwrap for this struct
-        // use error handeling callbacks for this
+        // use error handling callbacks for this
         to_string(self).unwrap()
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
 pub struct PackageName(String);
@@ -67,9 +127,22 @@ impl TryFrom<String> for PackageName {
     }
 }
 
+impl TryFrom<&str> for PackageName {
+    type Error = Error;
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        Self::new(name)
+    }
+}
+
 impl fmt::Display for PackageName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Borrow<str> for PackageName {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
 

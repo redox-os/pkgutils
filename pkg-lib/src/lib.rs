@@ -16,6 +16,8 @@ pub mod backend;
 pub mod callback;
 pub mod net_backend;
 pub mod package;
+pub mod recipes;
+
 mod package_list;
 mod repo_manager;
 mod sorensen;
@@ -214,7 +216,7 @@ impl Library {
             return Ok(());
         }
         for dep in &package.depends {
-            self.get_dependecies_recursive(&dep, list)?;
+            self.get_dependecies_recursive(dep, list)?;
         }
 
         list.push(package.name);
