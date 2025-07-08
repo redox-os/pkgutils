@@ -3,7 +3,11 @@ pub mod pkgar_backend;
 use std::io;
 use thiserror::Error;
 
-use crate::{net_backend::DownloadError, package::Repository, Package, PackageName};
+use crate::{
+    net_backend::DownloadError,
+    package::{PackageError, Repository},
+    Package, PackageName,
+};
 
 // todo: make this better
 #[derive(Error, Debug)]
@@ -12,10 +16,8 @@ pub enum Error {
     ValidRepoNotFound,
     #[error("Repository path is not valid")]
     RepoPathInvalid,
-    #[error("Package {0:?} not found")]
-    PackageNotFound(PackageName),
-    #[error("Package {0:?} name invalid")]
-    PackageNameInvalid(String),
+    #[error("{0}")]
+    Package(#[from] PackageError),
     #[error("Path {0:?} isn't a Valid Unicode String")]
     PathIsNotValidUnicode(String),
     #[error("You don't have permissions required for this action, try performing it as root")]
@@ -35,7 +37,7 @@ pub enum Error {
     #[error("pkgar error: {0}")]
     Pkgar(Box<pkgar::Error>),
     #[error("pkgar error: {0}")]
-    PkgarAnyhow(#[from] anyhow::Error)
+    PkgarAnyhow(#[from] anyhow::Error),
 }
 
 impl From<pkgar::Error> for Error {

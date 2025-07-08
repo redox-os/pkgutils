@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -39,12 +39,10 @@ pub fn find(recipe: &str) -> Option<&'static Path> {
     RECIPE_PATHS.get(recipe).map(PathBuf::as_path)
 }
 
-pub fn list(prefix: impl AsRef<Path>) -> Vec<PathBuf> {
+pub fn list(prefix: impl AsRef<Path>) -> BTreeSet<PathBuf> {
     let prefix = prefix.as_ref();
-    let mut recipes: Vec<_> = RECIPE_PATHS
+    RECIPE_PATHS
         .values()
         .map(|path| prefix.join(path))
-        .collect();
-    recipes.sort();
-    recipes
+        .collect()
 }

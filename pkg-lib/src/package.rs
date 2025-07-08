@@ -1,9 +1,17 @@
-use std::{borrow::Borrow, collections::HashMap, env, fmt, fs};
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, VecDeque},
+    env,
+    ffi::{OsStr, OsString},
+    fmt, fs,
+    path::PathBuf,
+};
 
+use serde::de::{value::Error as DeError, Error as DeErrorT};
 use serde_derive::{Deserialize, Serialize};
 use toml::{self, from_str, to_string};
 
-use crate::{recipes::find, Error};
+use crate::recipes::find;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct Package {
@@ -17,56 +25,37 @@ pub struct Package {
 }
 
 impl Package {
-    pub fn new(name: &str) -> Result<Self, String> {
-        let name: PackageName = name.try_into().map_err(|e| format!("{e:?}"))?;
-        let dir = find(name.as_str());
-        if dir.is_none() {
-            return Err(format!("failed to find recipe directory '{}'", name));
-        }
-        let dir = dir.unwrap();
-        let target =
-            env::var("TARGET").map_err(|err| format!("failed to read TARGET: {:?}", err))?;
+    pub fn new(name: &PackageName) -> Result<Self, PackageError> {
+        let dir = find(name.as_str()).ok_or_else(|| PackageError::PackageNotFound(name.clone()))?;
+        let target = env::var("TARGET").map_err(|_| PackageError::TargetInvalid)?;
 
         let file = dir.join("target").join(target).join("stage.toml");
         if !file.is_file() {
-            return Err(format!("failed to find package file '{}'", file.display()));
+            return Err(PackageError::FileMissing(file));
         }
 
-        let toml = fs::read_to_string(&file).map_err(|err| {
-            format!(
-                "failed to read package file '{}': {}\n{:#?}",
-                file.display(),
-                err,
-                err
-            )
-        })?;
-
-        toml::from_str(&toml).map_err(|err| {
-            format!(
-                "failed to parse package file '{}': {}\n{:#?}",
-                file.display(),
-                err,
-                err
-            )
-        })
+        let toml = fs::read_to_string(&file)
+            .map_err(|err| PackageError::Parse(DeError::custom(err), Some(file.clone())))?;
+        toml::from_str(&toml).map_err(|err| PackageError::Parse(DeError::custom(err), Some(file)))
     }
 
-    pub fn new_recursive(names: &[&str], recursion: usize) -> Result<Vec<Self>, String> {
+    pub fn new_recursive(
+        names: &[PackageName],
+        recursion: usize,
+    ) -> Result<Vec<Self>, PackageError> {
         if recursion == 0 {
-            return Err(format!(
-                "recursion limit while processing build dependencies: {:#?}",
-                names
-            ));
+            return Err(PackageError::Recursion(Default::default()));
         }
 
         let mut packages = Vec::new();
         for name in names {
             let package = Self::new(name)?;
 
-            // TODO: Ugly vec
-            let dependencies: Vec<_> = package.depends.iter().map(Borrow::borrow).collect();
-            let dependencies = Self::new_recursive(&dependencies, recursion - 1)
-                .map_err(|err| format!("{}: failed on loading dependencies:\n{}", name, err))?;
+            let dependencies =
+                Self::new_recursive(&package.depends, recursion - 1).map_err(|mut err| {
+                    err.append_recursion(name);
+                    err
+                })?;
 
             for dependency in dependencies {
                 if !packages.contains(&dependency) {
@@ -100,11 +89,11 @@ impl Package {
 pub struct PackageName(String);
 
 impl PackageName {
-    pub fn new(name: impl Into<String>) -> Result<Self, Error> {
+    pub fn new(name: impl Into<String>) -> Result<Self, PackageError> {
         let name = name.into();
         //TODO: are there any other characters that should be invalid?
-        if name.contains(['.', '/', '\0']) {
-            return Err(Error::PackageNameInvalid(name));
+        if name.is_empty() || name.contains(['.', '/', '\0']) {
+            return Err(PackageError::PackageNameInvalid(name));
         }
         Ok(Self(name))
     }
@@ -121,16 +110,33 @@ impl From<PackageName> for String {
 }
 
 impl TryFrom<String> for PackageName {
-    type Error = Error;
-    fn try_from(name: String) -> Result<Self, Error> {
+    type Error = PackageError;
+    fn try_from(name: String) -> Result<Self, Self::Error> {
         Self::new(name)
     }
 }
 
 impl TryFrom<&str> for PackageName {
-    type Error = Error;
+    type Error = PackageError;
     fn try_from(name: &str) -> Result<Self, Self::Error> {
         Self::new(name)
+    }
+}
+
+impl TryFrom<&OsStr> for PackageName {
+    type Error = PackageError;
+    fn try_from(name: &OsStr) -> Result<Self, Self::Error> {
+        let name = name
+            .to_str()
+            .ok_or_else(|| PackageError::PackageNameInvalid(name.to_string_lossy().to_string()))?;
+        Self::new(name)
+    }
+}
+
+impl TryFrom<OsString> for PackageName {
+    type Error = PackageError;
+    fn try_from(name: OsString) -> Result<Self, Self::Error> {
+        name.as_os_str().try_into()
     }
 }
 
@@ -165,6 +171,38 @@ pub struct Repository {
 impl Repository {
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
         from_str(text)
+    }
+}
+
+/// Errors that occur while opening or parsing [`Package`]s.
+///
+/// These errors are unrecoverable but useful for reporting.
+#[derive(Debug, thiserror::Error)]
+pub enum PackageError {
+    #[error("Missing package file {0:?}")]
+    FileMissing(PathBuf),
+    #[error("Package {0:?} name invalid")]
+    PackageNameInvalid(String),
+    #[error("Package {0:?} not found")]
+    PackageNotFound(PackageName),
+    #[error("Failed parsing package: {0}; file: {1:?}")]
+    Parse(serde::de::value::Error, Option<PathBuf>),
+    #[error("Recursion limit reached while processing dependencies; tree: {0:?}")]
+    Recursion(VecDeque<PackageName>),
+    #[error("TARGET triplet env var unset or invalid")]
+    TargetInvalid,
+}
+
+impl PackageError {
+    /// Append [`PackageName`] if the error is a recursion error.
+    ///
+    /// The [`PackageError::Recursion`] variant is a stack of package names that caused
+    /// the recursion limit to be reached. This functions conditionally pushes a package
+    /// name if the error is a recursion error to make it easier to build the stack.
+    pub fn append_recursion(&mut self, name: &PackageName) {
+        if let PackageError::Recursion(ref mut packages) = self {
+            packages.push_front(name.clone());
+        }
     }
 }
 
