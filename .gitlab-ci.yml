@@ -6,7 +6,7 @@ stages:
 redox-pkg-test:
   stage: test
   script:
-    - cargo test -p redox-pkg --features indicatif
+    - cargo test -p redox-pkg --features indicatif --locked
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
