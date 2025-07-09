@@ -1,12 +1,20 @@
 image: "rust:latest"
 
 stages:
+  - lint
   - test
 
-redox-pkg-test:
-  stage: test
-  script:
-    - cargo test -p redox-pkg --features indicatif --locked
+workflow:
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+
+fmt:
+  stage: lint
+  script:
+    - cargo fmt -- --check
+
+cargo-test:
+  stage: test
+  script:
+    - cargo test -p redox-pkg --features indicatif --locked
