@@ -28,7 +28,8 @@ impl Callback for IndicatifCallback {
             Ok(url) => url
                 .path_segments()
                 .and_then(|segments| segments.last())
-                .unwrap_or(file).to_owned(),
+                .unwrap_or(file)
+                .to_owned(),
         };
 
         self.pb.set_message(msg);

@@ -35,5 +35,10 @@ fn test_pkg_install() -> Result<(), Box<dyn std::error::Error>> {
     let list = vec![PackageName::new("bootloader")?];
     library.install(list)?;
     library.apply()?;
+
+    let list = vec![PackageName::new("bootloader")?];
+    library.uninstall(list)?;
+    library.apply()?;
+
     Ok(())
 }
