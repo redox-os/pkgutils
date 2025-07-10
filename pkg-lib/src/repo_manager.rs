@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
 use crate::net_backend::DownloadBackend;
-use crate::{backend::Error, Callback, PackageName};
+use crate::{backend::Error, package::PackageError, Callback, PackageName};
 use reqwest::Url;
 
 pub struct RepoManager {
@@ -51,14 +51,16 @@ impl RepoManager {
             pubkey,
         });
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn sync_toml(&self, package_name: &PackageName) -> Result<String, Error> {
         //TODO: just load directly into memory
         match self.sync_and_read(&format!("{package_name}.toml")) {
             Ok(toml) => Ok(toml),
-            Err(Error::ValidRepoNotFound) => Err(Error::PackageNotFound(package_name.to_owned())),
+            Err(Error::ValidRepoNotFound) => {
+                Err(PackageError::PackageNotFound(package_name.to_owned()).into())
+            }
             Err(e) => Err(e),
         }
     }
@@ -66,7 +68,9 @@ impl RepoManager {
     pub fn sync_pkgar(&self, package_name: &PackageName) -> Result<&RemotePath, Error> {
         match self.sync(&format!("{package_name}.pkgar")) {
             Ok(r) => Ok(r),
-            Err(Error::ValidRepoNotFound) => Err(Error::PackageNotFound(package_name.to_owned())),
+            Err(Error::ValidRepoNotFound) => {
+                Err(PackageError::PackageNotFound(package_name.to_owned()).into())
+            }
             Err(e) => Err(e),
         }
     }
