@@ -66,7 +66,7 @@ impl RepoManager {
     }
 
     pub fn sync_pkgar(&self, package_name: &PackageName) -> Result<&RemotePath, Error> {
-        let file_name = format!("{package_name}.pkgar"); 
+        let file_name = format!("{package_name}.pkgar");
         match self.sync(&file_name) {
             Ok(r) => Ok(r),
             Err(Error::ValidRepoNotFound) => {
