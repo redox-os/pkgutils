@@ -10,8 +10,9 @@ use pkgar_keys::PublicKeyFile;
 use self::packages::Packages;
 use super::{Backend, Error};
 use crate::{
-    package::Repository, repo_manager::RepoManager, Package, PackageName, DOWNLOAD_PATH,
-    PACKAGES_PATH,
+    package::Repository,
+    repo_manager::{RemotePath, RepoManager},
+    Package, PackageName, DOWNLOAD_PATH, PACKAGES_PATH,
 };
 
 mod packages;
@@ -81,7 +82,27 @@ impl PkgarBackend {
                 }
             }
         }
-        Err(Error::ValidRepoNotFound)
+        Err(Error::RepoCacheNotFound(package.clone()))
+    }
+
+    fn get_package_pkgar(&self, package: &PackageName) -> Result<&RemotePath, Error> {
+        let r = self.repo_manager.sync_pkgar(package);
+        if let Err(Error::RepoCacheExists(path)) = &r {
+            // cached locally, figure out what repo to return
+            for remote in self.repo_manager.remotes.iter() {
+                let pubkey = self.pkey_files.get(&remote.key);
+                if let Some(key) = pubkey {
+                    let pkg = PackageFile::new(path, &key.pkey);
+                    if let Ok(_) = pkg {
+                        return Ok(remote);
+                    }
+                }
+            }
+
+            return Err(Error::RepoCacheNotFound(package.clone()));
+        }
+
+        r
     }
 
     fn get_package(&self, package: &PackageName, repokey: &str) -> Result<PackageFile, Error> {
@@ -137,10 +158,9 @@ impl PkgarBackend {
 
 impl Backend for PkgarBackend {
     fn install(&mut self, package: PackageName) -> Result<(), Error> {
-        let repo = self.repo_manager.sync_pkgar(&package)?;
+        let repo = self.get_package_pkgar(&package)?;
         let mut pkg = self.get_package(&package, &repo.key)?;
         let pubkey_path = repo.pubkey.clone();
-
         let mut install = Transaction::install(&mut pkg, &self.install_path)?;
         install.commit()?;
 
@@ -166,7 +186,7 @@ impl Backend for PkgarBackend {
     fn upgrade(&mut self, package: PackageName) -> Result<(), Error> {
         let mut pkg = self.get_package_head(&package)?;
 
-        let repo = self.repo_manager.sync_pkgar(&package)?;
+        let repo = self.get_package_pkgar(&package)?;
         let pubkey_path = repo.pubkey.clone();
 
         let mut pkg2 = self.get_package(&package, &repo.key)?;
