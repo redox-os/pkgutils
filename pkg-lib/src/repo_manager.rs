@@ -66,11 +66,12 @@ impl RepoManager {
     }
 
     pub fn sync_pkgar(&self, package_name: &PackageName) -> Result<&RemotePath, Error> {
-        match self.sync(&format!("{package_name}.pkgar")) {
+        let file_name = format!("{package_name}.pkgar"); 
+        match self.sync(&file_name) {
             Ok(r) => Ok(r),
             Err(Error::ValidRepoNotFound) => {
                 // delete cache
-                let _ = fs::remove_file(self.download_path.join(file));
+                let _ = fs::remove_file(self.download_path.join(&file_name));
                 Err(PackageError::PackageNotFound(package_name.to_owned()).into())
             }
             Err(e) => Err(e),
