@@ -126,6 +126,14 @@ fn main() {
         }
     }
 
-    library.apply().unwrap();
+    if let Err(e) = library.apply() {
+        eprintln!("Package operation has failed!");
+        eprintln!("Error: {}", e);
+        if env::var("RUST_BACKTRACE").is_ok() {
+            panic!("{:?}", e);
+        }
+        std::process::exit(1);
+    }
+
     println!("done");
 }
