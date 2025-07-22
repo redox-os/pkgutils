@@ -3,7 +3,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
-use crate::net_backend::DownloadBackend;
+use crate::net_backend::{DownloadBackend, DownloadError};
 use crate::{backend::Error, package::PackageError, Callback, PackageName};
 use reqwest::Url;
 
@@ -94,9 +94,11 @@ impl RepoManager {
             let res =
                 self.download_backend
                     .download(&remote_path, &local_path, self.callback.clone());
-            if res.is_ok() {
-                return Ok(remote);
-            }
+            match res {
+                Ok(_) => return Ok(remote),
+                Err(DownloadError::HttpStatus(_)) => continue,
+                Err(e) => return Err(Error::Download(e)),
+            };
         }
 
         Err(Error::ValidRepoNotFound)

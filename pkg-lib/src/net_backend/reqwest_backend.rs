@@ -8,19 +8,28 @@ use std::{
 };
 
 use super::{Callback, DownloadBackend, DownloadError};
+use reqwest::blocking::Client;
 
 #[derive(Clone)]
 pub struct ReqwestBackend {
-    client: reqwest::blocking::Client,
+    client: Client,
+    client_no_brotli: Client,
 }
 
 impl DownloadBackend for ReqwestBackend {
     fn new() -> Result<Self, DownloadError> {
-        let client = reqwest::blocking::Client::builder()
+        let client = Client::builder()
             .brotli(true)
-            .timeout(Duration::new(5, 0))
+            .connect_timeout(Duration::new(5, 0))
             .build()?;
-        Ok(Self { client })
+        let client_no_brotli = Client::builder()
+            .brotli(false)
+            .connect_timeout(Duration::new(5, 0))
+            .build()?;
+        Ok(Self {
+            client,
+            client_no_brotli,
+        })
     }
 
     fn download(
@@ -33,7 +42,20 @@ impl DownloadBackend for ReqwestBackend {
 
         let mut resp = self.client.get(remote_path).send()?.error_for_status()?;
 
-        let len: u64 = resp.content_length().unwrap_or(0);
+        let len: u64 = resp.content_length().unwrap_or_else(|| {
+            self.client_no_brotli
+                .head(remote_path)
+                .send()
+                .ok()
+                .and_then(|resp_inner| {
+                    resp_inner
+                        .headers()
+                        .get("content-length")
+                        .and_then(|header| header.to_str().ok())
+                        .and_then(|s| s.parse::<u64>().ok())
+                })
+                .unwrap_or(0)
+        });
 
         let mut output = File::create(local_path)?;
 
