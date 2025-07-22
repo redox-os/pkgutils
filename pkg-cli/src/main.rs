@@ -129,7 +129,8 @@ fn main() {
     if let Err(e) = library.apply() {
         eprintln!("Package operation has failed!");
         eprintln!("Error: {}", e);
-        if env::var("RUST_BACKTRACE").is_ok() {
+        if std::env::var("RUST_BACKTRACE").is_ok() {
+            // If RUST_BACKTRACE is set, panic to get a backtrace
             panic!("{:?}", e);
         }
         std::process::exit(1);
