@@ -31,6 +31,7 @@ impl PkgarBackend {
         let install_path = install_path.as_ref();
 
         let packages_path = install_path.join(PACKAGES_PATH);
+        let packages_dir = install_path.join(PACKAGES_DIR);
         let file = fs::read_to_string(&packages_path);
 
         let packages;
@@ -46,6 +47,7 @@ impl PkgarBackend {
 
         // TODO: Use File::lock. This only checks permission
         fs::write(packages_path, packages.to_toml())?;
+        fs::create_dir_all(&packages_dir)?;
 
         let mut pkey_files = HashMap::new();
         for remote in repo_manager.remotes.iter() {
