@@ -16,7 +16,7 @@ use crate::recipes::find;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct Package {
     pub name: PackageName,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub version: String,
     pub target: String,
     //pub summary: String,
