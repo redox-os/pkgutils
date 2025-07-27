@@ -38,17 +38,14 @@ impl PkgarBackend {
             Ok(toml) => {
                 packages = Packages::from_toml(&toml)?;
             }
-
             Err(_) => {
                 packages = Packages::default();
                 fs::create_dir_all(Path::new(&packages_path).parent().unwrap())?;
-                let write_result = fs::write(packages_path, packages.to_toml());
-                PkgarBackend::check_write_result(write_result)?;
             }
         }
 
-        let packages_dir = install_path.join(PACKAGES_DIR);
-        fs::create_dir_all(&packages_dir)?;
+        // TODO: Use File::lock. This only checks permission
+        fs::write(packages_path, packages.to_toml())?;
 
         let mut pkey_files = HashMap::new();
         for remote in repo_manager.remotes.iter() {
@@ -143,17 +140,6 @@ impl PkgarBackend {
 
         Ok(())
     }
-
-    fn check_write_result(write_result: Result<(), std::io::Error>) -> Result<(), Error> {
-        if let Err(error) = write_result {
-            if error.kind() == std::io::ErrorKind::PermissionDenied {
-                return Err(Error::MissingPermissions);
-            } else {
-                return Err(Error::IO(error));
-            }
-        }
-        Ok(())
-    }
 }
 
 impl Backend for PkgarBackend {
@@ -238,7 +224,6 @@ impl Backend for PkgarBackend {
 impl Drop for PkgarBackend {
     fn drop(&mut self) {
         let packages_path = self.install_path.join(PACKAGES_PATH);
-        let write_result = fs::write(packages_path, self.packages.to_toml());
-        PkgarBackend::check_write_result(write_result).unwrap();
+        fs::write(packages_path, self.packages.to_toml()).unwrap();
     }
 }
