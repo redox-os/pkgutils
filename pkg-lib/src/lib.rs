@@ -91,16 +91,21 @@ impl Library {
     }
 
     pub fn install(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
+        let installed_packages = self.get_installed_packages().unwrap_or(vec![]);
         for package_name in packages {
-            self.package_list.install.push(package_name);
+            if !installed_packages.contains(&package_name) {
+                self.package_list.install.push(package_name);
+            }
         }
 
         Ok(())
     }
 
+    /// TODO: Cannot uninstall depedencies as manual mark is not implemented
     pub fn uninstall(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
+        let installed_packages = self.get_installed_packages()?;
         for package_name in packages {
-            if self.get_installed_packages()?.contains(&package_name) {
+            if installed_packages.contains(&package_name) {
                 self.package_list.uninstall.push(package_name);
             }
         }
@@ -227,7 +232,12 @@ impl Library {
             self.get_dependecies_recursive(dep, list)?;
         }
 
-        list.push(package.name);
+        // meta-packages is identified with empty version
+        // TODO: This is not the right time to check it,
+        // but the TOML data we needed will lost outside this fn
+        if package.version != "" {
+            list.push(package.name);
+        }
         Ok(())
     }
 

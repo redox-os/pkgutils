@@ -1,3 +1,4 @@
+#[cfg(feature = "indicatif")]
 use std::{cell::RefCell, rc::Rc};
 
 #[cfg(feature = "indicatif")]

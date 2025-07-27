@@ -35,7 +35,7 @@ pub enum Error {
     ProtectedPackage(PackageName),
 
     #[error("IO error: {0}")]
-    IO(#[from] io::Error),
+    IO(io::Error),
     #[error("Download error: {0}")]
     Download(#[from] DownloadError),
     #[error("Download error: {0}")]
@@ -51,6 +51,16 @@ pub enum Error {
 impl From<pkgar::Error> for Error {
     fn from(value: pkgar::Error) -> Self {
         Error::Pkgar(Box::new(value))
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        if value.kind() == std::io::ErrorKind::PermissionDenied {
+            return Error::MissingPermissions;
+        } else {
+            return Error::IO(value);
+        }
     }
 }
 
