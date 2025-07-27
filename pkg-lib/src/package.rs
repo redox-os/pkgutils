@@ -16,6 +16,7 @@ use crate::recipes::find;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct Package {
     pub name: PackageName,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub version: String,
     pub target: String,
     //pub summary: String,
@@ -230,6 +231,12 @@ mod tests {
     depends = []
     "#;
 
+    const WORKING_EMPTY_VERSION: &str = r#"
+    name = "dev-essentials"
+    target = "x86_64-unknown-redox"
+    depends = ["gcc13"]
+    "#;
+
     const INVALID_NAME: &str = r#"
     name = "dolphin.emulator"
     version = "TODO"
@@ -284,6 +291,20 @@ mod tests {
             version: "TODO".into(),
             target: "x86_64-unknown-redox".into(),
             depends: vec![],
+        };
+
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_empty_version() -> Result<(), toml::de::Error> {
+        let actual = Package::from_toml(WORKING_EMPTY_VERSION)?;
+        let expected = Package {
+            name: PackageName("dev-essentials".into()),
+            version: "".into(),
+            target: "x86_64-unknown-redox".into(),
+            depends: vec![PackageName("gcc13".into())],
         };
 
         assert_eq!(expected, actual);
