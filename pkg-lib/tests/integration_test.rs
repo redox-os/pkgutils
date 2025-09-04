@@ -37,11 +37,11 @@ fn test_pkg_install() -> Result<(), Box<dyn std::error::Error>> {
         Rc::new(RefCell::new(callback)),
     )?;
 
-    let list = vec![PackageName::new("nano")?];
+    let list = vec![PackageName::new("bootloader")?];
     library.install(list)?;
     library.apply()?;
 
-    let list = vec![PackageName::new("nano")?];
+    let list = vec![PackageName::new("bootloader")?];
     library.uninstall(list)?;
     library.apply()?;
 
