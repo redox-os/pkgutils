@@ -226,6 +226,7 @@ impl Backend for PkgarBackend {
 impl Drop for PkgarBackend {
     fn drop(&mut self) {
         let packages_path = self.install_path.join(PACKAGES_PATH);
-        fs::write(packages_path, self.packages.to_toml()).unwrap();
+        // we already check permissions before so the error can be ignored
+        let _ = fs::write(packages_path, self.packages.to_toml());
     }
 }
