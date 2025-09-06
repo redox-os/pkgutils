@@ -17,8 +17,13 @@ pub struct RepoManager {
 }
 
 pub struct RemotePath {
+    /// HTTP URI to packages
     pub path: String,
+    /// HTTP URI to public key
+    pub pubpath: String,
+    /// Unique ID
     pub key: String,
+    /// Local path to public key
     pub pubkey: String,
 }
 
@@ -34,19 +39,10 @@ impl RepoManager {
             .to_owned();
         fs::create_dir_all(PUB_DIR)?;
         let pubkey = format!("{}/pub_key_{}.toml", PUB_DIR, host);
-        let local_keypath = Path::new(&pubkey);
-        let remote_keypath = format!("{}/{}", path, PUB_TOML);
-
-        if !self.prefer_cache || !local_keypath.exists() {
-            self.download_backend.download(
-                &remote_keypath,
-                local_keypath,
-                self.callback.clone(),
-            )?;
-        }
 
         self.remotes.push(RemotePath {
             path: format!("{}/{}", path, target),
+            pubpath: format!("{}/{}", path, PUB_TOML),
             key: host,
             pubkey,
         });
@@ -90,6 +86,15 @@ impl RepoManager {
         }
 
         for remote in self.remotes.iter() {
+            let local_keypath = Path::new(&remote.pubkey);
+            if !local_keypath.exists() {
+                self.download_backend.download(
+                    &remote.pubpath,
+                    local_keypath,
+                    self.callback.clone(),
+                )?;
+            }
+
             let remote_path = format!("{}/{}", remote.path, file);
             let res =
                 self.download_backend

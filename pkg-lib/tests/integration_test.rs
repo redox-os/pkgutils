@@ -1,18 +1,22 @@
-#[cfg(feature = "indicatif")]
 use std::{cell::RefCell, rc::Rc};
 
 #[cfg(feature = "indicatif")]
 use pkg::callback::IndicatifCallback;
 
-#[cfg(feature = "indicatif")]
+#[cfg(not(feature = "indicatif"))]
+use pkg::callback::PlainCallback;
+
 use pkg::{Library, PackageName};
 
 #[test]
-#[cfg(feature = "indicatif")]
 fn test_pkg_install() -> Result<(), Box<dyn std::error::Error>> {
     use std::fs;
 
+    #[cfg(feature = "indicatif")]
     let callback = IndicatifCallback::new();
+
+    #[cfg(not(feature = "indicatif"))]
+    let callback = PlainCallback::new();
 
     let tmp_dir = std::env::current_dir()?.join("tests/staging");
 
