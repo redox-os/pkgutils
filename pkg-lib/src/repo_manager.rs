@@ -66,26 +66,19 @@ impl RepoManager {
         match self.sync(&file_name) {
             Ok(r) => Ok(r),
             Err(Error::ValidRepoNotFound) => {
-                // delete cache
-                let _ = fs::remove_file(self.download_path.join(&file_name));
                 Err(PackageError::PackageNotFound(package_name.to_owned()).into())
             }
             Err(e) => Err(e),
         }
     }
 
-    pub fn sync(&self, file: &str) -> Result<&RemotePath, Error> {
-        let local_path = self.download_path.join(file);
+    pub fn get_local_path(&self, remote: &RemotePath, file: &str) -> PathBuf {
+        self.download_path.join(format!("{}_{file}", remote.key))
+    }
 
-        if let Some(parent) = local_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        if self.prefer_cache && local_path.exists() {
-            return Err(Error::RepoCacheExists(local_path));
-        }
-
+    pub fn sync_keys(&self) -> Result<(), Error> {
         for remote in self.remotes.iter() {
+            // download key if not exists
             let local_keypath = Path::new(&remote.pubkey);
             if !local_keypath.exists() {
                 self.download_backend.download(
@@ -93,6 +86,26 @@ impl RepoManager {
                     local_keypath,
                     self.callback.clone(),
                 )?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn sync(&self, file: &str) -> Result<&RemotePath, Error> {
+        if !self.download_path.exists() {
+            fs::create_dir_all(self.download_path.clone())?;
+        }
+
+        self.sync_keys()?;
+
+        for remote in self.remotes.iter() {
+            let local_path = self.get_local_path(remote, file);
+
+            if self.prefer_cache && local_path.exists() {
+                // confidently trust this cached package
+                // pkgar backend will verify it
+                return Ok(remote);
             }
 
             let remote_path = format!("{}/{}", remote.path, file);
@@ -102,7 +115,11 @@ impl RepoManager {
             match res {
                 Ok(_) => return Ok(remote),
                 Err(DownloadError::HttpStatus(_)) => continue,
-                Err(e) => return Err(Error::Download(e)),
+                Err(e) => {
+                    // delete cache if any
+                    let _ = fs::remove_file(&local_path);
+                    return Err(Error::Download(e));
+                }
             };
         }
 
@@ -111,8 +128,7 @@ impl RepoManager {
 
     pub fn sync_and_read(&self, file: &str) -> Result<String, Error> {
         match self.sync(file) {
-            Ok(_) => Ok(fs::read_to_string(self.download_path.join(file))?),
-            Err(Error::RepoCacheExists(path)) => Ok(fs::read_to_string(path)?),
+            Ok(r) => Ok(fs::read_to_string(self.get_local_path(r, file))?),
             Err(e) => Err(e),
         }
     }
