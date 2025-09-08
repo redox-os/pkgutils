@@ -26,6 +26,44 @@ pub struct PkgarBackend {
 
 const PACKAGES_DIR: &str = "pkg/packages";
 
+// FIXME: can't use repo_manager.get_local_path because of borrowing rules
+fn get_package_path(repokey: &str, package: &PackageName) -> PathBuf {
+    let local_file = format!("{}_{}.pkgar", repokey, package.as_str());
+    PathBuf::from(DOWNLOAD_PATH).join(local_file)
+}
+fn get_package(
+    repokey: &str,
+    package: &PackageName,
+    pubkey: &PublicKeyFile,
+) -> Result<PackageFile, Error> {
+    let local_path = get_package_path(repokey, package);
+    Ok(PackageFile::new(local_path, &pubkey.pkey)?)
+}
+
+// FIXME: can't use self.pkey_files because of borrowing rules
+fn get_pkey_file<'a>(
+    key: &'a str,
+    pkey_files: &'a mut HashMap<String, PublicKeyFile>,
+    repo_manager: &'a RepoManager,
+) -> Result<Option<&'a PublicKeyFile>, Error> {
+    if pkey_files.get(key).is_none() {
+        for remote in repo_manager.remotes.iter() {
+            if remote.key == key {
+                pkey_files.insert(
+                    remote.key.clone(),
+                    PublicKeyFile::open(remote.pubkey.clone())?,
+                );
+            }
+        }
+    }
+
+    if let Some(value) = pkey_files.get(key) {
+        return Ok(Some(value));
+    }
+
+    Ok(None)
+}
+
 impl PkgarBackend {
     pub fn new<P: AsRef<Path>>(install_path: P, repo_manager: RepoManager) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
@@ -48,14 +86,7 @@ impl PkgarBackend {
         // TODO: Use File::lock. This only checks permission
         fs::write(packages_path, packages.to_toml())?;
         fs::create_dir_all(&packages_dir)?;
-
-        let mut pkey_files = HashMap::new();
-        for remote in repo_manager.remotes.iter() {
-            pkey_files.insert(
-                remote.key.clone(),
-                PublicKeyFile::open(remote.pubkey.clone())?,
-            );
-        }
+        let pkey_files = HashMap::new();
 
         Ok(PkgarBackend {
             install_path: install_path.to_path_buf(),
@@ -65,15 +96,18 @@ impl PkgarBackend {
         })
     }
 
+    // reads /pkg/packages/[package].pkgar_head
     fn get_package_head(&mut self, package: &PackageName) -> Result<PackageFile, Error> {
         let path = self
             .install_path
             .join(PACKAGES_DIR)
             .join(format!("{package}.pkgar_head"));
 
+        self.repo_manager.sync_keys()?;
+
         // TODO: A way to get chosen remote of a pkg so we can remove this trial loop
         for remote in self.repo_manager.remotes.iter() {
-            let pubkey = self.pkey_files.get(&remote.key);
+            let pubkey = get_pkey_file(&remote.key, &mut self.pkey_files, &self.repo_manager)?;
             if let Some(key) = pubkey {
                 let pkg = PackageFile::new(&path, &key.pkey);
                 if let Ok(p) = pkg {
@@ -84,37 +118,22 @@ impl PkgarBackend {
         Err(Error::RepoCacheNotFound(package.clone()))
     }
 
-    fn get_package_pkgar(&self, package: &PackageName) -> Result<&RemotePath, Error> {
-        let r = self.repo_manager.sync_pkgar(package);
-        if let Err(Error::RepoCacheExists(path)) = &r {
-            // cached locally, figure out what repo to return
-            for remote in self.repo_manager.remotes.iter() {
-                let pubkey = self.pkey_files.get(&remote.key);
-                if let Some(key) = pubkey {
-                    let pkg = PackageFile::new(path, &key.pkey);
-                    if let Ok(_) = pkg {
-                        return Ok(remote);
-                    }
-                }
-            }
-
-            return Err(Error::RepoCacheNotFound(package.clone()));
+    // reads /tmp/pkg_download/[package].pkgar
+    fn get_package_pkgar(
+        &mut self,
+        package: &PackageName,
+    ) -> Result<(&RemotePath, &PublicKeyFile), Error> {
+        let r = self.repo_manager.sync_pkgar(package)?;
+        let pubkey = get_pkey_file(&r.key, &mut self.pkey_files, &self.repo_manager)?;
+        if let Some(pkey) = pubkey {
+            Ok((r, pkey))
+        } else {
+            // the pubkey cache is failing to download?
+            Err(Error::RepoCacheNotFound(package.clone()))
         }
-
-        r
     }
 
-    fn get_package(&self, package: &PackageName, repokey: &str) -> Result<PackageFile, Error> {
-        Ok(PackageFile::new(
-            format!("{}/{package}.pkgar", DOWNLOAD_PATH),
-            &self
-                .pkey_files
-                .get(repokey)
-                .ok_or(Error::ValidRepoNotFound)?
-                .pkey,
-        )?)
-    }
-
+    // reads /tmp/pkg_download/[package].toml
     fn get_package_toml(&self, package: &PackageName) -> Result<String, Error> {
         self.repo_manager.sync_toml(package)
     }
@@ -129,11 +148,16 @@ impl PkgarBackend {
         Ok(())
     }
 
-    fn create_head(&mut self, package: &PackageName, pubkey_path: &str) -> Result<(), Error> {
+    fn create_head(
+        &mut self,
+        package: &PackageName,
+        repokey: &str,
+        pubkey_path: &str,
+    ) -> Result<(), Error> {
         // creates a head file
         pkgar::split(
             pubkey_path,
-            format!("{}/{package}.pkgar", DOWNLOAD_PATH),
+            get_package_path(repokey, package),
             self.install_path
                 .join(PACKAGES_DIR)
                 .join(format!("{package}.pkgar_head")),
@@ -146,13 +170,13 @@ impl PkgarBackend {
 
 impl Backend for PkgarBackend {
     fn install(&mut self, package: PackageName) -> Result<(), Error> {
-        let repo = self.get_package_pkgar(&package)?;
-        let mut pkg = self.get_package(&package, &repo.key)?;
-        let pubkey_path = repo.pubkey.clone();
+        let (repo, pubkey) = self.get_package_pkgar(&package)?;
+        let (repokey, pubkey_path) = (repo.key.clone(), repo.pubkey.clone());
+        let mut pkg = get_package(&repo.key, &package, pubkey)?;
         let mut install = Transaction::install(&mut pkg, &self.install_path)?;
         install.commit()?;
 
-        self.create_head(&package, &pubkey_path)?;
+        self.create_head(&package, &repokey, &pubkey_path)?;
 
         Ok(())
     }
@@ -173,16 +197,13 @@ impl Backend for PkgarBackend {
 
     fn upgrade(&mut self, package: PackageName) -> Result<(), Error> {
         let mut pkg = self.get_package_head(&package)?;
-
-        let repo = self.get_package_pkgar(&package)?;
-        let pubkey_path = repo.pubkey.clone();
-
-        let mut pkg2 = self.get_package(&package, &repo.key)?;
-
+        let (repo, pubkey) = self.get_package_pkgar(&package)?;
+        let (repokey, pubkey_path) = (repo.key.clone(), repo.pubkey.clone());
+        let mut pkg2 = get_package(&repo.key, &package, pubkey)?;
         let mut update = Transaction::replace(&mut pkg, &mut pkg2, &self.install_path)?;
         update.commit()?;
 
-        self.create_head(&package, &pubkey_path)?;
+        self.create_head(&package, &repokey, &pubkey_path)?;
 
         Ok(())
     }

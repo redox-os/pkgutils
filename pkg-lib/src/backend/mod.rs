@@ -1,6 +1,6 @@
 pub mod pkgar_backend;
 
-use std::{io, path::PathBuf};
+use std::io;
 use thiserror::Error;
 
 use crate::{
@@ -18,8 +18,6 @@ pub enum Error {
     RepoPathInvalid,
     #[error("Cached package {0:?} source repo is not found")]
     RepoCacheNotFound(PackageName),
-    #[error("Package cache exists at {0:?}")]
-    RepoCacheExists(PathBuf),
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
     #[error("Package {0:?} name invalid")]
