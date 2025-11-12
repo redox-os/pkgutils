@@ -42,6 +42,7 @@ impl Package {
 
     pub fn new_recursive(
         names: &[PackageName],
+        nonstop: bool,
         recursion: usize,
     ) -> Result<Vec<Self>, PackageError> {
         if recursion == 0 {
@@ -49,14 +50,32 @@ impl Package {
         }
 
         let mut packages = Vec::new();
+        let mut last_err = None;
         for name in names {
-            let package = Self::new(name)?;
+            let package = match Self::new(name) {
+                Ok(p) => p,
+                Err(e) => {
+                    if nonstop {
+                        last_err = Some(e);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
-            let dependencies =
-                Self::new_recursive(&package.depends, recursion - 1).map_err(|mut err| {
-                    err.append_recursion(name);
-                    err
-                })?;
+            let dependencies = match Self::new_recursive(&package.depends, nonstop, recursion - 1) {
+                Ok(p) => p,
+                Err(mut e) => {
+                    e.append_recursion(name);
+                    if nonstop {
+                        last_err = Some(e);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
             for dependency in dependencies {
                 if !packages.contains(&dependency) {
@@ -67,6 +86,10 @@ impl Package {
             if !packages.contains(&package) {
                 packages.push(package);
             }
+        }
+
+        if packages.len() == 0 && last_err.is_some() {
+            return Err(last_err.unwrap());
         }
 
         Ok(packages)

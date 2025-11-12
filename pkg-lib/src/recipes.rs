@@ -8,10 +8,10 @@ use crate::PackageName;
 static RECIPE_PATHS: LazyLock<HashMap<PackageName, PathBuf>> = LazyLock::new(|| {
     let mut recipe_paths = HashMap::new();
     for entry_res in ignore::Walk::new("recipes") {
-        let entry = entry_res.unwrap();
-        if entry.file_name() == OsStr::new("recipe.sh")
-            || entry.file_name() == OsStr::new("recipe.toml")
-        {
+        let Ok(entry) = entry_res else {
+            continue;
+        };
+        if entry.file_name() == OsStr::new("recipe.toml") {
             let recipe_file = entry.path();
             let Some(recipe_dir) = recipe_file.parent() else {
                 continue;
@@ -23,8 +23,8 @@ static RECIPE_PATHS: LazyLock<HashMap<PackageName, PathBuf>> = LazyLock::new(|| 
                 continue;
             };
             if let Some(other_dir) = recipe_paths.insert(recipe_name, recipe_dir.to_path_buf()) {
-                panic!(
-                    "recipe {:?} has two or more entries {:?}, {:?}",
+                eprintln!(
+                    "recipe {:?} has two or more entries {:?}, skipping {:?}",
                     recipe_dir.file_name(),
                     other_dir,
                     recipe_dir
