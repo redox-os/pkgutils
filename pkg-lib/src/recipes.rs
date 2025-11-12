@@ -24,10 +24,10 @@ static RECIPE_PATHS: LazyLock<HashMap<PackageName, PathBuf>> = LazyLock::new(|| 
             };
             if let Some(other_dir) = recipe_paths.insert(recipe_name, recipe_dir.to_path_buf()) {
                 eprintln!(
-                    "recipe {:?} has two or more entries {:?}, skipping {:?}",
+                    "recipe {:?} has two or more entries: {:?} replaced by {:?}",
                     recipe_dir.file_name(),
                     other_dir,
-                    recipe_dir
+                    recipe_dir,
                 );
             }
         }
