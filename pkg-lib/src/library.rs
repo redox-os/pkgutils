@@ -1,5 +1,3 @@
-//#![cfg_attr(target_os = "redox", feature(io_error_more))]
-
 use std::{
     cell::RefCell,
     cmp::Ordering,
@@ -8,35 +6,21 @@ use std::{
     rc::Rc,
 };
 
-use backend::pkgar_backend::PkgarBackend;
-use backend::Backend;
-use net_backend::{DefaultNetBackend, DownloadBackend};
-use package_list::PackageList;
-use repo_manager::RepoManager;
+use crate::backend::pkgar_backend::PkgarBackend;
+use crate::backend::{Backend, Error};
+use crate::net_backend::{DefaultNetBackend, DownloadBackend};
+use crate::package_list::PackageList;
+use crate::repo_manager::RepoManager;
 
-pub use backend::Error;
-pub use callback::Callback;
-pub use package::{Package, PackageInfo, PackageName};
+use crate::callback::Callback;
+use crate::package::{PackageInfo, PackageName};
 
-pub mod backend;
-pub mod callback;
-pub mod net_backend;
-pub mod package;
-pub mod recipes;
-
-mod package_list;
-mod repo_manager;
-mod sorensen;
+use crate::{sorensen, DOWNLOAD_PATH};
 
 pub struct Library {
     package_list: PackageList,
     backend: Box<dyn Backend>,
 }
-
-const DOWNLOAD_PATH: &str = "/tmp/pkg_download/";
-
-// make them not relative
-const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
 
 impl Library {
     pub fn new<P: AsRef<Path>>(
