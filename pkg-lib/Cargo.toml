@@ -14,20 +14,27 @@ doctest = false
 [[test]]
 name = "integration_test"
 path = "tests/integration_test.rs"
+required-features = ["library"]
 
 [dependencies]
 anyhow = "1"
 ignore = "0.4"
 indicatif = { version = "0.17", optional = true }
-pkgar = "0.1"
-pkgar-core = "0.1"
-pkgar-keys = "0.1"
+pkgar = { version = "0.1", optional = true }
+pkgar-core = { version = "0.1", optional = true }
+pkgar-keys = { version = "0.1", optional = true }
 serde = "1"
 serde_derive = "1"
 thiserror = "1"
 toml = "0.8.2"
 
+[features]
+default = ["library"]
+indicatif = ["dep:indicatif", "library"]
+library = ["pkgar", "pkgar-core", "pkgar-keys", "reqwest"]
+
 [dependencies.reqwest]
 version = "0.12"
 default-features = false
 features = ["blocking", "brotli", "rustls-tls"]
+optional = true
