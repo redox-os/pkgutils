@@ -245,13 +245,6 @@ impl Library {
         let installed = self.backend.get_installed_packages()?.contains(&package);
         let package = self.backend.get_package_detail(&package)?;
 
-        Ok(PackageInfo {
-            installed,
-            version: package.version,
-            target: package.target,
-            // this can be implemented
-            download_size: "not implemented".to_string(),
-            depends: package.depends,
-        })
+        Ok(PackageInfo { installed, package })
     }
 }

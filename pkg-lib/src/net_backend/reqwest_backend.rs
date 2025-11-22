@@ -68,7 +68,7 @@ impl DownloadBackend for ReqwestBackend {
             if count == 0 {
                 break;
             }
-            callback.increment_downloaded(count);
+            callback.increment_downloaded(count as u64);
         }
         output.flush()?;
 
