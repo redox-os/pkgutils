@@ -13,6 +13,10 @@ use toml::{self, from_str, to_string};
 
 use crate::recipes::find;
 
+fn is_zero(n: &u64) -> bool {
+    *n == 0
+}
+
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq, PartialOrd)]
 #[serde(default)]
 pub struct Package {
@@ -24,10 +28,13 @@ pub struct Package {
     /// platform target
     pub target: String,
     /// hash in pkgar head
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub blake3: String,
     /// size of files (uncompressed)
+    #[serde(skip_serializing_if = "is_zero")]
     pub storage_size: u64,
     /// size of pkgar (maybe compressed)
+    #[serde(skip_serializing_if = "is_zero")]
     pub network_size: u64,
     /// dependencies
     pub depends: Vec<PackageName>,
