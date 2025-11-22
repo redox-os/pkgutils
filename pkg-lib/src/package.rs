@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    collections::{HashMap, VecDeque},
+    collections::{BTreeMap, VecDeque},
     env,
     ffi::{OsStr, OsString},
     fmt, fs,
@@ -13,15 +13,23 @@ use toml::{self, from_str, to_string};
 
 use crate::recipes::find;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[serde(default)]
 pub struct Package {
+    /// package name
     pub name: PackageName,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
+    /// package version
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub version: String,
+    /// platform target
     pub target: String,
-    //pub summary: String,
-    //pub description: String,
-    #[serde(default)]
+    /// hash in pkgar head
+    pub blake3: String,
+    /// size of files (uncompressed)
+    pub storage_size: u64,
+    /// size of pkgar (maybe compressed)
+    pub network_size: u64,
+    /// dependencies
     pub depends: Vec<PackageName>,
 }
 
@@ -107,7 +115,7 @@ impl Package {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
 pub struct PackageName(String);
@@ -179,17 +187,12 @@ impl Borrow<str> for PackageName {
 #[derive(Debug)]
 pub struct PackageInfo {
     pub installed: bool,
-    pub version: String,
-    pub target: String,
-
-    pub download_size: String,
-    // pub install_size: String,
-    pub depends: Vec<PackageName>,
+    pub package: Package,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Repository {
-    pub packages: HashMap<String, String>,
+    pub packages: BTreeMap<String, String>,
 }
 
 impl Repository {
@@ -232,6 +235,10 @@ impl PackageError {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
+    use crate::package::Repository;
+
     use super::{Package, PackageName};
 
     const WORKING_DEPENDS: &str = r#"
@@ -260,6 +267,11 @@ mod tests {
     depends = ["gcc13"]
     "#;
 
+    const WORKING_REPOSITORY: &str = r#"
+    [packages]
+    foo = "bar"
+    "#;
+
     const INVALID_NAME: &str = r#"
     name = "dolphin.emulator"
     version = "TODO"
@@ -286,6 +298,7 @@ mod tests {
                 PackageName("sdl2".into()),
                 PackageName("zmusic".into()),
             ],
+            ..Default::default()
         };
 
         assert_eq!(expected, actual);
@@ -299,7 +312,7 @@ mod tests {
             name: PackageName("kmquake2".into()),
             version: "TODO".into(),
             target: "x86_64-unknown-redox".into(),
-            depends: vec![],
+            ..Default::default()
         };
 
         assert_eq!(expected, actual);
@@ -314,6 +327,7 @@ mod tests {
             version: "TODO".into(),
             target: "x86_64-unknown-redox".into(),
             depends: vec![],
+            ..Default::default()
         };
 
         assert_eq!(expected, actual);
@@ -325,9 +339,20 @@ mod tests {
         let actual = Package::from_toml(WORKING_EMPTY_VERSION)?;
         let expected = Package {
             name: PackageName("dev-essentials".into()),
-            version: "".into(),
             target: "x86_64-unknown-redox".into(),
             depends: vec![PackageName("gcc13".into())],
+            ..Default::default()
+        };
+
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_repository() -> Result<(), toml::de::Error> {
+        let actual = Repository::from_toml(WORKING_REPOSITORY)?;
+        let expected = Repository {
+            packages: BTreeMap::from([("foo".into(), "bar".into())]),
         };
 
         assert_eq!(expected, actual);
