@@ -42,7 +42,7 @@ pub struct Package {
 
 impl Package {
     pub fn new(name: &PackageName) -> Result<Self, PackageError> {
-        let dir = find(name.as_str()).ok_or_else(|| PackageError::PackageNotFound(name.clone()))?;
+        let dir = find(name.name()).ok_or_else(|| PackageError::PackageNotFound(name.clone()))?;
         let target = env::var("TARGET").map_err(|_| PackageError::TargetInvalid)?;
 
         let file = dir.join("target").join(target).join("stage.toml");
@@ -122,6 +122,14 @@ impl Package {
     }
 }
 
+/// A package name is valid in these formats:
+///
+/// + `recipe` A recipe with all features selected
+/// + `recipe:feature` A recipe with one feature selected
+/// + `recipe:` A recipe with none feature
+/// + `host:recipe` A recipe with host target and all features selected
+/// + `host:recipe:feature` A recipe with host target and one feature selected
+/// + `host:recipe:` A recipe with host target and none feature
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
@@ -131,14 +139,64 @@ impl PackageName {
     pub fn new(name: impl Into<String>) -> Result<Self, PackageError> {
         let name = name.into();
         //TODO: are there any other characters that should be invalid?
-        if name.is_empty() || name.contains(['.', '/', '\0']) {
+        if name.is_empty() {
             return Err(PackageError::PackageNameInvalid(name));
         }
-        Ok(Self(name))
+        let mut separators = 0;
+        let mut has_host_prefix = false;
+        for c in name.chars() {
+            if "/\0".contains(c) {
+                return Err(PackageError::PackageNameInvalid(name));
+            }
+            if c == '.' {
+                separators += 1;
+                if separators > 1 {
+                    return Err(PackageError::PackageNameInvalid(name));
+                }
+            }
+            if c == ':' {
+                if has_host_prefix {
+                    return Err(PackageError::PackageNameInvalid(name));
+                }
+                has_host_prefix = true;
+            }
+        }
+        let r = Self(name);
+        if has_host_prefix && !r.is_host() {
+            return Err(PackageError::PackageNameInvalid(r.0));
+        }
+        Ok(r)
     }
 
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    pub fn is_host(&self) -> bool {
+        self.0.starts_with("host:")
+    }
+
+    pub fn name(&self) -> &str {
+        let mut s = self.0.as_str();
+        if self.is_host() {
+            s = &s[5..]
+        }
+        if let Some(pos) = s.find('.') {
+            s = &s[..pos]
+        }
+        s
+    }
+
+    pub fn feature(&self) -> Option<&str> {
+        let mut s = self.0.as_str();
+        if self.is_host() {
+            s = &s[5..]
+        }
+        if let Some(pos) = s.find('.') {
+            Some(&s[pos + 1..])
+        } else {
+            None
+        }
     }
 }
 
@@ -280,7 +338,7 @@ mod tests {
     "#;
 
     const INVALID_NAME: &str = r#"
-    name = "dolphin.emulator"
+    name = "dolphin.emu.lator"
     version = "TODO"
     target = "x86_64-unknown-redox"
     depends = ["qt5"]
@@ -290,8 +348,33 @@ mod tests {
     name = "mgba"
     version = "TODO"
     target = "x86_64-unknown-redox"
-    depends = ["ffmpeg.latest"]
+    depends = ["ffmpeg:latest"]
     "#;
+
+    #[test]
+    fn package_name_split() -> Result<(), toml::de::Error> {
+        let name1 = PackageName::new("foo").unwrap();
+        let name2 = PackageName::new("foo.bar").unwrap();
+        let name3 = PackageName::new("host:foo").unwrap();
+        let name4 = PackageName::new("host:foo.").unwrap();
+        assert_eq!(
+            (name1.name(), name1.is_host(), name1.feature()),
+            ("foo", false, None)
+        );
+        assert_eq!(
+            (name2.name(), name2.is_host(), name2.feature()),
+            ("foo", false, Some("bar"))
+        );
+        assert_eq!(
+            (name3.name(), name3.is_host(), name3.feature()),
+            ("foo", true, None)
+        );
+        assert_eq!(
+            (name4.name(), name4.is_host(), name4.feature()),
+            ("foo", true, Some(""))
+        );
+        Ok(())
+    }
 
     #[test]
     fn deserialize_with_depends() -> Result<(), toml::de::Error> {
