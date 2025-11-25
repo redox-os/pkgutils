@@ -143,19 +143,26 @@ impl PackageName {
             return Err(PackageError::PackageNameInvalid(name));
         }
         let mut separators = 0;
+        let mut has_host_prefix = false;
         for c in name.chars() {
-            if "./\0".contains(c) {
+            if "/\0".contains(c) {
                 return Err(PackageError::PackageNameInvalid(name));
             }
-            if c == ':' {
+            if c == '.' {
                 separators += 1;
-                if separators > 2 {
+                if separators > 1 {
                     return Err(PackageError::PackageNameInvalid(name));
                 }
             }
+            if c == ':' {
+                if has_host_prefix {
+                    return Err(PackageError::PackageNameInvalid(name));
+                }
+                has_host_prefix = true;
+            }
         }
         let r = Self(name);
-        if separators == 2 && !r.is_host() {
+        if has_host_prefix && !r.is_host() {
             return Err(PackageError::PackageNameInvalid(r.0));
         }
         Ok(r)
@@ -174,7 +181,7 @@ impl PackageName {
         if self.is_host() {
             s = &s[5..]
         }
-        if let Some(pos) = s.find(':') {
+        if let Some(pos) = s.find('.') {
             s = &s[..pos]
         }
         s
@@ -185,7 +192,7 @@ impl PackageName {
         if self.is_host() {
             s = &s[5..]
         }
-        if let Some(pos) = s.find(':') {
+        if let Some(pos) = s.find('.') {
             Some(&s[pos + 1..])
         } else {
             None
@@ -331,7 +338,7 @@ mod tests {
     "#;
 
     const INVALID_NAME: &str = r#"
-    name = "dolphin.emulator"
+    name = "dolphin.emu.lator"
     version = "TODO"
     target = "x86_64-unknown-redox"
     depends = ["qt5"]
@@ -341,15 +348,15 @@ mod tests {
     name = "mgba"
     version = "TODO"
     target = "x86_64-unknown-redox"
-    depends = ["ffmpeg.latest"]
+    depends = ["ffmpeg:latest"]
     "#;
 
     #[test]
     fn package_name_split() -> Result<(), toml::de::Error> {
         let name1 = PackageName::new("foo").unwrap();
-        let name2 = PackageName::new("foo:bar").unwrap();
+        let name2 = PackageName::new("foo.bar").unwrap();
         let name3 = PackageName::new("host:foo").unwrap();
-        let name4 = PackageName::new("host:foo:").unwrap();
+        let name4 = PackageName::new("host:foo.").unwrap();
         assert_eq!(
             (name1.name(), name1.is_host(), name1.feature()),
             ("foo", false, None)
