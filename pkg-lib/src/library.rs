@@ -60,6 +60,10 @@ impl Library {
                     }
                 }
             }
+
+            // the local key installed by the installer
+            let local_pub_path = install_path.join("pkg");
+            let _ = repo_manager.add_local("installer_key", &local_pub_path);
         }
 
         let backend = PkgarBackend::new(install_path, repo_manager)?;
@@ -174,14 +178,25 @@ impl Library {
 
     pub fn apply(&mut self) -> Result<(), Error> {
         for package in self.package_list.uninstall.iter() {
-            self.backend.uninstall(package.clone())?;
+            // TODO: Allow self-trusting the package?
+            let r = self.backend.uninstall(package.clone());
+            if let Err(Error::RepoCacheNotFound(e)) = &r {
+                eprintln!("Repository source of {e} is not valid, please reinstall repository public keys to allow erasing, or reinstall the package.");
+            }
+            r?
         }
 
         let install = self.with_dependecies(&self.package_list.install.clone())?;
 
         for package in install.into_iter() {
             if self.backend.get_installed_packages()?.contains(&package) {
-                self.backend.upgrade(package)?;
+                match self.backend.upgrade(package.clone()) {
+                    Err(Error::RepoCacheNotFound(e)) => {
+                        eprintln!("Repository source of {e} is not valid, reinstalling!");
+                        self.backend.install(package)?;
+                    }
+                    r => r?,
+                }
             } else {
                 self.backend.install(package)?;
             }
