@@ -50,6 +50,19 @@ impl RepoManager {
         Ok(())
     }
 
+    pub fn add_local(&mut self, host: &str, pubkey_dir: &Path) -> Result<(), Error> {
+        let pubkey_path = pubkey_dir.join(PUB_TOML);
+        if pubkey_path.exists() {
+            self.remotes.push(RemotePath {
+                path: "".into(),
+                pubpath: "".into(),
+                key: host.into(),
+                pubkey: pubkey_path.to_string_lossy().to_string(),
+            });
+        }
+        Ok(())
+    }
+
     pub fn sync_toml(&self, package_name: &PackageName) -> Result<String, Error> {
         //TODO: just load directly into memory
         match self.sync_and_read(&format!("{package_name}.toml")) {
