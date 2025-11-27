@@ -120,6 +120,10 @@ impl RepoManager {
                 // pkgar backend will verify it
                 return Ok(remote);
             }
+            if remote.path == "" {
+                // local repository
+                continue;
+            }
 
             let remote_path = format!("{}/{}", remote.path, file);
             let res =
