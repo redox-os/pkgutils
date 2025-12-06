@@ -124,12 +124,10 @@ impl Package {
 
 /// A package name is valid in these formats:
 ///
-/// + `recipe` A recipe with all features selected
-/// + `recipe:feature` A recipe with one feature selected
-/// + `recipe:` A recipe with none feature
-/// + `host:recipe` A recipe with host target and all features selected
-/// + `host:recipe:feature` A recipe with host target and one feature selected
-/// + `host:recipe:` A recipe with host target and none feature
+/// + `recipe` A recipe on mandatory package
+/// + `recipe.pkg` A recipe on "pkg" optional package
+/// + `host:recipe` A recipe with host target on mandatory package
+/// + `host:recipe.pkg` A recipe with host target on "pkg" optional package
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
@@ -172,10 +170,12 @@ impl PackageName {
         self.0.as_str()
     }
 
+    /// Check if "host:" prefix exists
     pub fn is_host(&self) -> bool {
         self.0.starts_with("host:")
     }
 
+    /// Get the name between "host:" prefix and ".pkg" suffix
     pub fn name(&self) -> &str {
         let mut s = self.0.as_str();
         if self.is_host() {
@@ -187,7 +187,8 @@ impl PackageName {
         s
     }
 
-    pub fn feature(&self) -> Option<&str> {
+    /// Get ".pkg" suffix
+    pub fn suffix(&self) -> Option<&str> {
         let mut s = self.0.as_str();
         if self.is_host() {
             s = &s[5..]
@@ -197,6 +198,39 @@ impl PackageName {
         } else {
             None
         }
+    }
+
+    /// Strip "host:" prefix if exists
+    pub fn without_host(&self) -> PackageName {
+        let name = if self.is_host() {
+            &self.as_str()["host:".len()..]
+        } else {
+            self.as_str()
+        };
+
+        Self(name.to_string())
+    }
+
+    /// Add "host:" prefix if not exists
+    pub fn with_host(&self) -> PackageName {
+        let name = if self.is_host() {
+            self.as_str().to_string()
+        } else {
+            format!("host:{}", self.as_str())
+        };
+
+        Self(name)
+    }
+
+    /// Add or replace suffix. Does not retain "host:" prefix
+    pub fn with_suffix(&self, suffix: Option<&str>) -> PackageName {
+        let mut name = self.name().to_string();
+        if let Some(suffix) = suffix {
+            name.push('.');
+            name.push_str(suffix);
+        }
+
+        Self(name)
     }
 }
 
@@ -358,19 +392,19 @@ mod tests {
         let name3 = PackageName::new("host:foo").unwrap();
         let name4 = PackageName::new("host:foo.").unwrap();
         assert_eq!(
-            (name1.name(), name1.is_host(), name1.feature()),
+            (name1.name(), name1.is_host(), name1.suffix()),
             ("foo", false, None)
         );
         assert_eq!(
-            (name2.name(), name2.is_host(), name2.feature()),
+            (name2.name(), name2.is_host(), name2.suffix()),
             ("foo", false, Some("bar"))
         );
         assert_eq!(
-            (name3.name(), name3.is_host(), name3.feature()),
+            (name3.name(), name3.is_host(), name3.suffix()),
             ("foo", true, None)
         );
         assert_eq!(
-            (name4.name(), name4.is_host(), name4.feature()),
+            (name4.name(), name4.is_host(), name4.suffix()),
             ("foo", true, Some(""))
         );
         Ok(())
