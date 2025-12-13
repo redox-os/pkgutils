@@ -30,6 +30,15 @@ pub struct Package {
     /// hash in pkgar head
     #[serde(skip_serializing_if = "String::is_empty")]
     pub blake3: String,
+    /// git commit or tar hash of source package
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source_identifier: String,
+    /// git commit of redox repository
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub commit_identifier: String,
+    /// time when this package published in IS0 8601
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub time_identifier: String,
     /// size of files (uncompressed)
     #[serde(skip_serializing_if = "is_zero")]
     pub storage_size: u64,
@@ -290,8 +299,22 @@ pub struct PackageInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct OutdatedPackage {
+    /// git commit or tar hash when the build broke
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source_identifier: String,
+    /// git commit of redox repository when the build broke
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub commit_identifier: String,
+    /// time when this package outdated in IS0 8601
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub time_identifier: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Repository {
     pub packages: BTreeMap<String, String>,
+    pub outdated_packages: BTreeMap<String, OutdatedPackage>,
 }
 
 impl Repository {
@@ -477,6 +500,7 @@ mod tests {
         let actual = Repository::from_toml(WORKING_REPOSITORY)?;
         let expected = Repository {
             packages: BTreeMap::from([("foo".into(), "bar".into())]),
+            ..Default::default()
         };
 
         assert_eq!(expected, actual);
