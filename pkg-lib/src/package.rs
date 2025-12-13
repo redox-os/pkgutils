@@ -30,6 +30,15 @@ pub struct Package {
     /// hash in pkgar head
     #[serde(skip_serializing_if = "String::is_empty")]
     pub blake3: String,
+    /// git commit or tar hash of source package
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source_identifier: String,
+    /// git commit of redox repository
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub commit_identifier: String,
+    /// time when this package published in IS0 8601
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub time_identifier: String,
     /// size of files (uncompressed)
     #[serde(skip_serializing_if = "is_zero")]
     pub storage_size: u64,
@@ -290,8 +299,23 @@ pub struct PackageInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct OutdatedPackage {
+    /// git commit or tar hash when the build broke
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source_identifier: String,
+    /// git commit of redox repository when the build broke
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub commit_identifier: String,
+    /// time when this package outdated in IS0 8601
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub time_identifier: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Repository {
     pub packages: BTreeMap<String, String>,
+    pub outdated_packages: BTreeMap<String, OutdatedPackage>,
 }
 
 impl Repository {
@@ -336,7 +360,7 @@ impl PackageError {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::package::Repository;
+    use crate::package::{OutdatedPackage, Repository};
 
     use super::{Package, PackageName};
 
@@ -369,6 +393,13 @@ mod tests {
     const WORKING_REPOSITORY: &str = r#"
     [packages]
     foo = "bar"
+    "#;
+
+    const WORKING_OUTDATED_REPOSITORY: &str = r#"
+    [outdated_packages.gnu-make]
+    source_identifier = "1a0e5353205e106bd9b3c0f4a5f37ee1156a1e1c8feb771d1b4842c216612cba"
+    commit_identifier = "da93b635fec96a6fac7da9bf7742d850cbce68b4"
+    time_identifier = "2025-12-13T05:33:07Z"
     "#;
 
     const INVALID_NAME: &str = r#"
@@ -477,6 +508,27 @@ mod tests {
         let actual = Repository::from_toml(WORKING_REPOSITORY)?;
         let expected = Repository {
             packages: BTreeMap::from([("foo".into(), "bar".into())]),
+            ..Default::default()
+        };
+
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_repository_outdated() -> Result<(), toml::de::Error> {
+        let actual = Repository::from_toml(WORKING_OUTDATED_REPOSITORY)?;
+        let expected = Repository {
+            outdated_packages: BTreeMap::from([(
+                "gnu-make".into(),
+                OutdatedPackage {
+                    source_identifier:
+                        "1a0e5353205e106bd9b3c0f4a5f37ee1156a1e1c8feb771d1b4842c216612cba".into(),
+                    commit_identifier: "da93b635fec96a6fac7da9bf7742d850cbce68b4".into(),
+                    time_identifier: "2025-12-13T05:33:07Z".into(),
+                },
+            )]),
+            ..Default::default()
         };
 
         assert_eq!(expected, actual);
