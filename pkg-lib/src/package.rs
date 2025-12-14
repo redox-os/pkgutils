@@ -69,54 +69,79 @@ impl Package {
         nonstop: bool,
         recursion: usize,
     ) -> Result<Vec<Self>, PackageError> {
-        if recursion == 0 {
-            return Err(PackageError::Recursion(Default::default()));
+        if names.len() == 0 {
+            return Ok(vec![]);
         }
+        let (list, map) = Self::new_recursive_nonstop(names, recursion);
+        if nonstop && list.len() > 0 {
+            Ok(list)
+        } else if !nonstop && map.len() == list.len() {
+            Ok(list)
+        } else {
+            let (_, res) = map.into_iter().find(|(_, v)| v.is_err()).unwrap();
+            Err(res.err().unwrap())
+        }
+    }
 
+    // list ordered success packages and map of failed packages
+    // a package can be both success and failed if dependencies aren't satistied
+    pub fn new_recursive_nonstop(
+        names: &[PackageName],
+        recursion: usize,
+    ) -> (Vec<Self>, BTreeMap<PackageName, Result<(), PackageError>>) {
         let mut packages = Vec::new();
-        let mut last_err = None;
+        let mut packages_map = BTreeMap::new();
         for name in names {
-            let package = match Self::new(name) {
-                Ok(p) => p,
+            if packages_map.contains_key(name) {
+                continue;
+            }
+
+            let package = if recursion == 0 {
+                Err(PackageError::Recursion(Default::default()))
+            } else {
+                Self::new(name)
+            };
+
+            match package {
+                Ok(package) => {
+                    let mut has_invalid_dependency = false;
+                    let (dependencies, dependencies_map) =
+                        Self::new_recursive_nonstop(&package.depends, recursion - 1);
+                    for dependency in dependencies {
+                        if !packages_map.contains_key(&dependency.name) {
+                            packages_map.insert(dependency.name.clone(), Ok(()));
+                            packages.push(dependency);
+                        }
+                    }
+                    for (dep_name, result) in dependencies_map {
+                        if let Err(mut e) = result {
+                            if !packages_map.contains_key(&dep_name) {
+                                e.append_recursion(name);
+                                packages_map.insert(dep_name, Err(e));
+                            }
+                            has_invalid_dependency = true;
+                        }
+                    }
+                    // TODO: this if check is redundant
+                    if !packages_map.contains_key(name) {
+                        packages_map.insert(
+                            name.clone(),
+                            if has_invalid_dependency {
+                                Err(PackageError::DependencyInvalid(name.clone()))
+                            } else {
+                                Ok(())
+                            },
+                        );
+                        packages.push(package);
+                    }
+                }
                 Err(e) => {
-                    if nonstop {
-                        last_err = Some(e);
-                        continue;
-                    } else {
-                        return Err(e);
-                    }
+                    packages_map.insert(name.clone(), Err(e));
                 }
-            };
-
-            let dependencies = match Self::new_recursive(&package.depends, nonstop, recursion - 1) {
-                Ok(p) => p,
-                Err(mut e) => {
-                    e.append_recursion(name);
-                    if nonstop {
-                        last_err = Some(e);
-                        continue;
-                    } else {
-                        return Err(e);
-                    }
-                }
-            };
-
-            for dependency in dependencies {
-                if !packages.contains(&dependency) {
-                    packages.push(dependency);
-                }
-            }
-
-            if !packages.contains(&package) {
-                packages.push(package);
             }
         }
 
-        if packages.len() == 0 && last_err.is_some() {
-            return Err(last_err.unwrap());
-        }
-
-        Ok(packages)
+        (packages, packages_map)
     }
 
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
@@ -299,14 +324,14 @@ pub struct PackageInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct OutdatedPackage {
-    /// git commit or tar hash when the build broke
+pub struct SourceIdentifier {
+    /// git commit or tar hash
     #[serde(skip_serializing_if = "String::is_empty")]
     pub source_identifier: String,
-    /// git commit of redox repository when the build broke
+    /// git commit of redox repository
     #[serde(skip_serializing_if = "String::is_empty")]
     pub commit_identifier: String,
-    /// time when this package outdated in IS0 8601
+    /// time when source updated in IS0 8601
     #[serde(skip_serializing_if = "String::is_empty")]
     pub time_identifier: String,
 }
@@ -314,8 +339,10 @@ pub struct OutdatedPackage {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Repository {
+    /// list of published packages
     pub packages: BTreeMap<String, String>,
-    pub outdated_packages: BTreeMap<String, OutdatedPackage>,
+    /// list of outdated/missing packages, with source identifier when it first time went outdated/missing
+    pub outdated_packages: BTreeMap<String, SourceIdentifier>,
 }
 
 impl Repository {
@@ -339,6 +366,8 @@ pub enum PackageError {
     Parse(serde::de::value::Error, Option<PathBuf>),
     #[error("Recursion limit reached while processing dependencies; tree: {0:?}")]
     Recursion(VecDeque<PackageName>),
+    #[error("Package {0:?} is missing one or more dependencies")]
+    DependencyInvalid(PackageName),
     #[error("TARGET triplet env var unset or invalid")]
     TargetInvalid,
 }
@@ -360,7 +389,7 @@ impl PackageError {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::package::{OutdatedPackage, Repository};
+    use crate::package::{Repository, SourceIdentifier};
 
     use super::{Package, PackageName};
 
@@ -521,7 +550,7 @@ mod tests {
         let expected = Repository {
             outdated_packages: BTreeMap::from([(
                 "gnu-make".into(),
-                OutdatedPackage {
+                SourceIdentifier {
                     source_identifier:
                         "1a0e5353205e106bd9b3c0f4a5f37ee1156a1e1c8feb771d1b4842c216612cba".into(),
                     commit_identifier: "da93b635fec96a6fac7da9bf7742d850cbce68b4".into(),
