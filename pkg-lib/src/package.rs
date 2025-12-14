@@ -84,6 +84,7 @@ impl Package {
     }
 
     // list ordered success packages and map of failed packages
+    // a package can be both success and failed if dependencies aren't satistied
     pub fn new_recursive_nonstop(
         names: &[PackageName],
         recursion: usize,
@@ -103,6 +104,7 @@ impl Package {
 
             match package {
                 Ok(package) => {
+                    let mut has_invalid_dependency = false;
                     let (dependencies, dependencies_map) =
                         Self::new_recursive_nonstop(&package.depends, recursion - 1);
                     for dependency in dependencies {
@@ -117,7 +119,20 @@ impl Package {
                                 e.append_recursion(name);
                                 packages_map.insert(dep_name, Err(e));
                             }
+                            has_invalid_dependency = true;
                         }
+                    }
+                    // TODO: this if check is redundant
+                    if !packages_map.contains_key(name) {
+                        packages_map.insert(
+                            name.clone(),
+                            if has_invalid_dependency {
+                                Err(PackageError::DependencyInvalid(name.clone()))
+                            } else {
+                                Ok(())
+                            },
+                        );
+                        packages.push(package);
                     }
                 }
                 Err(e) => {
@@ -351,6 +366,8 @@ pub enum PackageError {
     Parse(serde::de::value::Error, Option<PathBuf>),
     #[error("Recursion limit reached while processing dependencies; tree: {0:?}")]
     Recursion(VecDeque<PackageName>),
+    #[error("Package {0:?} is missing one or more dependencies")]
+    DependencyInvalid(PackageName),
     #[error("TARGET triplet env var unset or invalid")]
     TargetInvalid,
 }
