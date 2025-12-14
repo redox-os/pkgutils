@@ -69,54 +69,64 @@ impl Package {
         nonstop: bool,
         recursion: usize,
     ) -> Result<Vec<Self>, PackageError> {
-        if recursion == 0 {
-            return Err(PackageError::Recursion(Default::default()));
+        if names.len() == 0 {
+            return Ok(vec![]);
         }
+        let (list, map) = Self::new_recursive_nonstop(names, recursion);
+        if nonstop && list.len() > 0 {
+            Ok(list)
+        } else if !nonstop && map.len() == list.len() {
+            Ok(list)
+        } else {
+            let (_, res) = map.into_iter().find(|(_, v)| v.is_err()).unwrap();
+            Err(res.err().unwrap())
+        }
+    }
 
+    // list ordered success packages and map of failed packages
+    pub fn new_recursive_nonstop(
+        names: &[PackageName],
+        recursion: usize,
+    ) -> (Vec<Self>, BTreeMap<PackageName, Result<(), PackageError>>) {
         let mut packages = Vec::new();
-        let mut last_err = None;
+        let mut packages_map = BTreeMap::new();
         for name in names {
-            let package = match Self::new(name) {
-                Ok(p) => p,
+            if packages_map.contains_key(name) {
+                continue;
+            }
+
+            let package = if recursion == 0 {
+                Err(PackageError::Recursion(Default::default()))
+            } else {
+                Self::new(name)
+            };
+
+            match package {
+                Ok(package) => {
+                    let (dependencies, dependencies_map) =
+                        Self::new_recursive_nonstop(&package.depends, recursion - 1);
+                    for dependency in dependencies {
+                        if !packages_map.contains_key(&dependency.name) {
+                            packages_map.insert(dependency.name.clone(), Ok(()));
+                            packages.push(dependency);
+                        }
+                    }
+                    for (dep_name, result) in dependencies_map {
+                        if let Err(mut e) = result {
+                            if !packages_map.contains_key(&dep_name) {
+                                e.append_recursion(name);
+                                packages_map.insert(dep_name, Err(e));
+                            }
+                        }
+                    }
+                }
                 Err(e) => {
-                    if nonstop {
-                        last_err = Some(e);
-                        continue;
-                    } else {
-                        return Err(e);
-                    }
+                    packages_map.insert(name.clone(), Err(e));
                 }
-            };
-
-            let dependencies = match Self::new_recursive(&package.depends, nonstop, recursion - 1) {
-                Ok(p) => p,
-                Err(mut e) => {
-                    e.append_recursion(name);
-                    if nonstop {
-                        last_err = Some(e);
-                        continue;
-                    } else {
-                        return Err(e);
-                    }
-                }
-            };
-
-            for dependency in dependencies {
-                if !packages.contains(&dependency) {
-                    packages.push(dependency);
-                }
-            }
-
-            if !packages.contains(&package) {
-                packages.push(package);
             }
         }
 
-        if packages.len() == 0 && last_err.is_some() {
-            return Err(last_err.unwrap());
-        }
-
-        Ok(packages)
+        (packages, packages_map)
     }
 
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
