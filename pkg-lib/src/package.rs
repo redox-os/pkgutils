@@ -324,6 +324,7 @@ pub struct PackageInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SourceIdentifier {
     /// git commit or tar hash
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -354,7 +355,7 @@ impl Repository {
 /// Errors that occur while opening or parsing [`Package`]s.
 ///
 /// These errors are unrecoverable but useful for reporting.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum PackageError {
     #[error("Missing package file {0:?}")]
     FileMissing(PathBuf),
