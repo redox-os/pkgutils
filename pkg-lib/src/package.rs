@@ -309,14 +309,14 @@ pub struct PackageInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct OutdatedPackage {
-    /// git commit or tar hash when the build broke
+pub struct SourceIdentifier {
+    /// git commit or tar hash
     #[serde(skip_serializing_if = "String::is_empty")]
     pub source_identifier: String,
-    /// git commit of redox repository when the build broke
+    /// git commit of redox repository
     #[serde(skip_serializing_if = "String::is_empty")]
     pub commit_identifier: String,
-    /// time when this package outdated in IS0 8601
+    /// time when source updated in IS0 8601
     #[serde(skip_serializing_if = "String::is_empty")]
     pub time_identifier: String,
 }
@@ -324,8 +324,10 @@ pub struct OutdatedPackage {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Repository {
+    /// list of published packages
     pub packages: BTreeMap<String, String>,
-    pub outdated_packages: BTreeMap<String, OutdatedPackage>,
+    /// list of outdated/missing packages, with source identifier when it first time went outdated/missing
+    pub outdated_packages: BTreeMap<String, SourceIdentifier>,
 }
 
 impl Repository {
@@ -370,7 +372,7 @@ impl PackageError {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::package::{OutdatedPackage, Repository};
+    use crate::package::{Repository, SourceIdentifier};
 
     use super::{Package, PackageName};
 
@@ -531,7 +533,7 @@ mod tests {
         let expected = Repository {
             outdated_packages: BTreeMap::from([(
                 "gnu-make".into(),
-                OutdatedPackage {
+                SourceIdentifier {
                     source_identifier:
                         "1a0e5353205e106bd9b3c0f4a5f37ee1156a1e1c8feb771d1b4842c216612cba".into(),
                     commit_identifier: "da93b635fec96a6fac7da9bf7742d850cbce68b4".into(),
