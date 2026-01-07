@@ -20,10 +20,11 @@ pkg update [-y] [--check] [packages]...
     If package lists omitted, it will update all installed packages.
     Use --check to not actually update packages.
 
-pkg uninstall [-y] [--all] [packages]...
+pkg uninstall [-y] [--all] [--force] [packages]...
     Uninstall one of more packages.
     Use --all to uninstall all packages except protected packages:
        kernel, base, base-initfs, redoxfs, ion, pkgutils.
+    Use --force to also uninstall all packages that depends them.
 
 pkg search [packages]...
     Search available packages in glob-based pattern
@@ -33,9 +34,15 @@ pkg info [package]
 
 pkg list
     Show list of installed packages
+
+pkg postinstall
+    Run all pending postinstall scripts
+
+pkg path [path]
+    Translate a path to user environment, used for postinstall scripts
 ```
 
-If stdin is not a pty or `CI=1`, `-y` will be implied.
+If stdin is not a pty or `CI` is set, `-y` will be implied. If `TERM` is unset or [`NO_COLOR=1`](https://no-color.org/), the progress bar will be in plain mode.
 
 ## Development: Testing
 
@@ -120,3 +127,30 @@ manual = true # tells if user explicitly install this
 dependencies = [...]
 dependents = [...]
 ```
+
+### Local `/var/pkg/postinstall/`
+
+This directory contains list of scripts that will be run in `pkg postinstall` script. The script will be run in `sh` environment and will be deleted after successful operation.
+
+### Local `/etc`
+
+Some packages shipped with preconfigured configuration in `/etc`. However, users can specify and override configuration before and after installation. So, pkg will append `.pkgconf` to any file in `/etc` if the configuration file exists and the content differ. This is also the same when uninstalling.
+
+### Non-Sudo Installation
+
+A standard installation install everything in root environment. However pkgutils can also be run in non-root environment, for example it can be installed into `/home/user`. Here's how it will be mapped:
+
+- `/usr` -> `/home/user/.local`
+- `/bin` -> `/home/user/.local/bin`
+- `/include` -> `/home/user/.local/include`
+- `/lib` -> `/home/user/.local/lib`
+- `/libexec` -> `/home/user/.local/libexec`
+- `/sbin` -> `/home/user/.local/sbin`
+- `/share` -> `/home/user/.local/share`
+- `/etc` -> `/home/user/.config`
+- `/var` -> `/home/user/.var`
+- `/tmp` -> `/home/user/.cache`
+- `/root` -> `/home/user`
+- Any other paths -> `/home/user/.local/state`
+
+These translation paths can be examined from `pkg path [path]` and all internal package paths mentioned above will reflect into these paths. In pkg CLI, these paths changed are automatically applied when `geteuid()` is not `0` and `$HOME` is set and not `/root`.
