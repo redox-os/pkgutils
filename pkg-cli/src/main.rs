@@ -91,7 +91,16 @@ fn main() {
         ("/tmp/pkg_install", "x86_64-unknown-redox")
     };
 
-    let mut library = Library::new(install_path, target, Rc::new(RefCell::new(callback))).unwrap();
+    let mut library = Library::new(install_path, target, Rc::new(RefCell::new(callback)))
+        .unwrap_or_else(|err| {
+            eprintln!("Error: Failed to initialize package library: {:?}", err);
+            if err.to_string().contains("PermissionDenied")
+                || err.to_string().contains("MissingPermissions")
+            {
+                eprintln!("Hint: You may need root privileges. Try running with 'sudo'.");
+            }
+            std::process::exit(1);
+        });
 
     let args = Cli::parse();
 
