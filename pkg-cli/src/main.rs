@@ -1,7 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, io, process, rc::Rc};
 
 use clap::{Parser, Subcommand};
 use pkg::{callback::IndicatifCallback, Library, PackageName};
+use termion::{color, is_tty, style};
 
 /// Redox Package Manager
 #[derive(Debug, Parser)]
@@ -103,47 +104,65 @@ fn main() {
         });
 
     let args = Cli::parse();
-
-    match args.command {
-        Commands::Install { packages, all } => {
-            let packages = procces_packages(packages, &mut library, all);
-            library.install(packages).unwrap();
+    execute_command(args.command, &mut library).unwrap_or_else(|err| {
+        if is_tty(&io::stderr()) {
+            eprintln!(
+                "{}{}error: {}{}{:?}{}",
+                color::Fg(color::Red),
+                style::Bold,
+                style::Reset,
+                color::Fg(color::Red),
+                err,
+                style::Reset
+            );
+        } else {
+            eprintln!("error: {:?}", err);
         }
-        Commands::Remove { packages, all } => {
-            let packages = procces_packages(packages, &mut library, all);
-            library.uninstall(packages).unwrap();
-        }
-        Commands::Update { packages, all } => {
-            let packages = procces_packages(packages, &mut library, all);
-            library.update(packages).unwrap();
-        }
-        Commands::Search { package } => {
-            let packages = library.search(&package).unwrap();
-            println!("{:?}", packages);
-            return;
-        }
-        Commands::Info { package } => {
-            let package = PackageName::new(package).unwrap();
-            let info = library.info(package).unwrap();
-            println!("{:#?}", info);
-            return;
-        }
-        Commands::List => {
-            let packages = library.get_installed_packages().unwrap();
-            println!("{:#?}", packages);
-            return;
-        }
-    }
-
-    if let Err(e) = library.apply() {
-        eprintln!("Package operation has failed!");
-        eprintln!("Error: {}", e);
-        if std::env::var("RUST_BACKTRACE").is_ok() {
-            // If RUST_BACKTRACE is set, panic to get a backtrace
-            panic!("{:?}", e);
-        }
-        std::process::exit(1);
-    }
+        process::exit(1);
+    });
 
     println!("done");
+}
+fn execute_command(
+    command: Commands,
+    library: &mut Library,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut needs_apply = false;
+
+    match command {
+        Commands::Install { packages, all } => {
+            let packages = procces_packages(packages, library, all);
+            library.install(packages)?;
+            needs_apply = true;
+        }
+        Commands::Remove { packages, all } => {
+            let packages = procces_packages(packages, library, all);
+            library.uninstall(packages)?;
+            needs_apply = true;
+        }
+        Commands::Update { packages, all } => {
+            let packages = procces_packages(packages, library, all);
+            library.update(packages)?;
+            needs_apply = true;
+        }
+        Commands::Search { package } => {
+            let packages = library.search(&package)?;
+            println!("{:?}", packages);
+        }
+        Commands::Info { package } => {
+            let package = PackageName::new(package)?;
+            let info = library.info(package)?;
+            println!("{:#?}", info);
+        }
+        Commands::List => {
+            let packages = library.get_installed_packages()?;
+            println!("{:#?}", packages);
+        }
+    }
+
+    if needs_apply {
+        library.apply()?;
+    }
+
+    Ok(())
 }
