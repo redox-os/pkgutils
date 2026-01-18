@@ -17,3 +17,4 @@ redox-pkg = { path = "../pkg-lib", features = ["indicatif"] }
 
 clap = { version = "4.3", features = ["cargo", "derive"] }
 glob = "0.3"
+termion = "4.0.6"
