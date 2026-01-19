@@ -94,7 +94,12 @@ fn main() {
 
     let mut library = Library::new(install_path, target, Rc::new(RefCell::new(callback)))
         .unwrap_or_else(|err| {
-            eprintln!("Error: Failed to initialize package library: {:?}", err);
+            eprintln!(
+                "{}Error: Failed to initialize package library: {:?}{}",
+                color::Fg(color::Red),
+                err,
+                style::Reset
+            );
             if err.to_string().contains("PermissionDenied")
                 || err.to_string().contains("MissingPermissions")
             {
