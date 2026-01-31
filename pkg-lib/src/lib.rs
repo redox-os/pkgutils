@@ -28,6 +28,9 @@ pub use library::Library;
 #[cfg(feature = "library")]
 const DOWNLOAD_PATH: &str = "/tmp/pkg_download/";
 
+#[cfg(feature = "library")]
+const PACKAGES_DIR: &str = "pkg/packages";
+
 // make them not relative
 #[cfg(feature = "library")]
 const PACKAGES_PATH: &str = "etc/pkg/packages.toml";

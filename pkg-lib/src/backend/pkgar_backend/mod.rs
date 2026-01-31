@@ -12,7 +12,7 @@ use super::{Backend, Error};
 use crate::{
     package::Repository,
     repo_manager::{RemotePath, RepoManager},
-    Package, PackageName, DOWNLOAD_PATH, PACKAGES_PATH,
+    Package, PackageName,
 };
 
 mod packages;
@@ -24,12 +24,10 @@ pub struct PkgarBackend {
     pkey_files: HashMap<String, PublicKeyFile>,
 }
 
-const PACKAGES_DIR: &str = "pkg/packages";
-
 // FIXME: can't use repo_manager.get_local_path because of borrowing rules
 fn get_package_path(repokey: &str, package: &PackageName) -> PathBuf {
     let local_file = format!("{}_{}.pkgar", repokey, package.as_str());
-    PathBuf::from(DOWNLOAD_PATH).join(local_file)
+    PathBuf::from(crate::DOWNLOAD_PATH).join(local_file)
 }
 fn get_package(
     repokey: &str,
@@ -68,8 +66,8 @@ impl PkgarBackend {
     pub fn new<P: AsRef<Path>>(install_path: P, repo_manager: RepoManager) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
 
-        let packages_path = install_path.join(PACKAGES_PATH);
-        let packages_dir = install_path.join(PACKAGES_DIR);
+        let packages_path = install_path.join(crate::PACKAGES_PATH);
+        let packages_dir = install_path.join(crate::PACKAGES_DIR);
         let file = fs::read_to_string(&packages_path);
 
         let packages;
@@ -100,7 +98,7 @@ impl PkgarBackend {
     fn get_package_head(&mut self, package: &PackageName) -> Result<PackageFile, Error> {
         let path = self
             .install_path
-            .join(PACKAGES_DIR)
+            .join(crate::PACKAGES_DIR)
             .join(format!("{package}.pkgar_head"));
 
         self.repo_manager.sync_keys()?;
@@ -141,7 +139,7 @@ impl PkgarBackend {
     fn remove_package_head(&mut self, package: &PackageName) -> Result<(), Error> {
         let path = self
             .install_path
-            .join(PACKAGES_DIR)
+            .join(crate::PACKAGES_DIR)
             .join(format!("{package}.pkgar_head"));
 
         fs::remove_file(path)?;
@@ -159,7 +157,7 @@ impl PkgarBackend {
             pubkey_path,
             get_package_path(repokey, package),
             self.install_path
-                .join(PACKAGES_DIR)
+                .join(crate::PACKAGES_DIR)
                 .join(format!("{package}.pkgar_head")),
             Option::<&str>::None,
         )?;
@@ -222,7 +220,7 @@ impl Backend for PkgarBackend {
     }
 
     fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error> {
-        let entries = fs::read_dir(self.install_path.join(PACKAGES_DIR))?;
+        let entries = fs::read_dir(self.install_path.join(crate::PACKAGES_DIR))?;
 
         let mut packages = vec![];
 
@@ -246,7 +244,7 @@ impl Backend for PkgarBackend {
 
 impl Drop for PkgarBackend {
     fn drop(&mut self) {
-        let packages_path = self.install_path.join(PACKAGES_PATH);
+        let packages_path = self.install_path.join(crate::PACKAGES_PATH);
         // we already check permissions before so the error can be ignored
         let _ = fs::write(packages_path, self.packages.to_toml());
     }
