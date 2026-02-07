@@ -1,6 +1,10 @@
 use crate::{package_list::PackageList, Package, PackageName};
+use pkgar_keys::PublicKeyFile;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+};
 
 // TODO: It's unclear what differentiate overall pkg library and pkgar backend since
 // we're newly implemented installed list here, including public keys which is pkgar specific.
@@ -8,13 +12,15 @@ use std::collections::{BTreeMap, BTreeSet};
 pub type RemoteName = String;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct Packages {
-    pub protected: Vec<PackageName>,
+    pub protected: BTreeSet<PackageName>,
     pub pubkeys: BTreeMap<RemoteName, PublicKeyFile>,
     pub installed: BTreeMap<PackageName, InstallState>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(default)]
 pub struct InstallState {
     pub remote: RemoteName,
     pub blake3: String,
@@ -38,34 +44,162 @@ impl Packages {
     }
 
     // mutably add valid packages to the graph.
-    // Returns list of packages that need to be resolved,
-    // which are not yet added to the package config.
-    // If zero vector returned, it means all package deps are satisfied
-    pub fn install(&mut self, packages: &[Package]) -> Vec<PackageName> {
-        let rejected_packages = Vec::new();
-        // for p in packages {
-        //     p.
-        // }
+    /// Returns list of packages that need to be resolved,
+    /// which are not yet added to the package config.
+    /// If zero vector returned, it means all package deps are satisfied
+    pub fn install(&mut self, packages: &[Package], remote_name: &str) -> Vec<PackageName> {
+        let mut missing_set = BTreeSet::new();
+        let mut missing_deps = Vec::new();
+        let package_names: BTreeSet<&PackageName> = packages.iter().map(|p| &p.name).collect();
 
-        rejected_packages
+        let mut recursion = 100;
+        loop {
+            let mut has_new_missing_deps = false;
+
+            for pkg in packages {
+                if missing_set.contains(&pkg.name) {
+                    continue;
+                }
+
+                let mut has_missing_deps = false;
+                for dep_name in &pkg.depends {
+                    if self.installed.contains_key(dep_name) {
+                    } else if !package_names.contains(dep_name) {
+                        if missing_set.insert(dep_name.clone()) {
+                            missing_deps.push(dep_name.clone());
+                        }
+                        has_missing_deps = true;
+                    } else if missing_set.contains(dep_name) {
+                        has_missing_deps = true;
+                    } else {
+                    }
+                }
+
+                if has_missing_deps {
+                    if missing_set.insert(pkg.name.clone()) {
+                        missing_deps.push(pkg.name.clone());
+                    }
+                    // dependents should be marked as missing well
+                    has_new_missing_deps = true;
+                }
+            }
+
+            if !has_new_missing_deps {
+                break;
+            }
+
+            if recursion == 0 {
+                panic!("Dependencies recursion exhausted");
+            }
+            recursion -= 1;
+        }
+
+        // all packages with their dependents should be satisfied
+        let mut unsatisfied_deps: BTreeMap<PackageName, BTreeSet<PackageName>> = BTreeMap::new();
+        for pkg in packages {
+            if missing_set.contains(&pkg.name) {
+                continue;
+            }
+
+            let (manual, dependents, remote) = if let Some(existing) = self.installed.get(&pkg.name)
+            {
+                (
+                    existing.manual,
+                    existing.dependents.clone(),
+                    existing.remote.clone(),
+                )
+            } else {
+                (
+                    false,
+                    unsatisfied_deps.remove(&pkg.name).unwrap_or_default(),
+                    remote_name.to_string(),
+                )
+            };
+
+            let new_state = InstallState {
+                remote,
+                blake3: pkg.blake3.clone(),
+                manual,
+                network_size: pkg.network_size,
+                storage_size: pkg.storage_size,
+                dependencies: pkg.depends.iter().cloned().collect(),
+                dependents,
+            };
+
+            self.installed.insert(pkg.name.clone(), new_state);
+
+            for dep_name in &pkg.depends {
+                if let Some(dep_state) = self.installed.get_mut(dep_name) {
+                    dep_state.dependents.insert(pkg.name.clone());
+                } else {
+                    if let Some(dep_state) = unsatisfied_deps.get_mut(dep_name) {
+                        dep_state.insert(pkg.name.clone());
+                    } else {
+                        let mut dep_state = BTreeSet::new();
+                        dep_state.insert(pkg.name.clone());
+                        unsatisfied_deps.insert(dep_name.clone(), dep_state);
+                    }
+                }
+            }
+        }
+
+        if !unsatisfied_deps.is_empty() {
+            panic!("Some unsatisfied deps are remained: {:?}", unsatisfied_deps);
+        }
+
+        missing_deps
     }
 
     // mutably remove packages from the graph.
-    // Returns list of packages that also need to be uninstalled,
-    // which are not manually installed, so need be removed automatically.
-    // If zero vector returned, it means all package deps are cleaned.
+    /// Returns list of packages that also need to be uninstalled,
+    /// which are not all of their deps is listed in list of packages.
+    /// If zero vector returned, it means all package deps are clean to remove.
     pub fn uninstall(&mut self, packages: &[PackageName]) -> Vec<PackageName> {
-        let obsolete_packages = Vec::new();
-        // for p in packages {
-        //     p.
-        // }
+        let mut pending_resolution = Vec::new();
+        let mut packages_to_remove = packages.to_vec();
 
-        obsolete_packages
+        // Filter out protected packages. Caller can wipe out the list beforehand to skip this behaviour.
+        packages_to_remove.retain(|name| !self.protected.contains(name));
+
+        let remove_set: BTreeSet<&PackageName> = packages_to_remove.iter().collect();
+        let mut safe_to_remove = Vec::new();
+
+        for name in &packages_to_remove {
+            if let Some(state) = self.installed.get(name) {
+                let has_external_dependents =
+                    state.dependents.iter().any(|dep| !remove_set.contains(dep));
+
+                if !has_external_dependents {
+                    safe_to_remove.push(name.clone());
+                } else {
+                    pending_resolution.push(name.clone());
+                }
+            }
+        }
+
+        for name in safe_to_remove {
+            if let Some(state) = self.installed.remove(&name) {
+                for dep_name in &state.dependencies {
+                    if let Some(dep_state) = self.installed.get_mut(dep_name) {
+                        dep_state.dependents.remove(&name);
+
+                        if dep_state.dependents.is_empty()
+                            && !dep_state.manual
+                            && !self.protected.contains(&name)
+                        {
+                            pending_resolution.push(dep_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        pending_resolution
     }
 
     // Diff between old and new state, returns list of installed and uninstalled packages
     pub fn diff(&self, newer: &Self) -> PackageList {
-        let diff = PackageList::default();
+        let mut diff = PackageList::default();
 
         let mut old = self.installed.iter();
         let mut new = newer.installed.iter();
@@ -114,6 +248,25 @@ impl Packages {
 
         diff
     }
+
+    pub fn get_installed_list(&self) -> Vec<PackageName> {
+        self.installed.keys().cloned().collect()
+    }
+
+    pub fn mark_as_manual(&mut self, packages: &[PackageName]) -> usize {
+        let mut change_count = 0;
+
+        for package in packages {
+            if let Some(pkg) = self.installed.get_mut(package) {
+                if pkg.manual {
+                    continue;
+                }
+                pkg.manual = true;
+                change_count += 1;
+            }
+        }
+        change_count
+    }
 }
 
 impl Default for Packages {
@@ -129,9 +282,168 @@ impl Default for Packages {
                 PackageName::new("relibc").unwrap(),
                 PackageName::new("libgcc").unwrap(),
                 PackageName::new("libstdcxx").unwrap(),
-            ],
+            ]
+            .into_iter()
+            .collect(),
             pubkeys: Default::default(),
             installed: Default::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Helper Functions for Test Data ---
+
+    fn cpkg(name: &str) -> PackageName {
+        PackageName::new(name).unwrap()
+    }
+
+    fn mock_package(name: &str, depends: Vec<&str>) -> Package {
+        Package {
+            name: cpkg(name),
+            version: "1.0.0".to_string(),
+            target: "x86_64-unknown-redox".to_string(),
+            blake3: "hash".to_string(),
+            source_identifier: "src".to_string(),
+            commit_identifier: "commit".to_string(),
+            time_identifier: "time".to_string(),
+            storage_size: 1000,
+            network_size: 500,
+            depends: depends.into_iter().map(|s| cpkg(s)).collect(),
+        }
+    }
+
+    fn mock_empty_db() -> Packages {
+        Packages {
+            protected: BTreeSet::new(),
+            pubkeys: BTreeMap::new(),
+            installed: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_install_simple_success() {
+        let mut db = mock_empty_db();
+        let nano = mock_package("nano", vec![]);
+        let packages = vec![nano];
+        let names = vec![cpkg("nano")];
+
+        let missing = db.install(&packages, "origin");
+
+        assert_eq!(missing, vec![]);
+        assert_eq!(db.get_installed_list(), names);
+        assert_eq!(db.installed[&cpkg("nano")].manual, false);
+        assert_eq!(db.installed[&cpkg("nano")].remote, "origin");
+
+        assert_eq!(db.mark_as_manual(&names), 1);
+        assert_eq!(db.installed[&cpkg("nano")].manual, true);
+    }
+
+    #[test]
+    fn test_install_missing_dependency() {
+        let mut db = mock_empty_db();
+        let bash = mock_package("bash", vec!["readline", "terminfo"]);
+        let readline = mock_package("readline", vec!["ncurses"]);
+        let ncurses = mock_package("ncurses", vec![]);
+        let terminfo = mock_package("terminfo", vec![]);
+        let packages = vec![bash, readline, terminfo, ncurses];
+        // 1-st
+        let missing = db.install(&packages[..1], "origin");
+        assert_eq!(
+            missing,
+            vec![cpkg("readline"), cpkg("terminfo"), cpkg("bash")]
+        );
+        assert_eq!(db.get_installed_list(), vec![]);
+        // 2-nd
+        let missing = db.install(&packages[..3], "origin");
+        assert_eq!(
+            missing,
+            vec![cpkg("ncurses"), cpkg("readline"), cpkg("bash")]
+        );
+        assert_eq!(db.get_installed_list(), vec![cpkg("terminfo")]);
+        // 3-rd
+        let missing = db.install(&packages[..], "origin");
+        assert_eq!(missing, vec![]);
+        assert_eq!(
+            db.get_installed_list(),
+            vec![
+                cpkg("bash"),
+                cpkg("ncurses"),
+                cpkg("readline"),
+                cpkg("terminfo"),
+            ]
+        );
+
+        assert_eq!(
+            db.installed[&cpkg("bash")].dependents,
+            vec![].iter().cloned().collect()
+        );
+        assert_eq!(
+            db.installed[&cpkg("readline")].dependents,
+            vec![cpkg("bash")].iter().cloned().collect()
+        );
+        assert_eq!(
+            db.installed[&cpkg("ncurses")].dependents,
+            vec![cpkg("readline")].iter().cloned().collect()
+        );
+    }
+
+    #[test]
+    fn test_uninstall_leaf_clean() {
+        let mut db = mock_empty_db();
+        let pkg = mock_package("base", vec![]);
+        db.install(&[pkg], "origin");
+        let result = db.uninstall(&[cpkg("base")]);
+        assert_eq!(result, vec![]);
+    }
+
+    #[test]
+    fn test_uninstall_with_dependent() {
+        let mut db = mock_empty_db();
+
+        let gettext = mock_package("gettext", vec!["libiconv"]);
+        let libiconv = mock_package("libiconv", vec![]);
+        db.install(&[gettext, libiconv], "origin");
+
+        let target = cpkg("libiconv");
+        let result = db.uninstall(&[target.clone()]);
+
+        assert_eq!(
+            db.get_installed_list(),
+            vec![cpkg("gettext"), cpkg("libiconv")]
+        );
+        assert_eq!(result, vec![cpkg("libiconv")]);
+    }
+
+    #[test]
+    fn test_toml_integration() -> Result<(), toml::de::Error> {
+        const TOML_DATA: &str = r#"
+            [installed.bash]
+            remote = "origin"
+            blake3 = "abc"
+            manual = true
+            storage_size = 3000
+            network_size = 2000
+            dependencies = ["ncurses", "readline"]
+            dependents = []
+
+            [installed.ncurses]
+            remote = "origin"
+            blake3 = "def"
+            manual = false
+            storage_size = 2000
+            network_size = 1000
+            dependencies = []
+            dependents = ["bash"]
+        "#;
+
+        let db: Packages = Packages::from_toml(TOML_DATA)?;
+
+        assert_eq!(db.get_installed_list(), vec![cpkg("bash"), cpkg("ncurses")]);
+
+        Ok(())
     }
 }
