@@ -7,7 +7,7 @@ use std::{
 use pkgar::{PackageFile, Transaction};
 use pkgar_keys::PublicKeyFile;
 
-use self::packages::Packages;
+pub use self::packages::Packages;
 use super::{Backend, Error};
 use crate::{
     package::Repository,

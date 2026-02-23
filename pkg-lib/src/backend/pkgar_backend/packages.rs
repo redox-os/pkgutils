@@ -25,7 +25,7 @@ pub struct InstallState {
     pub remote: RemoteName,
     pub blake3: String,
     pub manual: bool,
-    // only matter during install
+    // only useful during install
     #[serde(skip_serializing)]
     pub network_size: u64,
     pub storage_size: u64,
@@ -151,9 +151,9 @@ impl Packages {
     }
 
     // mutably remove packages from the graph.
-    /// Returns list of packages that also need to be uninstalled,
+    /// Returns list of packages that also need to be resolved,
     /// which are not all of their deps is listed in list of packages.
-    /// If zero vector returned, it means all package deps are clean to remove.
+    /// If zero vector returned, it means uninstallation can be executed.
     pub fn uninstall(&mut self, packages: &[PackageName]) -> Vec<PackageName> {
         let mut pending_resolution = Vec::new();
         let mut packages_to_remove = packages.to_vec();
@@ -165,15 +165,30 @@ impl Packages {
         let mut safe_to_remove = Vec::new();
 
         for name in &packages_to_remove {
-            if let Some(state) = self.installed.get(name) {
-                let has_external_dependents =
-                    state.dependents.iter().any(|dep| !remove_set.contains(dep));
+            let Some(state) = self.installed.get(name) else {
+                continue;
+            };
+            let missing_dependents: Vec<_> = state
+                .dependents
+                .iter()
+                .cloned()
+                .filter(|dep| !remove_set.contains(dep))
+                .collect();
+            let missing_dependencies: Vec<_> = state
+                .dependencies
+                .iter()
+                .cloned()
+                .filter(|dep| {
+                    !remove_set.contains(dep) && !self.installed.get(dep).is_some_and(|p| p.manual)
+                })
+                .collect();
 
-                if !has_external_dependents {
-                    safe_to_remove.push(name.clone());
-                } else {
-                    pending_resolution.push(name.clone());
-                }
+            if missing_dependents.is_empty() && missing_dependencies.is_empty() {
+                safe_to_remove.push(name.clone());
+            } else {
+                pending_resolution.extend(missing_dependents);
+                pending_resolution.push(name.clone());
+                pending_resolution.extend(missing_dependencies);
             }
         }
 
@@ -182,13 +197,6 @@ impl Packages {
                 for dep_name in &state.dependencies {
                     if let Some(dep_state) = self.installed.get_mut(dep_name) {
                         dep_state.dependents.remove(&name);
-
-                        if dep_state.dependents.is_empty()
-                            && !dep_state.manual
-                            && !self.protected.contains(&name)
-                        {
-                            pending_resolution.push(dep_name.clone());
-                        }
                     }
                 }
             }
@@ -253,19 +261,21 @@ impl Packages {
         self.installed.keys().cloned().collect()
     }
 
-    pub fn mark_as_manual(&mut self, packages: &[PackageName]) -> usize {
-        let mut change_count = 0;
+    /// Mark packages manually installed or not. Returns list of changed packages.
+    /// Packages are not marked automatically in any install mechanism.
+    pub fn mark_as_manual(&mut self, manual: bool, packages: &[PackageName]) -> Vec<PackageName> {
+        let mut marked = Vec::new();
 
         for package in packages {
             if let Some(pkg) = self.installed.get_mut(package) {
-                if pkg.manual {
+                if pkg.manual == manual {
                     continue;
                 }
-                pkg.manual = true;
-                change_count += 1;
+                pkg.manual = manual;
+                marked.push(package.clone());
             }
         }
-        change_count
+        marked
     }
 }
 
@@ -338,7 +348,7 @@ mod tests {
         assert_eq!(db.installed[&cpkg("nano")].manual, false);
         assert_eq!(db.installed[&cpkg("nano")].remote, "origin");
 
-        assert_eq!(db.mark_as_manual(&names), 1);
+        assert_eq!(db.mark_as_manual(true, &names), vec![cpkg("nano")]);
         assert_eq!(db.installed[&cpkg("nano")].manual, true);
     }
 
@@ -392,30 +402,53 @@ mod tests {
     }
 
     #[test]
-    fn test_uninstall_leaf_clean() {
+    fn test_uninstall_dependent() {
         let mut db = mock_empty_db();
-        let pkg = mock_package("base", vec![]);
-        db.install(&[pkg], "origin");
-        let result = db.uninstall(&[cpkg("base")]);
+        let base = mock_package("base", vec![]);
+        let init = mock_package("base-initfs", vec!["redoxfs"]);
+        let redoxfs = mock_package("redoxfs", vec![]);
+        db.install(&[base, init, redoxfs], "origin");
+        let result = db.uninstall(&[cpkg("redoxfs")]);
+        assert_eq!(
+            db.get_installed_list(),
+            vec![cpkg("base"), cpkg("base-initfs"), cpkg("redoxfs")]
+        );
+        assert_eq!(result, vec![cpkg("base-initfs"), cpkg("redoxfs")]);
+        let result = db.uninstall(&result);
         assert_eq!(result, vec![]);
+        assert_eq!(db.get_installed_list(), vec![cpkg("base")]);
     }
 
     #[test]
-    fn test_uninstall_with_dependent() {
+    fn test_uninstall_with_dependencies_unmarked() {
         let mut db = mock_empty_db();
 
         let gettext = mock_package("gettext", vec!["libiconv"]);
         let libiconv = mock_package("libiconv", vec![]);
         db.install(&[gettext, libiconv], "origin");
-
-        let target = cpkg("libiconv");
-        let result = db.uninstall(&[target.clone()]);
-
+        let result = db.uninstall(&[cpkg("gettext")]);
+        assert_eq!(result, vec![cpkg("gettext"), cpkg("libiconv")]);
         assert_eq!(
             db.get_installed_list(),
             vec![cpkg("gettext"), cpkg("libiconv")]
         );
-        assert_eq!(result, vec![cpkg("libiconv")]);
+        let result = db.uninstall(&result);
+        assert_eq!(result, vec![]);
+        assert_eq!(db.get_installed_list(), vec![]);
+    }
+
+    #[test]
+    fn test_uninstall_with_dependencies_marked() {
+        let mut db = mock_empty_db();
+
+        let gettext = mock_package("gettext", vec!["libiconv"]);
+        let libiconv = mock_package("libiconv", vec![]);
+        db.install(&[gettext, libiconv], "origin");
+        let result = db.mark_as_manual(true, &vec![cpkg("gettext"), cpkg("libiconv")]);
+        assert_eq!(result.len(), 2usize);
+        let result = db.uninstall(&[cpkg("gettext")]);
+        assert_eq!(result, vec![]);
+        assert_eq!(db.get_installed_list(), vec![cpkg("libiconv")]);
     }
 
     #[test]
@@ -427,7 +460,7 @@ mod tests {
             manual = true
             storage_size = 3000
             network_size = 2000
-            dependencies = ["ncurses", "readline"]
+            dependencies = ["ncurses"]
             dependents = []
 
             [installed.ncurses]
