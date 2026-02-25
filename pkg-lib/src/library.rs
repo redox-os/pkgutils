@@ -1,28 +1,28 @@
-use std::{
-    cell::RefCell,
-    cmp::Ordering,
-    fs,
-    path::{Path, PathBuf},
-    rc::Rc,
+use std::collections::{btree_map, BTreeMap};
+use std::{cell::RefCell, cmp::Ordering, path::Path, rc::Rc};
+
+use crate::backend::pkgar_backend::PkgarBackend;
+use crate::net_backend::{DefaultNetBackend, DownloadBackend};
+use crate::repo_manager::RepoManager;
+use crate::{
+    backend::{Backend, Error},
+    net_backend::DefaultLocalBackend,
 };
 
-use crate::{PACKAGES_REMOTE_DIR, backend::pkgar_backend::PkgarBackend};
-use crate::backend::{Backend, Error};
-use crate::net_backend::{DefaultNetBackend, DownloadBackend};
-use crate::package_state::PackageList;
-use crate::repo_manager::RepoManager;
-
 use crate::callback::Callback;
-use crate::package::{PackageInfo, PackageName};
+use crate::package::{PackageInfo, PackageName, RemotePackage};
 
-use crate::{sorensen, DOWNLOAD_DIR};
+use crate::{sorensen, PackageState, DOWNLOAD_DIR};
 
 pub struct Library {
-    package_list: PackageList,
+    /// the computed package state before commit
+    package_state: PackageState,
+    cached_info: BTreeMap<PackageName, RemotePackage>,
     backend: Box<dyn Backend>,
 }
 
 impl Library {
+    /// Create standard network-based package library from existing configuration on install_path
     pub fn new<P: AsRef<Path>>(
         install_path: P,
         target: &str,
@@ -31,92 +31,113 @@ impl Library {
         let install_path = install_path.as_ref();
 
         let download_backend = DefaultNetBackend::new()?;
-        let prefer_cache = PathBuf::from(DOWNLOAD_DIR).join("prefer_cache").exists();
+
+        let mut repo_manager = RepoManager {
+            remotes: Vec::new(),
+            download_path: DOWNLOAD_DIR.into(),
+            download_backend: Box::new(download_backend),
+            callback: callback.clone(),
+            remote_map: BTreeMap::new(),
+        };
+
+        repo_manager.update_remotes(target, install_path)?;
+
+        let backend = PkgarBackend::new(install_path, repo_manager)?;
+
+        Ok(Library {
+            package_state: backend.get_package_state(),
+            backend: Box::new(backend),
+            cached_info: BTreeMap::new(),
+        })
+    }
+
+    /// Create local-based package library from provided local on install_path
+    pub fn new_local<P: AsRef<Path>>(
+        source_dir: P,
+        pubkey_dir: P,
+        install_path: P,
+        target: &str,
+        callback: Rc<RefCell<dyn Callback>>,
+    ) -> Result<Self, Error> {
+        let install_path = install_path.as_ref();
+
+        let download_backend = DefaultLocalBackend::new()?;
 
         let mut repo_manager = RepoManager {
             remotes: Vec::new(),
             download_path: DOWNLOAD_DIR.into(),
             download_backend: Box::new(download_backend.clone()),
             callback: callback.clone(),
-            prefer_cache,
+            remote_map: BTreeMap::new(),
         };
 
-        {
-            let repos_path = install_path.join(PACKAGES_REMOTE_DIR);
-            let mut repo_files = Vec::new();
-            for entry_res in fs::read_dir(&repos_path)? {
-                let entry = entry_res?;
-                let path = entry.path();
-                if path.is_file() {
-                    repo_files.push(path);
-                }
-            }
-            repo_files.sort();
-            for repo_file in repo_files {
-                let data = fs::read_to_string(repo_file)?;
-                for line in data.lines() {
-                    if !line.starts_with('#') {
-                        repo_manager.add_remote(line.trim(), target)?;
-                    }
-                }
-            }
-
-            // the local key installed by the installer
-            let local_pub_path = install_path.join("pkg");
-            let _ = repo_manager.add_local("installer_key", &local_pub_path);
-        }
+        repo_manager.add_local(
+            "local",
+            &source_dir.as_ref().to_string_lossy(),
+            target,
+            pubkey_dir.as_ref(),
+        )?;
 
         let backend = PkgarBackend::new(install_path, repo_manager)?;
 
         Ok(Library {
-            package_list: PackageList::default(),
+            package_state: backend.get_package_state(),
             backend: Box::new(backend),
+            cached_info: BTreeMap::new(),
         })
     }
 
     pub fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error> {
-        self.backend.get_installed_packages()
+        Ok(self.package_state.get_installed_list())
     }
 
     pub fn install(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
-        let installed_packages = self.get_installed_packages().unwrap_or(vec![]);
-        for package_name in packages {
-            if !installed_packages.contains(&package_name) {
-                self.package_list.install.push(package_name);
-            }
-        }
-
+        self.install_inner(packages.clone(), 100)?;
+        self.package_state.mark_as_manual(true, &packages);
         Ok(())
     }
 
-    /// TODO: Cannot uninstall depedencies as manual mark is not implemented
-    pub fn uninstall(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
-        let installed_packages = self.get_installed_packages()?;
-        for package_name in packages {
-            if installed_packages.contains(&package_name) {
-                self.package_list.uninstall.push(package_name);
-            }
+    fn install_inner(&mut self, packages: Vec<PackageName>, iter: u32) -> Result<(), Error> {
+        if iter == 0 {
+            return Err(Error::RepoRecursion);
         }
+        let mut pinfos = Vec::new();
+        for p in &packages {
+            let premote = match self.cached_info.entry(p.clone()) {
+                btree_map::Entry::Occupied(occupied_entry) => occupied_entry.get().clone(),
+                btree_map::Entry::Vacant(vacant_entry) => {
+                    let p = self.backend.get_package_detail(p)?;
+                    vacant_entry.insert(p).clone()
+                }
+            };
+            pinfos.push(premote);
+        }
+        let remainder = self.package_state.install(&pinfos);
+        if remainder.len() > 0 {
+            self.install_inner(remainder, iter - 1)?;
+        }
+        Ok(())
+    }
 
+    pub fn uninstall(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
+        self.uninstall_inner(packages, 100)
+    }
+
+    fn uninstall_inner(&mut self, packages: Vec<PackageName>, iter: u32) -> Result<(), Error> {
+        if iter == 0 {
+            return Err(Error::RepoRecursion);
+        }
+        let remainder = self.package_state.uninstall(&packages);
+        if remainder.len() > 0 {
+            self.uninstall_inner(remainder, iter - 1)?;
+        }
         Ok(())
     }
 
     /// if packages is empty then update all installed packages
     pub fn update(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
-        let installed_packages = self.get_installed_packages()?;
-        if packages.is_empty() {
-            for package_name in &installed_packages {
-                self.package_list.install.push(package_name.clone());
-            }
-        } else {
-            for package_name in packages {
-                if installed_packages.contains(&package_name) {
-                    self.package_list.install.push(package_name);
-                }
-            }
-        }
-
-        Ok(())
+        // TODO: currently this does the same thing as install at the package state logic
+        self.install(packages)
     }
 
     pub fn get_all_package_names(&mut self) -> Result<Vec<PackageName>, Error> {
@@ -177,7 +198,13 @@ impl Library {
     }
 
     pub fn apply(&mut self) -> Result<(), Error> {
-        for package in self.package_list.uninstall.iter() {
+        self.apply_inner()
+    }
+
+    fn apply_inner(&mut self) -> Result<(), Error> {
+        let diff = self.backend.get_package_state().diff(&self.package_state);
+
+        for package in &diff.uninstall {
             // TODO: Allow self-trusting the package?
             let r = self.backend.uninstall(package.clone());
             if let Err(Error::RepoCacheNotFound(e)) = &r {
@@ -186,62 +213,30 @@ impl Library {
             r?
         }
 
-        let install = self.with_dependecies(&self.package_list.install.clone())?;
-
-        for package in install.into_iter() {
-            if self.backend.get_installed_packages()?.contains(&package) {
-                match self.backend.upgrade(package.clone()) {
-                    Err(Error::RepoCacheNotFound(e)) => {
-                        eprintln!("Repository source of {e} is not valid, reinstalling!");
-                        self.backend.install(package)?;
-                    }
-                    r => r?,
+        for package in &diff.update {
+            let r = self.backend.upgrade(package.clone());
+            if let Err(Error::RepoCacheNotFound(e)) = &r {
+                if let Some(cache) = self.cached_info.remove(package) {
+                    eprintln!("Repository source of {e} is not valid, reinstalling!");
+                    self.backend.install(cache)?;
                 }
-            } else {
-                self.backend.install(package)?;
+            }
+            r?
+        }
+
+        for package in &diff.install {
+            if let Some(cache) = self.cached_info.remove(package) {
+                self.backend.install(cache)?;
             }
         }
 
-        self.package_list = Default::default();
-        Ok(())
-    }
+        self.backend.commit_state(self.package_state.clone())?;
 
-    pub fn with_dependecies(
-        &mut self,
-        packages: &Vec<PackageName>,
-    ) -> Result<Vec<PackageName>, Error> {
-        let mut list = vec![];
-        for package in packages {
-            self.get_dependecies_recursive(package, &mut list)?;
-        }
-
-        Ok(list)
-    }
-
-    fn get_dependecies_recursive(
-        &mut self,
-        package_name: &PackageName,
-        list: &mut Vec<PackageName>,
-    ) -> Result<(), Error> {
-        let package = self.backend.get_package_detail(package_name)?;
-        if list.contains(&package.name) {
-            return Ok(());
-        }
-        for dep in &package.depends {
-            self.get_dependecies_recursive(dep, list)?;
-        }
-
-        // meta-packages is identified with empty version
-        // TODO: This is not the right time to check it,
-        // but the TOML data we needed will lost outside this fn
-        if package.version != "" {
-            list.push(package.name);
-        }
         Ok(())
     }
 
     pub fn info(&mut self, package: PackageName) -> Result<PackageInfo, Error> {
-        let installed = self.backend.get_installed_packages()?.contains(&package);
+        let installed = self.package_state.get_installed_list().contains(&package);
         let package = self.backend.get_package_detail(&package)?;
 
         Ok(PackageInfo { installed, package })

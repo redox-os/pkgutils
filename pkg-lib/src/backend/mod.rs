@@ -5,8 +5,8 @@ use thiserror::Error;
 
 use crate::{
     net_backend::DownloadError,
-    package::{PackageError, Repository},
-    Package, PackageName,
+    package::{PackageError, RemotePackage, Repository},
+    PackageName, PackageState,
 };
 
 // todo: make this better
@@ -16,16 +16,22 @@ pub enum Error {
     ValidRepoNotFound,
     #[error("Repository path is not valid")]
     RepoPathInvalid,
+    #[error("Repository recursed infinitely")]
+    RepoRecursion,
     #[error("Cached package {0:?} source repo is not found")]
     RepoCacheNotFound(PackageName),
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
+    #[error("Package {0:?} not installed")]
+    PackageNotInstalled(PackageName),
     #[error("Package {0:?} name invalid")]
     PackageNameInvalid(String),
     #[error("{0}")]
     Package(#[from] PackageError),
     #[error("Path {0:?} isn't a Valid Unicode String")]
     PathIsNotValidUnicode(String),
+    #[error("Content of {0:?} is not a valid UTF-8 content")]
+    ContentIsNotValidUnicode(String),
     #[error("You don't have permissions required for this action, try performing it as root")]
     MissingPermissions,
 
@@ -61,10 +67,20 @@ impl From<std::io::Error> for Error {
 }
 
 pub trait Backend {
-    fn install(&mut self, package: PackageName) -> Result<(), Error>;
+    /// individually install a package
+    fn install(&mut self, package: RemotePackage) -> Result<(), Error>;
+    /// individually uninstall a package
     fn uninstall(&mut self, package: PackageName) -> Result<(), Error>;
+    /// individually upgrade a package
     fn upgrade(&mut self, package: PackageName) -> Result<(), Error>;
-    fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error>;
-    fn get_package_detail(&self, package: &PackageName) -> Result<Package, Error>;
+    /// download package TOML data
+    fn get_package_detail(&self, package: &PackageName) -> Result<RemotePackage, Error>;
+    /// download repo TOML data
     fn get_repository_detail(&self) -> Result<Repository, Error>;
+    /// get state of current installation
+    fn get_package_state(&self) -> PackageState;
+    /// commit all pending changes, and set state of current installation
+    fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error>;
+    /// abort all pending changes
+    fn abort_state(&mut self) -> Result<usize, Error>;
 }

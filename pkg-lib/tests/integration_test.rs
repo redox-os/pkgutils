@@ -37,13 +37,18 @@ fn test_pkg_install() -> Result<(), Box<dyn std::error::Error>> {
         Rc::new(RefCell::new(callback)),
     )?;
 
-    let list = vec![PackageName::new("bootloader")?];
+    // ncurses has terminfo
+    let list = vec![PackageName::new("ncurses")?];
     library.install(list)?;
     library.apply()?;
 
-    let list = vec![PackageName::new("bootloader")?];
+    assert_eq!(library.get_installed_packages().unwrap().len(), 2);
+
+    let list = vec![PackageName::new("ncurses")?];
     library.uninstall(list)?;
     library.apply()?;
+
+    assert_eq!(library.get_installed_packages().unwrap().len(), 0);
 
     Ok(())
 }

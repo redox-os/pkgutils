@@ -1,4 +1,4 @@
-use crate::{Package, PackageName};
+use crate::{package::RemotePackage, PackageName};
 use pkgar_keys::PublicKeyFile;
 use serde_derive::{Deserialize, Serialize};
 use std::{
@@ -6,6 +6,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
 };
 
+/// Denotes that the string is a remote key
 pub type RemoteName = String;
 
 /// Contains current user packages state
@@ -59,22 +60,23 @@ impl PackageState {
     /// Returns list of packages that need to be resolved,
     /// which are not yet added to the package config.
     /// If zero vector returned, it means all package deps are satisfied
-    pub fn install(&mut self, packages: &[Package], remote_name: &str) -> Vec<PackageName> {
+    pub fn install(&mut self, packages: &[RemotePackage]) -> Vec<PackageName> {
         let mut missing_set = BTreeSet::new();
         let mut missing_deps = Vec::new();
-        let package_names: BTreeSet<&PackageName> = packages.iter().map(|p| &p.name).collect();
+        let package_names: BTreeSet<&PackageName> =
+            packages.iter().map(|p| &p.package.name).collect();
 
         let mut recursion = 100;
         loop {
             let mut has_new_missing_deps = false;
 
             for pkg in packages {
-                if missing_set.contains(&pkg.name) {
+                if missing_set.contains(&pkg.package.name) {
                     continue;
                 }
 
                 let mut has_missing_deps = false;
-                for dep_name in &pkg.depends {
+                for dep_name in &pkg.package.depends {
                     if self.installed.contains_key(dep_name) {
                     } else if !package_names.contains(dep_name) {
                         if missing_set.insert(dep_name.clone()) {
@@ -88,8 +90,8 @@ impl PackageState {
                 }
 
                 if has_missing_deps {
-                    if missing_set.insert(pkg.name.clone()) {
-                        missing_deps.push(pkg.name.clone());
+                    if missing_set.insert(pkg.package.name.clone()) {
+                        missing_deps.push(pkg.package.name.clone());
                     }
                     // dependents should be marked as missing well
                     has_new_missing_deps = true;
@@ -108,7 +110,8 @@ impl PackageState {
 
         // all packages with their dependents should be satisfied
         let mut unsatisfied_deps: BTreeMap<PackageName, BTreeSet<PackageName>> = BTreeMap::new();
-        for pkg in packages {
+        for rpkg in packages {
+            let pkg = &rpkg.package;
             if missing_set.contains(&pkg.name) {
                 continue;
             }
@@ -124,7 +127,7 @@ impl PackageState {
                 (
                     false,
                     unsatisfied_deps.remove(&pkg.name).unwrap_or_default(),
-                    remote_name.to_string(),
+                    rpkg.remote.to_string(),
                 )
             };
 
@@ -315,6 +318,8 @@ impl Default for PackageState {
 
 #[cfg(test)]
 mod tests {
+    use crate::Package;
+
     use super::*;
 
     // --- Helper Functions for Test Data ---
@@ -323,18 +328,21 @@ mod tests {
         PackageName::new(name).unwrap()
     }
 
-    fn mock_package(name: &str, depends: Vec<&str>) -> Package {
-        Package {
-            name: cpkg(name),
-            version: "1.0.0".to_string(),
-            target: "x86_64-unknown-redox".to_string(),
-            blake3: "hash".to_string(),
-            source_identifier: "src".to_string(),
-            commit_identifier: "commit".to_string(),
-            time_identifier: "time".to_string(),
-            storage_size: 1000,
-            network_size: 500,
-            depends: depends.into_iter().map(|s| cpkg(s)).collect(),
+    fn mock_package(name: &str, depends: Vec<&str>) -> RemotePackage {
+        RemotePackage {
+            package: Package {
+                name: cpkg(name),
+                version: "1.0.0".to_string(),
+                target: "x86_64-unknown-redox".to_string(),
+                blake3: "hash".to_string(),
+                source_identifier: "src".to_string(),
+                commit_identifier: "commit".to_string(),
+                time_identifier: "time".to_string(),
+                storage_size: 1000,
+                network_size: 500,
+                depends: depends.into_iter().map(|s| cpkg(s)).collect(),
+            },
+            remote: "origin".into(),
         }
     }
 
@@ -353,7 +361,7 @@ mod tests {
         let packages = vec![nano];
         let names = vec![cpkg("nano")];
 
-        let missing = db.install(&packages, "origin");
+        let missing = db.install(&packages);
 
         assert_eq!(missing, vec![]);
         assert_eq!(db.get_installed_list(), names);
@@ -373,21 +381,21 @@ mod tests {
         let terminfo = mock_package("terminfo", vec![]);
         let packages = vec![bash, readline, terminfo, ncurses];
         // 1-st
-        let missing = db.install(&packages[..1], "origin");
+        let missing = db.install(&packages[..1]);
         assert_eq!(
             missing,
             vec![cpkg("readline"), cpkg("terminfo"), cpkg("bash")]
         );
         assert_eq!(db.get_installed_list(), vec![]);
         // 2-nd
-        let missing = db.install(&packages[..3], "origin");
+        let missing = db.install(&packages[..3]);
         assert_eq!(
             missing,
             vec![cpkg("ncurses"), cpkg("readline"), cpkg("bash")]
         );
         assert_eq!(db.get_installed_list(), vec![cpkg("terminfo")]);
         // 3-rd
-        let missing = db.install(&packages[..], "origin");
+        let missing = db.install(&packages[..]);
         assert_eq!(missing, vec![]);
         assert_eq!(
             db.get_installed_list(),
@@ -419,7 +427,7 @@ mod tests {
         let base = mock_package("base", vec![]);
         let init = mock_package("base-initfs", vec!["redoxfs"]);
         let redoxfs = mock_package("redoxfs", vec![]);
-        db.install(&[base, init, redoxfs], "origin");
+        db.install(&[base, init, redoxfs]);
         let result = db.uninstall(&[cpkg("redoxfs")]);
         assert_eq!(
             db.get_installed_list(),
@@ -437,7 +445,7 @@ mod tests {
 
         let gettext = mock_package("gettext", vec!["libiconv"]);
         let libiconv = mock_package("libiconv", vec![]);
-        db.install(&[gettext, libiconv], "origin");
+        db.install(&[gettext, libiconv]);
         let result = db.uninstall(&[cpkg("gettext")]);
         assert_eq!(result, vec![cpkg("gettext"), cpkg("libiconv")]);
         assert_eq!(
@@ -455,7 +463,7 @@ mod tests {
 
         let gettext = mock_package("gettext", vec!["libiconv"]);
         let libiconv = mock_package("libiconv", vec![]);
-        db.install(&[gettext, libiconv], "origin");
+        db.install(&[gettext, libiconv]);
         let result = db.mark_as_manual(true, &vec![cpkg("gettext"), cpkg("libiconv")]);
         assert_eq!(result.len(), 2usize);
         let result = db.uninstall(&[cpkg("gettext")]);
