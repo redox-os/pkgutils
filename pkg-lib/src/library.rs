@@ -206,11 +206,15 @@ impl Library {
         Ok(result)
     }
 
-    pub fn apply(&mut self) -> Result<(), Error> {
+    pub fn abort(&mut self) -> Result<usize, Error> {
+        self.backend.abort_state()
+    }
+
+    pub fn apply(&mut self) -> Result<usize, Error> {
         self.apply_inner()
     }
 
-    fn apply_inner(&mut self) -> Result<(), Error> {
+    fn apply_inner(&mut self) -> Result<usize, Error> {
         let diff = self.backend.get_package_state().diff(&self.package_state);
         self.callback.borrow_mut().install_prompt(&diff)?;
 
@@ -240,9 +244,7 @@ impl Library {
             }
         }
 
-        self.backend.commit_state(self.package_state.clone())?;
-
-        Ok(())
+        self.backend.commit_state(self.package_state.clone())
     }
 
     pub fn info(&mut self, package: PackageName) -> Result<PackageInfo, Error> {
