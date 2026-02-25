@@ -3,34 +3,31 @@
 #[cfg(feature = "library")]
 pub mod backend;
 #[cfg(feature = "library")]
-pub use backend::Error;
-#[cfg(feature = "library")]
 pub mod callback;
 #[cfg(feature = "library")]
-pub use callback::Callback;
+pub use library::Library;
 #[cfg(feature = "library")]
 pub mod net_backend;
-pub mod package;
-pub use package::{Package, PackageInfo, PackageName};
+pub use package::{Package, PackageError, PackageInfo, PackageName, Repository, SourceIdentifier};
+#[cfg(feature = "library")]
+pub use package_state::{InstallState, PackageList, PackageState, RemoteName};
 pub mod recipes;
 
 #[cfg(feature = "library")]
 mod library;
+mod package;
 #[cfg(feature = "library")]
-mod package_list;
+mod package_state;
 #[cfg(feature = "library")]
 mod repo_manager;
 #[cfg(feature = "library")]
 mod sorensen;
-#[cfg(feature = "library")]
-pub use library::Library;
 
 #[cfg(feature = "library")]
-const DOWNLOAD_PATH: &str = "/tmp/pkg_download/";
-
+const DOWNLOAD_DIR: &str = "/tmp/pkg_download/";
 #[cfg(feature = "library")]
-const PACKAGES_DIR: &str = "pkg/packages";
-
-// make them not relative
+const PACKAGES_TOML_PATH: &str = "etc/pkg/packages.toml";
 #[cfg(feature = "library")]
-const PACKAGES_PATH: &str = "etc/pkg/packages.toml";
+const PACKAGES_REMOTE_DIR: &str = "etc/pkg.d";
+#[cfg(feature = "library")]
+const PACKAGES_HEAD_DIR: &str = "var/lib/packages";

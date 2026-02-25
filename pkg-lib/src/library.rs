@@ -6,16 +6,16 @@ use std::{
     rc::Rc,
 };
 
-use crate::backend::pkgar_backend::PkgarBackend;
+use crate::{PACKAGES_REMOTE_DIR, backend::pkgar_backend::PkgarBackend};
 use crate::backend::{Backend, Error};
 use crate::net_backend::{DefaultNetBackend, DownloadBackend};
-use crate::package_list::PackageList;
+use crate::package_state::PackageList;
 use crate::repo_manager::RepoManager;
 
 use crate::callback::Callback;
 use crate::package::{PackageInfo, PackageName};
 
-use crate::{sorensen, DOWNLOAD_PATH};
+use crate::{sorensen, DOWNLOAD_DIR};
 
 pub struct Library {
     package_list: PackageList,
@@ -31,18 +31,18 @@ impl Library {
         let install_path = install_path.as_ref();
 
         let download_backend = DefaultNetBackend::new()?;
-        let prefer_cache = PathBuf::from(DOWNLOAD_PATH).join("prefer_cache").exists();
+        let prefer_cache = PathBuf::from(DOWNLOAD_DIR).join("prefer_cache").exists();
 
         let mut repo_manager = RepoManager {
             remotes: Vec::new(),
-            download_path: DOWNLOAD_PATH.into(),
+            download_path: DOWNLOAD_DIR.into(),
             download_backend: Box::new(download_backend.clone()),
             callback: callback.clone(),
             prefer_cache,
         };
 
         {
-            let repos_path = install_path.join("etc/pkg.d");
+            let repos_path = install_path.join(PACKAGES_REMOTE_DIR);
             let mut repo_files = Vec::new();
             for entry_res in fs::read_dir(&repos_path)? {
                 let entry = entry_res?;

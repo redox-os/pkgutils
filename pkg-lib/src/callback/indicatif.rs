@@ -1,7 +1,7 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Url;
 
-use crate::Callback;
+use crate::callback::Callback;
 
 #[derive(Clone)]
 pub struct IndicatifCallback {

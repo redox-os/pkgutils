@@ -3,8 +3,9 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
+use crate::callback::Callback;
 use crate::net_backend::{DownloadBackend, DownloadError};
-use crate::{backend::Error, package::PackageError, Callback, PackageName};
+use crate::{backend::Error, package::PackageError, PackageName};
 use reqwest::Url;
 
 pub struct RepoManager {

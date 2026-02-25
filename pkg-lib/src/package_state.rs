@@ -1,4 +1,4 @@
-use crate::{package_list::PackageList, Package, PackageName};
+use crate::{Package, PackageName};
 use pkgar_keys::PublicKeyFile;
 use serde_derive::{Deserialize, Serialize};
 use std::{
@@ -6,16 +6,18 @@ use std::{
     collections::{BTreeMap, BTreeSet},
 };
 
-// TODO: It's unclear what differentiate overall pkg library and pkgar backend since
-// we're newly implemented installed list here, including public keys which is pkgar specific.
-
 pub type RemoteName = String;
 
+/// Contains current user packages state
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
-pub struct Packages {
+pub struct PackageState {
+    /// list of can't be accidentally uninstalled packages
     pub protected: BTreeSet<PackageName>,
+    /// installed public keys per remote name.
+    /// using pkgar_keys as a wrapper of dryoc public key.
     pub pubkeys: BTreeMap<RemoteName, PublicKeyFile>,
+    /// install state per packages
     pub installed: BTreeMap<PackageName, InstallState>,
 }
 
@@ -33,7 +35,17 @@ pub struct InstallState {
     pub dependents: BTreeSet<PackageName>,
 }
 
-impl Packages {
+#[derive(Default, Debug, Clone)]
+pub struct PackageList {
+    pub install: Vec<PackageName>,
+    pub uninstall: Vec<PackageName>,
+    pub update: Vec<PackageName>,
+    pub install_size: u64,
+    pub network_size: u64,
+    pub uninstall_size: u64,
+}
+
+impl PackageState {
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
         toml::from_str(text)
     }
@@ -262,7 +274,7 @@ impl Packages {
     }
 
     /// Mark packages manually installed or not. Returns list of changed packages.
-    /// Packages are not marked automatically in any install mechanism.
+    /// PackageState are not marked automatically in any install mechanism.
     pub fn mark_as_manual(&mut self, manual: bool, packages: &[PackageName]) -> Vec<PackageName> {
         let mut marked = Vec::new();
 
@@ -279,7 +291,7 @@ impl Packages {
     }
 }
 
-impl Default for Packages {
+impl Default for PackageState {
     fn default() -> Self {
         Self {
             // TODO: Hardcoded
@@ -326,8 +338,8 @@ mod tests {
         }
     }
 
-    fn mock_empty_db() -> Packages {
-        Packages {
+    fn mock_empty_db() -> PackageState {
+        PackageState {
             protected: BTreeSet::new(),
             pubkeys: BTreeMap::new(),
             installed: BTreeMap::new(),
@@ -473,7 +485,7 @@ mod tests {
             dependents = ["bash"]
         "#;
 
-        let db: Packages = Packages::from_toml(TOML_DATA)?;
+        let db: PackageState = PackageState::from_toml(TOML_DATA)?;
 
         assert_eq!(db.get_installed_list(), vec![cpkg("bash"), cpkg("ncurses")]);
 

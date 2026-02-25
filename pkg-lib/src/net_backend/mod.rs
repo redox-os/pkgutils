@@ -1,10 +1,9 @@
 use std::{cell::RefCell, io, path::Path, rc::Rc};
 use thiserror::Error;
 
-use crate::Callback;
-
 mod reqwest_backend;
 
+use crate::callback::Callback;
 pub use reqwest_backend::ReqwestBackend as DefaultNetBackend;
 
 pub trait DownloadBackend {

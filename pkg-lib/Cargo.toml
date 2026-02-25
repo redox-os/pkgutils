@@ -17,12 +17,11 @@ path = "tests/integration_test.rs"
 required-features = ["library"]
 
 [dependencies]
-anyhow = "1"
 ignore = "0.4"
 indicatif = { version = "0.17", optional = true }
-pkgar = { version = "0.1", optional = true }
-pkgar-core = { version = "0.1", optional = true }
-pkgar-keys = { version = "0.1", optional = true }
+pkgar = { version = "0.2", optional = true }
+pkgar-core = { version = "0.2", optional = true }
+pkgar-keys = { version = "0.2", optional = true }
 serde = "1"
 serde_derive = "1"
 thiserror = "1"
