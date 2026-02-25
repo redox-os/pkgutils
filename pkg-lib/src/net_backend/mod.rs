@@ -58,6 +58,7 @@ pub trait DownloadBackend {
     fn download(
         &self,
         remote_path: &str,
+        remote_len: Option<u64>,
         writer: &mut DownloadBackendWriter,
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError>;
@@ -65,11 +66,12 @@ pub trait DownloadBackend {
     fn download_to_file(
         &self,
         remote_path: &str,
+        remote_len: Option<u64>,
         local_path: &Path,
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError> {
         let mut output = DownloadBackendWriter::ToFile(File::create(local_path)?);
-        self.download(remote_path, &mut output, callback)
+        self.download(remote_path, remote_len, &mut output, callback)
     }
 
     fn download_to_buf(
@@ -78,7 +80,7 @@ pub trait DownloadBackend {
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<Vec<u8>, DownloadError> {
         let mut output = DownloadBackendWriter::ToBuf(Vec::new());
-        self.download(remote_path, &mut output, callback)?;
+        self.download(remote_path, None, &mut output, callback)?;
         Ok(output.to_inner_buf())
     }
 

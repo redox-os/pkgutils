@@ -84,7 +84,8 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 }
 
 fn main() {
-    let callback = IndicatifCallback::new();
+    let mut callback = IndicatifCallback::new();
+    callback.set_interactive(true);
 
     let (install_path, target) = if cfg!(target_os = "redox") {
         ("/", env!("TARGET"))
