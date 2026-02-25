@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::Callback;
+use crate::callback::Callback;
 
 #[derive(Clone)]
 pub struct PlainCallback {

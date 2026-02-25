@@ -11,10 +11,16 @@ use serde::de::{value::Error as DeError, Error as DeErrorT};
 use serde_derive::{Deserialize, Serialize};
 use toml::{self, from_str, to_string};
 
-use crate::recipes::find;
+use crate::{recipes::find, RemoteName};
 
 fn is_zero(n: &u64) -> bool {
     *n == 0
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd)]
+pub struct RemotePackage {
+    pub package: Package,
+    pub remote: RemoteName,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq, PartialOrd)]
@@ -320,7 +326,7 @@ impl Borrow<str> for PackageName {
 #[derive(Debug)]
 pub struct PackageInfo {
     pub installed: bool,
-    pub package: Package,
+    pub package: RemotePackage,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

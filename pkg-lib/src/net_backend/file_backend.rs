@@ -1,27 +1,21 @@
 use std::{
     cell::RefCell,
+    fs::File,
     io::{Read, Write},
     rc::Rc,
-    time::Duration,
 };
 
-use super::{Callback, DownloadBackend, DownloadError};
 use crate::net_backend::DownloadBackendWriter;
-use reqwest::blocking::Client;
 
-/// Network backend
+use super::{Callback, DownloadBackend, DownloadError};
+
+/// Local backend
 #[derive(Clone)]
-pub struct ReqwestBackend {
-    client: Client,
-}
+pub struct FileBackend {}
 
-impl DownloadBackend for ReqwestBackend {
+impl DownloadBackend for FileBackend {
     fn new() -> Result<Self, DownloadError> {
-        let client = Client::builder()
-            .brotli(true)
-            .connect_timeout(Duration::new(5, 0))
-            .build()?;
-        Ok(Self { client })
+        Ok(Self {})
     }
 
     fn download(
@@ -31,20 +25,20 @@ impl DownloadBackend for ReqwestBackend {
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError> {
         let mut callback = callback.borrow_mut();
-
-        let mut resp = self.client.get(remote_path).send()?.error_for_status()?;
-
-        let len: u64 = resp.content_length().unwrap_or(0);
+        let mut input = File::open(remote_path)?;
+        let len = input.metadata()?.len();
 
         callback.start_download(len, remote_path);
 
         let mut data = [0; 8192];
         loop {
-            let count = resp.read(&mut data)?;
-            writer.write(&data[..count])?;
+            let count = input.read(&mut data)?;
             if count == 0 {
                 break;
             }
+
+            writer.write_all(&data[..count])?;
+
             callback.increment_downloaded(count as u64);
         }
         writer.flush()?;
