@@ -1,4 +1,4 @@
-use crate::{PackageList, PackageName, backend::Error, package::RemotePackage};
+use crate::{backend::Error, package::RemotePackage, PackageList, PackageName};
 
 #[cfg(feature = "indicatif")]
 pub use self::indicatif::IndicatifCallback;

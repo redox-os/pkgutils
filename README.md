@@ -11,7 +11,7 @@ The command `pkg` is the primary package management utility for Redox OS. In its
 | Command     | Functionality                  |
 |-------------|--------------------------------|
 | `install`   | Install packages               |
-| `uninstall` | Uninstall packages             |
+| `remove`    | Remove packages                |
 | `update`    | Update packages (all if empty) |
 | `search`    | Search for a package           |
 | `info`      | Package info                   |
