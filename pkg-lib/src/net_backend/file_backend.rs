@@ -21,6 +21,7 @@ impl DownloadBackend for FileBackend {
     fn download(
         &self,
         remote_path: &str,
+        _remote_len: Option<u64>,
         writer: &mut DownloadBackendWriter,
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError> {
@@ -28,7 +29,7 @@ impl DownloadBackend for FileBackend {
         let mut input = File::open(remote_path)?;
         let len = input.metadata()?.len();
 
-        callback.start_download(len, remote_path);
+        callback.download_start(len, remote_path);
 
         let mut data = [0; 8192];
         loop {
@@ -39,11 +40,11 @@ impl DownloadBackend for FileBackend {
 
             writer.write_all(&data[..count])?;
 
-            callback.increment_downloaded(count as u64);
+            callback.download_increment(count as u64);
         }
         writer.flush()?;
 
-        callback.end_download();
+        callback.download_end();
 
         Ok(())
     }

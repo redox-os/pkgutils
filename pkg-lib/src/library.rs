@@ -19,6 +19,7 @@ pub struct Library {
     package_state: PackageState,
     cached_info: BTreeMap<PackageName, RemotePackage>,
     backend: Box<dyn Backend>,
+    callback: Rc<RefCell<dyn Callback>>,
 }
 
 impl Library {
@@ -48,6 +49,7 @@ impl Library {
             package_state: backend.get_package_state(),
             backend: Box::new(backend),
             cached_info: BTreeMap::new(),
+            callback: callback.clone(),
         })
     }
 
@@ -84,6 +86,7 @@ impl Library {
             package_state: backend.get_package_state(),
             backend: Box::new(backend),
             cached_info: BTreeMap::new(),
+            callback: callback.clone(),
         })
     }
 
@@ -92,14 +95,16 @@ impl Library {
     }
 
     pub fn install(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
+        self.callback.borrow_mut().fetch_start(packages.len());
         self.install_inner(packages.clone(), 100)?;
         self.package_state.mark_as_manual(true, &packages);
+        self.callback.borrow_mut().fetch_end();
         Ok(())
     }
 
     fn install_inner(&mut self, packages: Vec<PackageName>, iter: u32) -> Result<(), Error> {
         if iter == 0 {
-            return Err(Error::RepoRecursion);
+            return Err(Error::RepoRecursion(packages));
         }
         let mut pinfos = Vec::new();
         for p in &packages {
@@ -110,10 +115,14 @@ impl Library {
                     vacant_entry.insert(p).clone()
                 }
             };
+            self.callback.borrow_mut().fetch_package_increment(1, 0);
             pinfos.push(premote);
         }
         let remainder = self.package_state.install(&pinfos);
         if remainder.len() > 0 {
+            self.callback
+                .borrow_mut()
+                .fetch_package_increment(0, remainder.len());
             self.install_inner(remainder, iter - 1)?;
         }
         Ok(())
@@ -125,7 +134,7 @@ impl Library {
 
     fn uninstall_inner(&mut self, packages: Vec<PackageName>, iter: u32) -> Result<(), Error> {
         if iter == 0 {
-            return Err(Error::RepoRecursion);
+            return Err(Error::RepoRecursion(packages));
         }
         let remainder = self.package_state.uninstall(&packages);
         if remainder.len() > 0 {
@@ -197,12 +206,17 @@ impl Library {
         Ok(result)
     }
 
-    pub fn apply(&mut self) -> Result<(), Error> {
+    pub fn abort(&mut self) -> Result<usize, Error> {
+        self.backend.abort_state()
+    }
+
+    pub fn apply(&mut self) -> Result<usize, Error> {
         self.apply_inner()
     }
 
-    fn apply_inner(&mut self) -> Result<(), Error> {
+    fn apply_inner(&mut self) -> Result<usize, Error> {
         let diff = self.backend.get_package_state().diff(&self.package_state);
+        self.callback.borrow_mut().install_prompt(&diff)?;
 
         for package in &diff.uninstall {
             // TODO: Allow self-trusting the package?
@@ -230,9 +244,7 @@ impl Library {
             }
         }
 
-        self.backend.commit_state(self.package_state.clone())?;
-
-        Ok(())
+        self.backend.commit_state(self.package_state.clone())
     }
 
     pub fn info(&mut self, package: PackageName) -> Result<PackageInfo, Error> {

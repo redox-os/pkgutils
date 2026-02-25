@@ -1,7 +1,9 @@
 use std::{
+    cell::RefCell,
     collections::VecDeque,
     fs,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 use pkgar::{PackageFile, Transaction};
@@ -10,6 +12,7 @@ use pkgar_keys::PublicKeyFile;
 
 use super::{Backend, Error};
 use crate::{
+    callback::Callback,
     package::{RemotePackage, Repository},
     package_state::PackageState,
     repo_manager::RepoManager,
@@ -27,6 +30,7 @@ pub struct PkgarBackend {
     /// temporary commit
     commits: VecDeque<Transaction>,
     keys_synced: bool,
+    callback: Rc<RefCell<dyn Callback>>,
 }
 
 impl PkgarBackend {
@@ -53,6 +57,8 @@ impl PkgarBackend {
 
         fs::create_dir_all(&packages_dir)?;
 
+        let callback = repo_manager.callback.clone();
+
         Ok(PkgarBackend {
             install_path: install_path.to_path_buf(),
             packages,
@@ -60,6 +66,7 @@ impl PkgarBackend {
             // packages_lock,
             commits: VecDeque::new(),
             keys_synced: false,
+            callback,
         })
     }
 
@@ -134,7 +141,9 @@ impl Backend for PkgarBackend {
     fn install(&mut self, package: RemotePackage) -> Result<(), Error> {
         self.sync_keys()?;
         // TODO: Actually use that specific remote
-        let (local_path, repo) = self.repo_manager.get_package_pkgar(&package.package.name)?;
+        let (local_path, repo) = self
+            .repo_manager
+            .get_package_pkgar(&package.package.name, package.package.network_size)?;
         let mut pkg = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
         let install = Transaction::install(&mut pkg, &self.install_path)?;
         self.commits.push_back(install);
@@ -161,7 +170,7 @@ impl Backend for PkgarBackend {
         self.sync_keys()?;
 
         let mut pkg = self.get_package_head(&package)?;
-        let (local_path, repo) = self.repo_manager.get_package_pkgar(&package)?;
+        let (local_path, repo) = self.repo_manager.get_package_pkgar(&package, 0)?;
         let mut pkg2 = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
         let update = Transaction::replace(&mut pkg, &mut pkg2, &self.install_path)?;
         self.commits.push_back(update);
@@ -194,15 +203,19 @@ impl Backend for PkgarBackend {
 
     fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error> {
         let mut total = 0;
+        self.callback.borrow_mut().commit_start(self.commits.len());
         while let Some(mut commit) = self.commits.pop_front() {
+            self.callback.borrow_mut().commit_increment(&commit);
             total += match commit.commit() {
                 Ok(r) => r,
                 Err(e) => {
                     self.commits.push_back(commit);
-                    return Err(Error::from(e));
+                    let err = Error::from(e);
+                    return Err(err);
                 }
             }
         }
+        self.callback.borrow_mut().commit_end();
 
         self.packages = new_state;
         let packages_path = self.install_path.join(crate::PACKAGES_TOML_PATH);
@@ -216,9 +229,18 @@ impl Backend for PkgarBackend {
 
     fn abort_state(&mut self) -> Result<usize, Error> {
         let mut total = 0;
+        self.callback.borrow_mut().abort_start(self.commits.len());
         while let Some(mut commit) = self.commits.pop_front() {
-            total += commit.abort()?;
+            self.callback.borrow_mut().abort_increment(&commit);
+            total += match commit.abort() {
+                Ok(_) => 1,
+                Err(e) => {
+                    let err = Error::from(e);
+                    return Err(err);
+                }
+            };
         }
+        self.callback.borrow_mut().abort_end();
         Ok(total)
     }
 }

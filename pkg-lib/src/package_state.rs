@@ -194,7 +194,7 @@ impl PackageState {
                 .iter()
                 .cloned()
                 .filter(|dep| {
-                    !remove_set.contains(dep) && !self.installed.get(dep).is_some_and(|p| p.manual)
+                    !remove_set.contains(dep) && self.installed.get(dep).is_some_and(|p| !p.manual)
                 })
                 .collect();
 

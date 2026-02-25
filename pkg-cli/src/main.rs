@@ -84,7 +84,8 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 }
 
 fn main() {
-    let callback = IndicatifCallback::new();
+    let mut callback = IndicatifCallback::new();
+    callback.set_interactive(true);
 
     let (install_path, target) = if cfg!(target_os = "redox") {
         ("/", env!("TARGET"))
@@ -121,7 +122,7 @@ fn main() {
                 style::Reset
             );
         } else {
-            eprintln!("error: {:?}", err);
+            eprintln!("error: {:#?}", err);
         }
         process::exit(1);
     });
@@ -166,7 +167,12 @@ fn execute_command(
     }
 
     if needs_apply {
-        library.apply()?;
+        if let Err(e) = library.apply() {
+            if let Err(e) = library.abort() {
+                eprintln!("Cannot aborting: {:#?}", e);
+            }
+            return Err(e.into());
+        }
     }
 
     Ok(())

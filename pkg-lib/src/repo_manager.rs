@@ -132,9 +132,14 @@ impl RepoManager {
         }
     }
 
-    fn sync_pkgar(&self, package_name: &PackageName, dst_path: &Path) -> Result<RemoteName, Error> {
+    fn sync_pkgar(
+        &self,
+        package_name: &PackageName,
+        len_hint: u64,
+        dst_path: &Path,
+    ) -> Result<RemoteName, Error> {
         let mut file = DownloadBackendWriter::ToFile(File::create(&dst_path)?);
-        match self.download(&format!("{package_name}.pkgar"), &mut file) {
+        match self.download(&format!("{package_name}.pkgar"), Some(len_hint), &mut file) {
             Ok(r) => Ok(r),
             Err(Error::ValidRepoNotFound) => {
                 Err(PackageError::PackageNotFound(package_name.to_owned()).into())
@@ -163,6 +168,7 @@ impl RepoManager {
                 if !local_keypath.exists() {
                     self.download_backend.download_to_file(
                         &remote.pubpath,
+                        None,
                         &local_keypath,
                         self.callback.clone(),
                     )?;
@@ -179,6 +185,7 @@ impl RepoManager {
     pub fn download(
         &self,
         file: &str,
+        len: Option<u64>,
         mut dest: &mut DownloadBackendWriter,
     ) -> Result<RemoteName, Error> {
         if !self.download_path.exists() {
@@ -197,7 +204,7 @@ impl RepoManager {
             let remote_path = format!("{}/{}", remote.path, file);
             let res =
                 self.download_backend
-                    .download(&remote_path, &mut dest, self.callback.clone());
+                    .download(&remote_path, len, &mut dest, self.callback.clone());
             match res {
                 Ok(_) => return Ok(rname.into()),
                 Err(DownloadError::HttpStatus(_)) => continue,
@@ -212,7 +219,7 @@ impl RepoManager {
 
     pub fn sync_and_read(&self, file: &str) -> Result<(String, RemoteName), Error> {
         let mut writer = DownloadBackendWriter::ToBuf(Vec::new());
-        match self.download(file, &mut writer) {
+        match self.download(file, None, &mut writer) {
             Ok(r) => {
                 let toml = String::from_utf8(writer.to_inner_buf())
                     .map_err(|_| Error::ContentIsNotValidUnicode(file.into()))?;
@@ -226,9 +233,10 @@ impl RepoManager {
     pub fn get_package_pkgar(
         &self,
         package: &PackageName,
+        len_hint: u64,
     ) -> Result<(PathBuf, &RemotePath), Error> {
         let local_path = self.get_local_path(&"".to_string(), package.as_str(), "pkgar");
-        let remote = self.sync_pkgar(&package, &local_path)?;
+        let remote = self.sync_pkgar(&package, len_hint, &local_path)?;
         if let Some(r) = self.remote_map.get(&remote) {
             Ok((local_path, r))
         } else {
@@ -239,6 +247,7 @@ impl RepoManager {
 
     // reads /tmp/pkg_download/[package].toml
     pub fn get_package_toml(&self, package: &PackageName) -> Result<(String, RemoteName), Error> {
+        self.callback.borrow_mut().fetch_package_name(&package);
         self.sync_toml(package)
     }
 }

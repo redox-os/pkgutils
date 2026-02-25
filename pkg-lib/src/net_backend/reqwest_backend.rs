@@ -27,6 +27,7 @@ impl DownloadBackend for ReqwestBackend {
     fn download(
         &self,
         remote_path: &str,
+        remote_len: Option<u64>,
         writer: &mut DownloadBackendWriter,
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError> {
@@ -34,9 +35,9 @@ impl DownloadBackend for ReqwestBackend {
 
         let mut resp = self.client.get(remote_path).send()?.error_for_status()?;
 
-        let len: u64 = resp.content_length().unwrap_or(0);
+        let len: u64 = resp.content_length().unwrap_or(remote_len.unwrap_or(0));
 
-        callback.start_download(len, remote_path);
+        callback.download_start(len, remote_path);
 
         let mut data = [0; 8192];
         loop {
@@ -45,11 +46,11 @@ impl DownloadBackend for ReqwestBackend {
             if count == 0 {
                 break;
             }
-            callback.increment_downloaded(count as u64);
+            callback.download_increment(count as u64);
         }
         writer.flush()?;
 
-        callback.end_download();
+        callback.download_end();
 
         Ok(())
     }
