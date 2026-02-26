@@ -84,6 +84,7 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
 }
 
 fn main() {
+    let args = Cli::parse();
     let mut callback = IndicatifCallback::new();
     callback.set_interactive(true);
 
@@ -109,7 +110,6 @@ fn main() {
             std::process::exit(1);
         });
 
-    let args = Cli::parse();
     execute_command(args.command, &mut library).unwrap_or_else(|err| {
         if is_tty(&io::stderr()) {
             eprintln!(
