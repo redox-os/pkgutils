@@ -220,7 +220,10 @@ impl Backend for PkgarBackend {
         self.packages = new_state;
         let packages_path = self.install_path.join(crate::PACKAGES_TOML_PATH);
         for (k, v) in &self.repo_manager.remote_map {
-            let pk = PublicKeyFile::new(v.pubkey.unwrap());
+            let Some(pubkey) = v.pubkey else {
+                return Err(Error::RepoNotLoaded(k.to_string()));
+            };
+            let pk = PublicKeyFile::new(pubkey);
             self.packages.pubkeys.insert(k.to_string(), pk);
         }
         fs::write(&packages_path, self.packages.to_toml())?;

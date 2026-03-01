@@ -67,9 +67,9 @@ impl RepoManager {
 
     pub fn add_remote(&mut self, path: &str, target: &str) -> Result<(), Error> {
         let host = Url::parse(path)
-            .or(Err(Error::RepoPathInvalid))?
+            .or_else(|_| Err(Error::RepoPathInvalid(path.into())))?
             .host_str()
-            .ok_or(Error::RepoPathInvalid)?
+            .ok_or_else(|| Error::RepoPathInvalid(path.into()))?
             .to_owned();
 
         if self
@@ -100,7 +100,9 @@ impl RepoManager {
     ) -> Result<(), Error> {
         let pubkey_path = pubkey_dir.join(PUB_TOML);
         if !pubkey_path.is_file() {
-            return Err(Error::RepoPathInvalid);
+            return Err(Error::RepoPathInvalid(
+                pubkey_path.to_string_lossy().to_string(),
+            ));
         }
         // add_local can be mixed with remote net backend, so don't lazily load this
         let pubkey = pkgar_keys::PublicKeyFile::open(pubkey_path).map_err(Error::from)?;
@@ -109,7 +111,11 @@ impl RepoManager {
             .insert(
                 host.into(),
                 RemotePath {
-                    path: format!("{}/{}", path, target),
+                    path: if path.is_empty() {
+                        path.into()
+                    } else {
+                        format!("{}/{}", path, target)
+                    },
                     pubpath: "".into(),
                     name: host.into(),
                     pubkey: Some(pubkey.pkey),

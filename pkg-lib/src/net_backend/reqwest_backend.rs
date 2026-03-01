@@ -18,7 +18,6 @@ pub struct ReqwestBackend {
 impl DownloadBackend for ReqwestBackend {
     fn new() -> Result<Self, DownloadError> {
         let client = Client::builder()
-            .brotli(true)
             .connect_timeout(Duration::new(5, 0))
             .build()?;
         Ok(Self { client })
