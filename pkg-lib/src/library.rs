@@ -90,6 +90,39 @@ impl Library {
         })
     }
 
+    /// Create remote-based package library from provided list of remote_urls
+    pub fn new_remote<P: AsRef<Path>>(
+        remote_urls: &Vec<&str>,
+        install_path: P,
+        target: &str,
+        callback: Rc<RefCell<dyn Callback>>,
+    ) -> Result<Self, Error> {
+        let install_path = install_path.as_ref();
+
+        let download_backend = DefaultLocalBackend::new()?;
+
+        let mut repo_manager = RepoManager {
+            remotes: Vec::new(),
+            download_path: DOWNLOAD_DIR.into(),
+            download_backend: Box::new(download_backend.clone()),
+            callback: callback.clone(),
+            remote_map: BTreeMap::new(),
+        };
+
+        for remote_url in remote_urls {
+            repo_manager.add_remote(remote_url.trim(), target)?;
+        }
+
+        let backend = PkgarBackend::new(install_path, repo_manager)?;
+
+        Ok(Library {
+            package_state: backend.get_package_state(),
+            backend: Box::new(backend),
+            cached_info: BTreeMap::new(),
+            callback: callback.clone(),
+        })
+    }
+
     pub fn get_installed_packages(&self) -> Result<Vec<PackageName>, Error> {
         Ok(self.package_state.get_installed_list())
     }
