@@ -13,6 +13,7 @@ pub struct IndicatifCallback {
     pb: ProgressBar,
     unknown_len: bool,
     fallback: PlainCallback,
+    has_download: bool,
 }
 
 impl IndicatifCallback {
@@ -21,6 +22,7 @@ impl IndicatifCallback {
             pb: ProgressBar::hidden(),
             unknown_len: false,
             fallback: PlainCallback::new(),
+            has_download: false,
         }
     }
 
@@ -127,11 +129,14 @@ impl Callback for IndicatifCallback {
 
     fn download_end(&mut self) {
         self.pb.finish_and_clear();
+        self.has_download = true;
     }
 
     fn commit_start(&mut self, count: usize) {
-        // TODO: this is a workaround
-        println!("Download complete.");
+        if self.has_download {
+            println!("Download complete.");
+            self.has_download = false;
+        }
 
         self.pb = ProgressBar::new(count as u64);
         self.unknown_len = count == 0;
@@ -148,8 +153,13 @@ impl Callback for IndicatifCallback {
     }
 
     fn commit_end(&mut self) {
+        let complete = self.pb.position() == self.pb.length().unwrap_or(0);
         self.pb.finish_and_clear();
-        println!("Commit complete.");
+        if complete {
+            println!("Commit complete.");
+        } else {
+            println!("Commit incomplete.");
+        }
     }
 
     fn abort_start(&mut self, count: usize) {
