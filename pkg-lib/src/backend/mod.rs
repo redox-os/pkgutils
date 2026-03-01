@@ -14,12 +14,14 @@ use crate::{
 pub enum Error {
     #[error("Please add repos")]
     ValidRepoNotFound,
-    #[error("Repository path is not valid")]
-    RepoPathInvalid,
+    #[error("Repository path is not valid: {0:?}")]
+    RepoPathInvalid(String),
     #[error("Repository recursed infinitely with: {0:?}")]
     RepoRecursion(Vec<PackageName>),
     #[error("Cached package {0:?} source repo is not found")]
     RepoCacheNotFound(PackageName),
+    #[error("Public key for {0:?} is not available")]
+    RepoNotLoaded(String),
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
     #[error("Package {0:?} not installed")]

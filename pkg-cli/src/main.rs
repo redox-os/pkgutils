@@ -62,25 +62,25 @@ enum Commands {
     List,
 }
 
+// TODO: Refactor this
 fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<PackageName> {
-    let mut packages = vec![];
-    let all_packages = library.get_all_package_names().unwrap();
-
     if all {
-        return all_packages;
-    }
-
-    for pattern_string in input.iter() {
-        let pattern = glob::Pattern::new(pattern_string).unwrap();
-
-        for package in all_packages.iter() {
-            if pattern.matches(package.as_str()) {
-                packages.push(package.clone());
+        library
+            .get_all_package_names()
+            .expect("Unable to get all packages")
+    } else {
+        let mut packages = vec![];
+        for p in input {
+            if let Ok(package) = PackageName::new(p) {
+                packages.push(package);
             }
         }
+        if packages.len() == 0 {
+            eprintln!("No packages selected");
+            process::exit(1);
+        }
+        packages
     }
-
-    packages
 }
 
 fn main() {
@@ -102,9 +102,7 @@ fn main() {
                 err,
                 style::Reset
             );
-            if err.to_string().contains("PermissionDenied")
-                || err.to_string().contains("MissingPermissions")
-            {
+            if matches!(err, pkg::backend::Error::MissingPermissions) {
                 eprintln!("Hint: You may need root privileges. Try running with 'sudo'.");
             }
             std::process::exit(1);
@@ -124,10 +122,9 @@ fn main() {
         } else {
             eprintln!("error: {:#?}", err);
         }
-        process::exit(1);
+        // TODO: this hanging the terminal
+        // process::exit(1);
     });
-
-    println!("done");
 }
 fn execute_command(
     command: Commands,

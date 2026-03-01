@@ -68,7 +68,11 @@ impl Callback for PlainCallback {
     }
 
     fn fetch_end(&mut self) {
-        eprintln!("\rFetch complete.");
+        if self.fetch_processed == self.fetch_total {
+            eprintln!("\rFetch complete.");
+        } else {
+            eprintln!("\rFetch incomplete.");
+        }
     }
 
     fn install_prompt(&mut self, list: &crate::PackageList) -> Result<(), Error> {
