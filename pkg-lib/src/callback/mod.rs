@@ -3,9 +3,11 @@ use crate::{backend::Error, package::RemotePackage, PackageList, PackageName};
 #[cfg(feature = "indicatif")]
 pub use self::indicatif::IndicatifCallback;
 pub use self::plain::PlainCallback;
+pub use self::silent::SilentCallback;
 #[cfg(feature = "indicatif")]
 mod indicatif;
 mod plain;
+mod silent;
 
 /// Implement callback to handle interaction
 pub trait Callback {
