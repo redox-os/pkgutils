@@ -206,6 +206,10 @@ impl PackageName {
         Ok(r)
     }
 
+    pub fn from_list(vec: Vec<impl Into<String>>) -> Result<Vec<Self>, PackageError> {
+        vec.into_iter().map(|p| Self::new(p)).collect()
+    }
+
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
@@ -229,10 +233,7 @@ impl PackageName {
 
     /// Get ".pkg" suffix
     pub fn suffix(&self) -> Option<&str> {
-        let mut s = self.0.as_str();
-        if self.is_host() {
-            s = &s[5..]
-        }
+        let s = self.without_host();
         if let Some(pos) = s.find('.') {
             Some(&s[pos + 1..])
         } else {
@@ -241,14 +242,14 @@ impl PackageName {
     }
 
     /// Strip "host:" prefix if exists
-    pub fn without_host(&self) -> PackageName {
+    pub fn without_host(&self) -> &str {
         let name = if self.is_host() {
-            &self.as_str()["host:".len()..]
+            &self.as_str()[5..]
         } else {
             self.as_str()
         };
 
-        Self(name.to_string())
+        name
     }
 
     /// Add "host:" prefix if not exists
