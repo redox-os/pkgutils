@@ -17,6 +17,10 @@ pub trait Callback {
     fn fetch_end(&mut self);
 
     fn install_prompt(&mut self, list: &PackageList) -> Result<(), Error>;
+    fn install_check_conflict(
+        &mut self,
+        list: &Vec<pkgar::TransactionConflict>,
+    ) -> Result<(), Error>;
     fn install_extract(&mut self, pkg_name: &RemotePackage);
 
     fn download_start(&mut self, length: u64, file: &str);
