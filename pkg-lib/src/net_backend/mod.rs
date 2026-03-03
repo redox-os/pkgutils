@@ -7,11 +7,9 @@ use std::{
 };
 use thiserror::Error;
 
-mod file_backend;
 mod reqwest_backend;
 
 use crate::callback::Callback;
-pub use file_backend::FileBackend as DefaultLocalBackend;
 pub use reqwest_backend::ReqwestBackend as DefaultNetBackend;
 
 pub enum DownloadBackendWriter {

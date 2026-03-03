@@ -93,18 +93,27 @@ impl Callback for IndicatifCallback {
         self.pb.suspend(|| self.fallback.install_prompt(list))
     }
 
-    fn install_extract(&mut self, remote_pkg: &RemotePackage) {
+    fn install_check_conflict(
+        &mut self,
+        list: &Vec<pkgar::TransactionConflict>,
+    ) -> Result<(), Error> {
         self.pb
-            .println(format!("Extracting {}", remote_pkg.package.name));
+            .suspend(|| self.fallback.install_check_conflict(list))
+    }
+
+    fn install_extract(&mut self, remote_pkg: &RemotePackage) {
+        self.pb.suspend(|| {
+            self.fallback.install_extract(remote_pkg);
+        });
     }
 
     fn download_start(&mut self, length: u64, file: &str) {
-        self.pb.suspend(|| {
-            self.fallback.download_start(length, file);
-        });
-
-        self.pb = ProgressBar::new(length);
         self.unknown_len = length == 0;
+        if self.unknown_len {
+            // to not interrupt the fetch progress bar
+            return;
+        }
+        self.pb = ProgressBar::new(length);
         self.pb.set_style(self.download_style());
         self.pb.set_prefix("Downloading");
 
@@ -121,13 +130,16 @@ impl Callback for IndicatifCallback {
     }
 
     fn download_increment(&mut self, downloaded: u64) {
-        self.pb.inc(downloaded);
         if self.unknown_len {
-            self.pb.inc_length(downloaded);
+            return;
         }
+        self.pb.inc(downloaded);
     }
 
     fn download_end(&mut self) {
+        if self.unknown_len {
+            return;
+        }
         self.pb.finish_and_clear();
         self.has_download = true;
     }

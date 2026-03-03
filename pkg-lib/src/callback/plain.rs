@@ -10,6 +10,7 @@ pub struct PlainCallback {
     fetch_processed: usize,
     fetch_total: usize,
     interactive: bool,
+    download_file: Option<String>,
 }
 
 impl PlainCallback {
@@ -21,9 +22,11 @@ impl PlainCallback {
             fetch_processed: 0,
             fetch_total: 0,
             interactive: false,
+            download_file: None,
         }
     }
 
+    /// Set if user require to agree on terminal
     pub fn set_interactive(&mut self, enabled: bool) {
         self.interactive = enabled;
     }
@@ -41,7 +44,36 @@ impl PlainCallback {
         let size = bytes as f64 / 1024.0_f64.powi(i as i32);
         format!("{:.2} {}", size, UNITS[i])
     }
+
+    fn confirm_transaction(&self) -> Result<(), Error> {
+        if self.interactive {
+            eprint!("\nProceed with this transaction? [Y/n]: ");
+            self.flush();
+
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap_or(0);
+            let input = input.trim().to_lowercase();
+
+            if input == "n" || input == "no" {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "Installation aborted by user",
+                )
+                .into());
+            }
+        } else {
+            eprintln!();
+        }
+
+        Ok(())
+    }
+
+    fn downloading_str(&self) -> &'static str {
+        "Downloading"
+    }
 }
+
+const RESET_LINE: &str = "\r\x1b[2K";
 
 impl Callback for PlainCallback {
     fn fetch_start(&mut self, initial_count: usize) {
@@ -52,7 +84,7 @@ impl Callback for PlainCallback {
 
     fn fetch_package_name(&mut self, pkg_name: &crate::PackageName) {
         // resuming after fetch_package_increment
-        eprintln!(" {}", pkg_name);
+        eprint!(" {}", pkg_name.as_str());
         self.flush();
     }
 
@@ -61,7 +93,7 @@ impl Callback for PlainCallback {
         self.fetch_total += added_count;
 
         eprint!(
-            "\rFetching: [{}/{}]",
+            "{RESET_LINE}Fetching: [{}/{}]",
             self.fetch_processed, self.fetch_total
         );
         self.flush();
@@ -69,9 +101,9 @@ impl Callback for PlainCallback {
 
     fn fetch_end(&mut self) {
         if self.fetch_processed == self.fetch_total {
-            eprintln!("\rFetch complete.");
+            eprintln!("{RESET_LINE}Fetch complete.");
         } else {
-            eprintln!("\rFetch incomplete.");
+            eprintln!("{RESET_LINE}Fetch incomplete.");
         }
     }
 
@@ -112,26 +144,28 @@ impl Callback for PlainCallback {
             );
         }
 
-        if self.interactive {
-            eprint!("\nProceed with this transaction? [Y/n]: ");
-            self.flush();
+        self.confirm_transaction()
+    }
 
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap_or(0);
-            let input = input.trim().to_lowercase();
-
-            if input == "n" || input == "no" {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Interrupted,
-                    "Installation aborted by user",
-                )
-                .into());
-            }
-        } else {
-            eprintln!();
+    fn install_check_conflict(
+        &mut self,
+        list: &Vec<pkgar::TransactionConflict>,
+    ) -> Result<(), Error> {
+        if list.is_empty() {
+            return Ok(());
         }
 
-        Ok(())
+        eprintln!("Transaction conflict detected:");
+        for pkg in list {
+            eprintln!(
+                "  -> {} (from {:?} replaced by {:?})",
+                pkg.conflicted_path.display(),
+                pkg.former_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+                pkg.newer_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+            );
+        }
+
+        self.confirm_transaction()
     }
 
     fn install_extract(&mut self, remote_pkg: &RemotePackage) {
@@ -144,9 +178,10 @@ impl Callback for PlainCallback {
         self.unknown_size = length == 0;
         self.pos = 0;
         if !self.unknown_size {
-            eprintln!("\rDownloading {file}");
+            eprint!("{RESET_LINE}{} {file}", self.downloading_str());
+            self.download_file = Some(file.to_string());
+            self.flush();
         }
-        self.flush();
     }
 
     fn download_increment(&mut self, downloaded: u64) {
@@ -161,13 +196,25 @@ impl Callback for PlainCallback {
         // keep using MB for consistency
         let pos_mb = self.pos as f64 / 1_048_576.0;
         let size_mb = self.size as f64 / 1_048_576.0;
-        eprint!("\rDownloaded: [{:.2} MB / {:.2} MB]", pos_mb, size_mb);
+        let file_name = self
+            .download_file
+            .as_ref()
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        eprint!(
+            "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
+            self.downloading_str(),
+            file_name,
+            pos_mb,
+            size_mb
+        );
         self.flush();
     }
 
     fn download_end(&mut self) {
         if !self.unknown_size {
             eprintln!("");
+            self.download_file = None;
         }
     }
 
@@ -185,7 +232,7 @@ impl Callback for PlainCallback {
             self.size += 1;
         }
 
-        eprint!("\rCommitting: [{}/{}]", self.pos, self.size);
+        eprint!("{RESET_LINE}Committing: [{}/{}]", self.pos, self.size);
         self.flush();
     }
 
@@ -207,7 +254,7 @@ impl Callback for PlainCallback {
             self.size += 1;
         }
 
-        eprint!("\rAborting: [{}/{}]", self.pos, self.size);
+        eprint!("{RESET_LINE}Aborting: [{}/{}]", self.pos, self.size);
         self.flush();
     }
 

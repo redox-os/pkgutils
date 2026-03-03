@@ -316,6 +316,12 @@ impl Default for PackageState {
     }
 }
 
+impl PackageList {
+    pub fn is_empty(&self) -> bool {
+        self.install.is_empty() && self.uninstall.is_empty() && self.update.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Package;
