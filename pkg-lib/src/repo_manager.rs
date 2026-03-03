@@ -14,7 +14,11 @@ use pkgar_keys::PublicKeyFile;
 use reqwest::Url;
 
 pub struct RepoManager {
+    /// http sources
     pub remotes: Vec<RemoteName>,
+    /// file sources
+    pub locals: Vec<RemoteName>,
+    /// detailed http + file sources
     pub remote_map: BTreeMap<RemoteName, RemotePath>,
     pub download_path: PathBuf,
     pub download_backend: Box<dyn DownloadBackend>,
@@ -26,7 +30,7 @@ pub struct RepoManager {
 pub struct RemotePath {
     /// URL/Path to packages
     pub path: String,
-    /// URL/Path to public key
+    /// URL to public key
     pub pubpath: String,
     /// Unique ID
     pub name: RemoteName,
@@ -34,11 +38,32 @@ pub struct RemotePath {
     pub pubkey: Option<PublicKey>,
 }
 
+impl RemotePath {
+    pub fn is_local(&self) -> bool {
+        self.pubpath.is_empty()
+    }
+}
+
 const PUB_TOML: &str = "id_ed25519.pub.toml";
 
 impl RepoManager {
+    pub(crate) fn new(
+        callback: Rc<RefCell<dyn Callback>>,
+        download_backend: Box<dyn DownloadBackend>,
+    ) -> Self {
+        Self {
+            remotes: Vec::new(),
+            locals: Vec::new(),
+            download_path: DOWNLOAD_DIR.into(),
+            download_backend,
+            callback: callback,
+            remote_map: BTreeMap::new(),
+        }
+    }
+
     pub fn update_remotes(&mut self, target: &str, install_path: &Path) -> Result<(), Error> {
         self.remotes = Vec::new();
+        self.locals = Vec::new();
         self.remote_map = BTreeMap::new();
 
         let repos_path = install_path.join(PACKAGES_REMOTE_DIR);
@@ -104,7 +129,7 @@ impl RepoManager {
                 pubkey_path.to_string_lossy().to_string(),
             ));
         }
-        // add_local can be mixed with remote net backend, so don't lazily load this
+        // load to check for failure early
         let pubkey = pkgar_keys::PublicKeyFile::open(pubkey_path).map_err(Error::from)?;
         if self
             .remote_map
@@ -116,6 +141,7 @@ impl RepoManager {
                     } else {
                         format!("{}/{}", path, target)
                     },
+                    // signifies local repository
                     pubpath: "".into(),
                     name: host.into(),
                     pubkey: Some(pubkey.pkey),
@@ -123,14 +149,25 @@ impl RepoManager {
             )
             .is_none()
         {
-            self.remotes.push(host.into());
+            self.locals.push(host.into());
         };
         Ok(())
     }
 
     fn sync_toml(&self, package_name: &PackageName) -> Result<(String, RemoteName), Error> {
-        match self.sync_and_read(&format!("{package_name}.toml")) {
-            Ok(toml) => Ok(toml),
+        let file = format!("{package_name}.toml");
+        if let Some((r, path)) = self.local_search(&file)? {
+            let toml = fs::read_to_string(path)?;
+            return Ok((toml, r));
+        }
+        let mut writer = DownloadBackendWriter::ToBuf(Vec::new());
+        match self.download(&file, None, &mut writer) {
+            Ok(r) => {
+                let text = writer.to_inner_buf();
+                let toml = String::from_utf8(text)
+                    .map_err(|_| Error::ContentIsNotValidUnicode(file.into()))?;
+                Ok((toml, r))
+            }
             Err(Error::ValidRepoNotFound) => {
                 Err(PackageError::PackageNotFound(package_name.to_owned()).into())
             }
@@ -142,11 +179,15 @@ impl RepoManager {
         &self,
         package_name: &PackageName,
         len_hint: u64,
-        dst_path: &Path,
-    ) -> Result<RemoteName, Error> {
-        let mut file = DownloadBackendWriter::ToFile(File::create(&dst_path)?);
-        match self.download(&format!("{package_name}.pkgar"), Some(len_hint), &mut file) {
-            Ok(r) => Ok(r),
+        dst_path: PathBuf,
+    ) -> Result<(PathBuf, RemoteName), Error> {
+        let file = format!("{package_name}.pkgar");
+        if let Some((r, path)) = self.local_search(&file)? {
+            return Ok((path, r));
+        }
+        let mut writer = DownloadBackendWriter::ToFile(File::create(&dst_path)?);
+        match self.download(&file, Some(len_hint), &mut writer) {
+            Ok(r) => Ok((dst_path, r)),
             Err(Error::ValidRepoNotFound) => {
                 Err(PackageError::PackageNotFound(package_name.to_owned()).into())
             }
@@ -187,7 +228,7 @@ impl RepoManager {
         Ok(())
     }
 
-    /// Download to dest and report which remote it's downloaded from.
+    /// Download to dest and report which remotes it's downloaded from.
     pub fn download(
         &self,
         file: &str,
@@ -203,7 +244,7 @@ impl RepoManager {
                 continue;
             };
             if remote.path == "" {
-                // local repository
+                // installer repository
                 continue;
             }
 
@@ -223,16 +264,41 @@ impl RepoManager {
         Err(Error::ValidRepoNotFound)
     }
 
-    pub fn sync_and_read(&self, file: &str) -> Result<(String, RemoteName), Error> {
-        let mut writer = DownloadBackendWriter::ToBuf(Vec::new());
-        match self.download(file, None, &mut writer) {
-            Ok(r) => {
-                let toml = String::from_utf8(writer.to_inner_buf())
-                    .map_err(|_| Error::ContentIsNotValidUnicode(file.into()))?;
-                Ok((toml, r))
-            }
-            Err(e) => Err(e),
+    /// Locate and return path and report which locals it's downloaded from.
+    pub fn local_search(&self, file: &str) -> Result<Option<(RemoteName, PathBuf)>, Error> {
+        if !self.download_path.exists() {
+            fs::create_dir_all(self.download_path.clone())?;
         }
+
+        for rname in self.locals.iter() {
+            let Some(remote) = self.remote_map.get(rname) else {
+                continue;
+            };
+            if remote.path == "" {
+                // installer repository
+                continue;
+            }
+
+            let remote_path = Path::new(&remote.path).join(file);
+            match remote_path.metadata() {
+                Ok(e) => {
+                    if e.is_file() {
+                        return Ok(Some((rname.into(), remote_path)));
+                    } else {
+                        continue;
+                    }
+                }
+                Err(err) => {
+                    if err.kind() == std::io::ErrorKind::NotFound {
+                        continue;
+                    } else {
+                        return Err(Error::IO(err));
+                    }
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     // downloads /tmp/pkg_download/[package].pkgar
@@ -242,7 +308,7 @@ impl RepoManager {
         len_hint: u64,
     ) -> Result<(PathBuf, &RemotePath), Error> {
         let local_path = self.get_local_path(&"".to_string(), package.as_str(), "pkgar");
-        let remote = self.sync_pkgar(&package, len_hint, &local_path)?;
+        let (local_path, remote) = self.sync_pkgar(&package, len_hint, local_path)?;
         if let Some(r) = self.remote_map.get(&remote) {
             Ok((local_path, r))
         } else {

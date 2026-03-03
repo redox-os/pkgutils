@@ -22,6 +22,10 @@ impl Callback for SilentCallback {
         Ok(())
     }
 
+    fn install_check_conflict(&mut self, _: &Vec<pkgar::TransactionConflict>) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn install_extract(&mut self, _: &RemotePackage) {}
 
     fn download_start(&mut self, _: u64, _: &str) {}

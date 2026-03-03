@@ -1054,9 +1054,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkgar"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8df7bf211d67eb4384cf1da9048fc7e753aff4b2225826a3a09253ca536c8df"
+checksum = "04a4f986e17eddde10e5e13eed8871040c6d03c84899c7bd45eb677d2a075aad"
 dependencies = [
  "blake3",
  "bytemuck",
@@ -1068,9 +1068,9 @@ dependencies = [
 
 [[package]]
 name = "pkgar-core"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de231bd4167f10c31cb46db5d597236aedde93b644603673d49b2e6623f2ac28"
+checksum = "f70ece1ac795894e114aaf0f6fe6e48a1eb17ff4ab7904e166378dca79d69312"
 dependencies = [
  "bitflags",
  "blake3",
@@ -1080,9 +1080,9 @@ dependencies = [
 
 [[package]]
 name = "pkgar-keys"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ecbbbb96574d9f0404f97dba769e0d397557be40590b9c9aa8f43fc586e56c6"
+checksum = "78621dc3c54df318ce004a5e1b5d9ab128b1d7a39b228bc478e74ccd20712151"
 dependencies = [
  "dirs",
  "hex",

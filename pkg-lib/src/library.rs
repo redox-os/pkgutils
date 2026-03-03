@@ -2,17 +2,14 @@ use std::collections::{btree_map, BTreeMap};
 use std::{cell::RefCell, cmp::Ordering, path::Path, rc::Rc};
 
 use crate::backend::pkgar_backend::PkgarBackend;
+use crate::backend::{Backend, Error};
 use crate::net_backend::{DefaultNetBackend, DownloadBackend};
 use crate::repo_manager::RepoManager;
-use crate::{
-    backend::{Backend, Error},
-    net_backend::DefaultLocalBackend,
-};
 
 use crate::callback::Callback;
 use crate::package::{PackageInfo, PackageName, RemotePackage};
 
-use crate::{sorensen, PackageState, DOWNLOAD_DIR};
+use crate::{sorensen, PackageState};
 
 pub struct Library {
     /// the computed package state before commit
@@ -33,14 +30,7 @@ impl Library {
 
         let download_backend = DefaultNetBackend::new()?;
 
-        let mut repo_manager = RepoManager {
-            remotes: Vec::new(),
-            download_path: DOWNLOAD_DIR.into(),
-            download_backend: Box::new(download_backend),
-            callback: callback.clone(),
-            remote_map: BTreeMap::new(),
-        };
-
+        let mut repo_manager = RepoManager::new(callback.clone(), Box::new(download_backend));
         repo_manager.update_remotes(target, install_path)?;
 
         let backend = PkgarBackend::new(install_path, repo_manager)?;
@@ -49,7 +39,7 @@ impl Library {
             package_state: backend.get_package_state(),
             backend: Box::new(backend),
             cached_info: BTreeMap::new(),
-            callback: callback.clone(),
+            callback: callback,
         })
     }
 
@@ -63,15 +53,9 @@ impl Library {
     ) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
 
-        let download_backend = DefaultLocalBackend::new()?;
+        let download_backend = DefaultNetBackend::new()?;
 
-        let mut repo_manager = RepoManager {
-            remotes: Vec::new(),
-            download_path: DOWNLOAD_DIR.into(),
-            download_backend: Box::new(download_backend.clone()),
-            callback: callback.clone(),
-            remote_map: BTreeMap::new(),
-        };
+        let mut repo_manager = RepoManager::new(callback.clone(), Box::new(download_backend));
 
         repo_manager.add_local(
             "local",
@@ -86,7 +70,7 @@ impl Library {
             package_state: backend.get_package_state(),
             backend: Box::new(backend),
             cached_info: BTreeMap::new(),
-            callback: callback.clone(),
+            callback: callback,
         })
     }
 
@@ -99,15 +83,9 @@ impl Library {
     ) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
 
-        let download_backend = DefaultLocalBackend::new()?;
+        let download_backend = DefaultNetBackend::new()?;
 
-        let mut repo_manager = RepoManager {
-            remotes: Vec::new(),
-            download_path: DOWNLOAD_DIR.into(),
-            download_backend: Box::new(download_backend.clone()),
-            callback: callback.clone(),
-            remote_map: BTreeMap::new(),
-        };
+        let mut repo_manager = RepoManager::new(callback.clone(), Box::new(download_backend));
 
         for remote_url in remote_urls {
             repo_manager.add_remote(remote_url.trim(), target)?;
@@ -119,7 +97,7 @@ impl Library {
             package_state: backend.get_package_state(),
             backend: Box::new(backend),
             cached_info: BTreeMap::new(),
-            callback: callback.clone(),
+            callback: callback,
         })
     }
 
@@ -249,6 +227,10 @@ impl Library {
 
     fn apply_inner(&mut self) -> Result<usize, Error> {
         let diff = self.backend.get_package_state().diff(&self.package_state);
+        if diff.is_empty() {
+            return Ok(0);
+        }
+
         self.callback.borrow_mut().install_prompt(&diff)?;
 
         for package in &diff.uninstall {
@@ -276,6 +258,10 @@ impl Library {
                 self.backend.install(cache)?;
             }
         }
+
+        self.callback
+            .borrow_mut()
+            .install_check_conflict(self.backend.commit_check_conflict()?)?;
 
         self.backend.commit_state(self.package_state.clone())
     }
