@@ -148,6 +148,9 @@ impl PkgarBackend {
 impl Backend for PkgarBackend {
     fn install(&mut self, package: RemotePackage) -> Result<(), Error> {
         self.sync_keys()?;
+        if package.package.version.is_empty() {
+            return Ok(()); // metapackage
+        }
         // TODO: Actually use that specific remote
         let (local_path, repo) = self
             .repo_manager
@@ -175,14 +178,17 @@ impl Backend for PkgarBackend {
         Ok(())
     }
 
-    fn upgrade(&mut self, package: PackageName) -> Result<(), Error> {
+    fn upgrade(&mut self, package: &RemotePackage) -> Result<(), Error> {
         self.sync_keys()?;
 
-        let mut pkg = self.get_package_head(&package)?;
-        let (local_path, repo) = self.repo_manager.get_package_pkgar(&package, 0)?;
+        let name = &package.package.name;
+        let mut pkg = self.get_package_head(name)?;
+        let (local_path, repo) = self
+            .repo_manager
+            .get_package_pkgar(name, package.package.network_size)?;
         let mut pkg2 = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
         let update = Transaction::replace(&mut pkg, &mut pkg2, &self.install_path)?;
-        self.create_head(&local_path, &package, &repo.pubkey.unwrap())?;
+        self.create_head(&local_path, &name, &repo.pubkey.unwrap())?;
         self.add_transaction(update, Some(&pkg));
         Ok(())
     }

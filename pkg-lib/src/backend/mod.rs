@@ -74,7 +74,7 @@ pub trait Backend {
     /// individually uninstall a package
     fn uninstall(&mut self, package: PackageName) -> Result<(), Error>;
     /// individually upgrade a package
-    fn upgrade(&mut self, package: PackageName) -> Result<(), Error>;
+    fn upgrade(&mut self, package: &RemotePackage) -> Result<(), Error>;
     /// download package TOML data
     fn get_package_detail(&self, package: &PackageName) -> Result<RemotePackage, Error>;
     /// download repo TOML data

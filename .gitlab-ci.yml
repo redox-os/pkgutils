@@ -18,4 +18,4 @@ fmt:
 cargo-test:
   stage: test
   script:
-    - cargo test -p redox-pkg --features indicatif --locked
+    - cargo test -p redox-pkg --features indicatif --locked  -- --nocapture --test-threads=1

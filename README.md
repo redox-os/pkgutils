@@ -24,5 +24,5 @@ For more detailed information on how to invoke these subcommands, please run `pk
 To run tests, run
 
 ```sh
-cargo test -p redox-pkg --features indicatif 
+cargo test -p redox-pkg --features indicatif  -- --nocapture --test-threads=1
 ```
