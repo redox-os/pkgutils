@@ -13,6 +13,7 @@ use pkgar_core::PublicKey;
 use pkgar_keys::PublicKeyFile;
 use reqwest::Url;
 
+/// Remote package management
 pub struct RepoManager {
     /// http sources
     pub remotes: Vec<RemoteName>,
@@ -47,7 +48,7 @@ impl RemotePath {
 const PUB_TOML: &str = "id_ed25519.pub.toml";
 
 impl RepoManager {
-    pub(crate) fn new(
+    pub fn new(
         callback: Rc<RefCell<dyn Callback>>,
         download_backend: Box<dyn DownloadBackend>,
     ) -> Self {
@@ -59,6 +60,41 @@ impl RepoManager {
             callback: callback,
             remote_map: BTreeMap::new(),
         }
+    }
+
+    /// override from default
+    pub fn set_download_path(&mut self, path: PathBuf) {
+        self.download_path = path;
+    }
+
+    /// load remote keys from cache. Should be called after add_remote(). Does not fail if cache not exist.
+    pub fn load_remotes_key_cache(&mut self, cache_path: &Path) -> Result<(), Error> {
+        for remote in &self.remotes {
+            if let Some(remote) = self.remote_map.get_mut(remote) {
+                let local_path = cache_path.join(format!("{}_{}", remote.name, PUB_TOML));
+                if local_path.is_file() && remote.pubkey.is_none() {
+                    let pub_key = PublicKeyFile::open(local_path)?;
+                    remote.pubkey = Some(pub_key.pkey);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// save remote keys to cache. Should be called after downloads operation. Replaces old cache.
+    pub fn save_remotes_key_cache(&self, cache_path: &Path) -> Result<(), Error> {
+        for remote in &self.remotes {
+            if let Some(remote) = self.remote_map.get(remote) {
+                if let Some(pubkey) = remote.pubkey {
+                    let local_path = cache_path.join(format!("{}_{}", remote.name, PUB_TOML));
+                    let pub_key = PublicKeyFile::new(pubkey);
+                    pub_key.save(local_path)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn update_remotes(&mut self, target: &str, install_path: &Path) -> Result<(), Error> {
@@ -310,7 +346,11 @@ impl RepoManager {
         let local_path = self.get_local_path(&"".to_string(), package.as_str(), "pkgar");
         let (local_path, remote) = self.sync_pkgar(&package, len_hint, local_path)?;
         if let Some(r) = self.remote_map.get(&remote) {
-            Ok((local_path, r))
+            let new_local_path = self.get_local_path(&r.name, package.as_str(), "pkgar");
+            if new_local_path != local_path {
+                fs::rename(&local_path, &new_local_path)?;
+            }
+            Ok((new_local_path, r))
         } else {
             // the pubkey cache is failing to download?
             Err(Error::RepoCacheNotFound(package.clone()))

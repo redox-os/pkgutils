@@ -155,9 +155,25 @@ impl Library {
     }
 
     /// if packages is empty then update all installed packages
-    pub fn update(&mut self, packages: Vec<PackageName>) -> Result<(), Error> {
-        // TODO: currently this does the same thing as install at the package state logic
-        self.install(packages)
+    pub fn update(&mut self, mut packages: Vec<PackageName>) -> Result<(), Error> {
+        let repo_list = self.backend.get_repository_detail()?;
+        let local_list = self.backend.get_package_state();
+        if packages.len() == 0 {
+            packages = local_list.get_installed_list();
+        }
+
+        let mut new_packages = Vec::new();
+        for package in packages {
+            if let Some(source_hash) = repo_list.packages.get(package.as_str()) {
+                if let Some(local_hash) = local_list.installed.get(package.as_str()) {
+                    if local_hash.blake3 != *source_hash {
+                        new_packages.push(package);
+                    }
+                }
+            }
+        }
+
+        self.install(new_packages)
     }
 
     pub fn get_all_package_names(&mut self) -> Result<Vec<PackageName>, Error> {
@@ -243,14 +259,14 @@ impl Library {
         }
 
         for package in &diff.update {
-            let r = self.backend.upgrade(package.clone());
-            if let Err(Error::RepoCacheNotFound(e)) = &r {
-                if let Some(cache) = self.cached_info.remove(package) {
+            if let Some(cache) = self.cached_info.remove(package) {
+                let r = self.backend.upgrade(&cache);
+                if let Err(Error::RepoCacheNotFound(e)) = &r {
                     eprintln!("Repository source of {e} is not valid, reinstalling!");
                     self.backend.install(cache)?;
                 }
+                r?
             }
-            r?
         }
 
         for package in &diff.install {
