@@ -55,6 +55,13 @@ pub struct Package {
     pub depends: Vec<PackageName>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PackagePrefix {
+    Any,
+    Host,
+    Target,
+}
+
 impl Package {
     pub fn new(name: &PackageName) -> Result<Self, PackageError> {
         let dir = find(name.name()).ok_or_else(|| PackageError::PackageNotFound(name.clone()))?;
@@ -168,6 +175,7 @@ impl Package {
 /// + `recipe.pkg` A recipe on "pkg" optional package
 /// + `host:recipe` A recipe with host target on mandatory package
 /// + `host:recipe.pkg` A recipe with host target on "pkg" optional package
+/// + `target:recipe` A recipe only for the target on mandatory package
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
@@ -180,27 +188,27 @@ impl PackageName {
         if name.is_empty() {
             return Err(PackageError::PackageNameInvalid(name));
         }
-        let mut separators = 0;
-        let mut has_host_prefix = false;
+        let mut pkg_separator = 0;
+        let mut has_os_prefix = false;
         for c in name.chars() {
             if "/\0".contains(c) {
                 return Err(PackageError::PackageNameInvalid(name));
             }
             if c == '.' {
-                separators += 1;
-                if separators > 1 {
+                pkg_separator += 1;
+                if pkg_separator > 1 {
                     return Err(PackageError::PackageNameInvalid(name));
                 }
             }
             if c == ':' {
-                if has_host_prefix {
+                if has_os_prefix {
                     return Err(PackageError::PackageNameInvalid(name));
                 }
-                has_host_prefix = true;
+                has_os_prefix = true;
             }
         }
         let r = Self(name);
-        if has_host_prefix && !r.is_host() {
+        if has_os_prefix && !r.is_host() && !r.is_target() {
             return Err(PackageError::PackageNameInvalid(r.0));
         }
         Ok(r)
@@ -219,16 +227,40 @@ impl PackageName {
         self.0.starts_with("host:")
     }
 
-    /// Get the name between "host:" prefix and ".pkg" suffix
-    pub fn name(&self) -> &str {
+    /// Check if "target:" prefix exists
+    pub fn is_target(&self) -> bool {
+        self.0.starts_with("target:")
+    }
+
+    fn strip<'a>(
+        &'a self,
+        strip_os: bool,
+        strip_pkg: bool,
+    ) -> (Option<&'a str>, &'a str, Option<&'a str>) {
         let mut s = self.0.as_str();
-        if self.is_host() {
-            s = &s[5..]
+        let mut os = None;
+        let mut pkg = None;
+        if strip_os {
+            if self.is_host() {
+                os = Some(&s[..4]);
+                s = &s[5..];
+            } else if self.is_target() {
+                os = Some(&s[..6]);
+                s = &s[7..];
+            }
         }
-        if let Some(pos) = s.find('.') {
-            s = &s[..pos]
+        if strip_pkg {
+            if let Some(pos) = s.find('.') {
+                pkg = Some(&s[pos + 1..]);
+                s = &s[..pos];
+            }
         }
-        s
+        (os, s, pkg)
+    }
+
+    /// Get the name between os prefix and pkg suffix
+    pub fn name(&self) -> &str {
+        self.strip(true, true).1
     }
 
     /// Get ".pkg" suffix
@@ -243,29 +275,64 @@ impl PackageName {
 
     /// Strip "host:" prefix if exists
     pub fn without_host(&self) -> &str {
-        let name = if self.is_host() {
+        if self.is_host() {
             &self.as_str()[5..]
         } else {
             self.as_str()
-        };
+        }
+    }
 
-        name
+    /// Strip "target:" prefix if exists
+    pub fn without_target(&self) -> &str {
+        if self.is_target() {
+            &self.as_str()[7..]
+        } else {
+            self.as_str()
+        }
+    }
+
+    /// Strip "host:" or "target:" prefix if exists
+    pub fn without_prefix(&self) -> &str {
+        let s = self.strip(true, false);
+        s.1
     }
 
     /// Add "host:" prefix if not exists
     pub fn with_host(&self) -> PackageName {
-        let name = if self.is_host() {
-            self.as_str().to_string()
-        } else {
-            format!("host:{}", self.as_str())
+        self.with_prefix(PackagePrefix::Host)
+    }
+
+    /// Add "target:" prefix if not exists
+    pub fn with_target(&self) -> PackageName {
+        self.with_prefix(PackagePrefix::Target)
+    }
+
+    /// Add or replace os prefix
+    pub fn with_prefix(&self, os: PackagePrefix) -> PackageName {
+        let name = self.strip(true, false).1;
+        let name = match os {
+            PackagePrefix::Any => name.to_string(),
+            PackagePrefix::Host => format!("host:{}", name),
+            PackagePrefix::Target => format!("target:{}", name),
         };
 
         Self(name)
     }
 
-    /// Add or replace suffix. Does not retain "host:" prefix
+    /// Add or replace pkg suffix. Retained the os prefix
+    pub fn with_prefixed_suffix(&self, suffix: Option<&str>) -> PackageName {
+        let mut name = self.strip(false, true).1.to_string();
+        if let Some(suffix) = suffix {
+            name.push('.');
+            name.push_str(suffix);
+        }
+
+        Self(name)
+    }
+
+    /// Add or replace suffix. Does not retain the os prefix
     pub fn with_suffix(&self, suffix: Option<&str>) -> PackageName {
-        let mut name = self.name().to_string();
+        let mut name = self.strip(true, true).1.to_string();
         if let Some(suffix) = suffix {
             name.push('.');
             name.push_str(suffix);
