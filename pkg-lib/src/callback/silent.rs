@@ -1,4 +1,7 @@
-use crate::{backend::Error, callback::Callback, package::RemotePackage};
+use crate::{callback::Callback, package::RemotePackage};
+
+#[cfg(feature = "library")]
+use crate::backend::Error;
 
 #[derive(Clone)]
 pub struct SilentCallback {}
@@ -18,10 +21,12 @@ impl Callback for SilentCallback {
 
     fn fetch_end(&mut self) {}
 
+    #[cfg(feature = "library")]
     fn install_prompt(&mut self, _: &crate::PackageList) -> Result<(), Error> {
         Ok(())
     }
 
+    #[cfg(feature = "library")]
     fn install_check_conflict(&mut self, _: &Vec<pkgar::TransactionConflict>) -> Result<(), Error> {
         Ok(())
     }
@@ -34,15 +39,21 @@ impl Callback for SilentCallback {
 
     fn download_end(&mut self) {}
 
+    #[cfg(feature = "library")]
     fn commit_start(&mut self, _: usize) {}
 
+    #[cfg(feature = "library")]
     fn commit_increment(&mut self, _: &pkgar::Transaction) {}
 
+    #[cfg(feature = "library")]
     fn commit_end(&mut self) {}
 
+    #[cfg(feature = "library")]
     fn abort_start(&mut self, _: usize) {}
 
+    #[cfg(feature = "library")]
     fn abort_increment(&mut self, _: &pkgar::Transaction) {}
 
+    #[cfg(feature = "library")]
     fn abort_end(&mut self) {}
 }
