@@ -275,7 +275,7 @@ impl RepoManager {
 
     /// Downloads all keys
     pub fn sync_keys(&mut self) -> Result<(), Error> {
-        let download_dir = Path::new(DOWNLOAD_DIR);
+        let download_dir = &self.download_path;
         if !download_dir.is_dir() {
             fs::create_dir_all(download_dir)?;
         }
