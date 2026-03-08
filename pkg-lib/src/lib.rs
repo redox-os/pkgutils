@@ -3,12 +3,10 @@ pub mod callback;
 #[cfg(feature = "library")]
 pub use library::Library;
 pub mod net_backend;
-pub use package::{
-    Package, PackageError, PackageInfo, PackageName, PackagePrefix, Repository, SourceIdentifier,
-};
+pub use package::*;
 #[cfg(feature = "library")]
-pub use package_state::{InstallState, PackageList, PackageState};
-pub use repo_manager::{RemotePath, RepoManager, RepoPublicKey, RepoPublicKeyFile};
+pub use package_state::*;
+pub use repo_manager::*;
 pub mod recipes;
 
 #[cfg(feature = "library")]
