@@ -346,6 +346,9 @@ impl RepoManager {
         let local_path = self.get_local_path(&"".to_string(), package.as_str(), "pkgar");
         let (local_path, remote) = self.sync_pkgar(&package, len_hint, local_path)?;
         if let Some(r) = self.remote_map.get(&remote) {
+            if r.is_local() {
+                return Ok((local_path, r));
+            }
             let new_local_path = self.get_local_path(&r.name, package.as_str(), "pkgar");
             if new_local_path != local_path {
                 fs::rename(&local_path, &new_local_path)?;
