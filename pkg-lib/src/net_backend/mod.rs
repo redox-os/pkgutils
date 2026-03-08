@@ -111,6 +111,8 @@ pub enum DownloadError {
     // IO errors remain the same
     #[error("IO error: {0}")]
     IO(#[from] io::Error),
+    #[error("General error: {0}")]
+    Other(String),
 }
 
 #[cfg(feature = "library")]

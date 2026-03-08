@@ -123,6 +123,11 @@ impl RepoManager {
         self.download_path = path;
     }
 
+    /// override from existing callback
+    pub fn set_callback(&mut self, callback: Rc<RefCell<dyn Callback>>) {
+        self.callback = callback;
+    }
+
     /// read [install_path]/etc/pkg.d with specified target. Will reset existing remotes / locals list.
     pub fn update_remotes(&mut self, target: &str, install_path: &Path) -> Result<(), Error> {
         self.remotes = Vec::new();
