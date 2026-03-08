@@ -1,13 +1,13 @@
-use crate::{package::RemotePackage, PackageName};
+use crate::{
+    package::{RemoteName, RemotePackage},
+    PackageName,
+};
 use pkgar_keys::PublicKeyFile;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
 };
-
-/// Denotes that the string is a remote key
-pub type RemoteName = String;
 
 /// Contains current user packages state
 #[derive(Serialize, Deserialize, Debug, Clone)]

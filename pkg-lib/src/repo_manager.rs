@@ -6,13 +6,13 @@ use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
 use crate::callback::Callback;
-use crate::net_backend::{DownloadBackend, DownloadBackendWriter, DownloadError};
+#[cfg(feature = "library")]
+use crate::net_backend::DownloadError;
+use crate::net_backend::{DownloadBackend, DownloadBackendWriter};
+use crate::package::RemoteName;
 use crate::{backend::Error, package::PackageError, PackageName};
-use crate::{RemoteName, DOWNLOAD_DIR, PACKAGES_REMOTE_DIR};
-use pkgar_core::PublicKey;
-use pkgar_keys::PublicKeyFile;
-use reqwest::Url;
-
+use crate::{DOWNLOAD_DIR, PACKAGES_REMOTE_DIR};
+use serde_derive::{Deserialize, Serialize};
 /// Remote package management
 pub struct RepoManager {
     /// http sources
@@ -27,6 +27,37 @@ pub struct RepoManager {
     pub callback: Rc<RefCell<dyn Callback>>,
 }
 
+/// same as pkgar_core::PublicKey
+pub type RepoPublicKey = [u8; 32];
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+
+/// same as pkgar_keys::PublicKeyFile
+pub struct RepoPublicKeyFile {
+    #[serde(
+        serialize_with = "hex::serialize",
+        deserialize_with = "hex::deserialize"
+    )]
+    pub pkey: RepoPublicKey,
+}
+
+impl RepoPublicKeyFile {
+    pub fn new(pubkey: RepoPublicKey) -> Self {
+        Self { pkey: pubkey }
+    }
+
+    pub fn open(file: impl AsRef<Path>) -> Result<RepoPublicKeyFile, Error> {
+        let content = fs::read_to_string(file.as_ref()).map_err(Error::IO)?;
+        toml::from_str(&content).map_err(|_| {
+            Error::ContentIsNotValidUnicode(file.as_ref().to_string_lossy().to_string())
+        })
+    }
+
+    pub fn save(&self, file: impl AsRef<Path>) -> Result<(), Error> {
+        fs::write(file, toml::to_string(&self).unwrap()).map_err(Error::IO)
+    }
+}
+
 #[derive(Clone)]
 pub struct RemotePath {
     /// URL/Path to packages
@@ -36,7 +67,7 @@ pub struct RemotePath {
     /// Unique ID
     pub name: RemoteName,
     /// Embedded public key, lazily loaded
-    pub pubkey: Option<PublicKey>,
+    pub pubkey: Option<RepoPublicKey>,
 }
 
 impl RemotePath {
@@ -73,7 +104,7 @@ impl RepoManager {
             if let Some(remote) = self.remote_map.get_mut(remote) {
                 let local_path = cache_path.join(format!("{}_{}", remote.name, PUB_TOML));
                 if local_path.is_file() && remote.pubkey.is_none() {
-                    let pub_key = PublicKeyFile::open(local_path)?;
+                    let pub_key = RepoPublicKeyFile::open(local_path)?;
                     remote.pubkey = Some(pub_key.pkey);
                 }
             }
@@ -88,7 +119,7 @@ impl RepoManager {
             if let Some(remote) = self.remote_map.get(remote) {
                 if let Some(pubkey) = remote.pubkey {
                     let local_path = cache_path.join(format!("{}_{}", remote.name, PUB_TOML));
-                    let pub_key = PublicKeyFile::new(pubkey);
+                    let pub_key = RepoPublicKeyFile::new(pubkey);
                     pub_key.save(local_path)?;
                 }
             }
@@ -126,12 +157,19 @@ impl RepoManager {
         Ok(())
     }
 
+    fn extract_host(path: &str) -> Option<&str> {
+        path.split("://")
+            .nth(1)?
+            .split('/')
+            .next()?
+            .split(':')
+            .next()
+    }
+
     pub fn add_remote(&mut self, path: &str, target: &str) -> Result<(), Error> {
-        let host = Url::parse(path)
-            .or_else(|_| Err(Error::RepoPathInvalid(path.into())))?
-            .host_str()
+        let host = Self::extract_host(path)
             .ok_or_else(|| Error::RepoPathInvalid(path.into()))?
-            .to_owned();
+            .to_string();
 
         if self
             .remote_map
@@ -166,7 +204,7 @@ impl RepoManager {
             ));
         }
         // load to check for failure early
-        let pubkey = pkgar_keys::PublicKeyFile::open(pubkey_path).map_err(Error::from)?;
+        let pubkey = RepoPublicKeyFile::open(pubkey_path).map_err(Error::from)?;
         if self
             .remote_map
             .insert(
@@ -256,7 +294,7 @@ impl RepoManager {
                         self.callback.clone(),
                     )?;
                 }
-                let pubkey = PublicKeyFile::open(local_keypath)?;
+                let pubkey = RepoPublicKeyFile::open(local_keypath)?;
                 remote.pubkey = Some(pubkey.pkey);
             }
         }
@@ -290,6 +328,7 @@ impl RepoManager {
                     .download(&remote_path, len, &mut dest, self.callback.clone());
             match res {
                 Ok(_) => return Ok(rname.into()),
+                #[cfg(feature = "library")]
                 Err(DownloadError::HttpStatus(_)) => continue,
                 Err(e) => {
                     return Err(Error::Download(e));
@@ -362,6 +401,7 @@ impl RepoManager {
 
     // reads /tmp/pkg_download/[package].toml
     pub fn get_package_toml(&self, package: &PackageName) -> Result<(String, RemoteName), Error> {
+        #[cfg(feature = "library")]
         self.callback.borrow_mut().fetch_package_name(&package);
         self.sync_toml(package)
     }
