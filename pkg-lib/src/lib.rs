@@ -3,9 +3,12 @@ pub mod callback;
 #[cfg(feature = "library")]
 pub use library::Library;
 pub mod net_backend;
-pub use package::{Package, PackageError, PackageInfo, PackageName, Repository, SourceIdentifier};
+pub use package::{
+    Package, PackageError, PackageInfo, PackageName, PackagePrefix, Repository, SourceIdentifier,
+};
 #[cfg(feature = "library")]
 pub use package_state::{InstallState, PackageList, PackageState};
+pub use repo_manager::{RemotePath, RepoManager, RepoPublicKey, RepoPublicKeyFile};
 pub mod recipes;
 
 #[cfg(feature = "library")]
@@ -13,7 +16,7 @@ mod library;
 mod package;
 #[cfg(feature = "library")]
 mod package_state;
-pub mod repo_manager;
+mod repo_manager;
 
 #[cfg(feature = "library")]
 mod sorensen;
