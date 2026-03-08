@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::fs::File;
 use std::path::Path;
 use std::rc::Rc;
@@ -22,9 +23,33 @@ pub struct RepoManager {
     /// detailed http + file sources
     pub remote_map: BTreeMap<RemoteName, RemotePath>,
     pub download_path: PathBuf,
-    pub download_backend: Box<dyn DownloadBackend>,
+    pub download_backend: Rc<Box<dyn DownloadBackend>>,
 
     pub callback: Rc<RefCell<dyn Callback>>,
+}
+
+impl Debug for RepoManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RepoManager")
+            .field("remotes", &self.remotes)
+            .field("locals", &self.locals)
+            .field("remote_map", &self.remote_map)
+            .field("download_path", &self.download_path)
+            .finish()
+    }
+}
+
+impl Clone for RepoManager {
+    fn clone(&self) -> Self {
+        Self {
+            remotes: self.remotes.clone(),
+            locals: self.locals.clone(),
+            remote_map: self.remote_map.clone(),
+            download_path: self.download_path.clone(),
+            download_backend: self.download_backend.clone(),
+            callback: self.callback.clone(),
+        }
+    }
 }
 
 /// same as pkgar_core::PublicKey
@@ -58,7 +83,7 @@ impl RepoPublicKeyFile {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RemotePath {
     /// URL/Path to packages
     pub path: String,
@@ -87,7 +112,7 @@ impl RepoManager {
             remotes: Vec::new(),
             locals: Vec::new(),
             download_path: DOWNLOAD_DIR.into(),
-            download_backend,
+            download_backend: Rc::new(download_backend),
             callback: callback,
             remote_map: BTreeMap::new(),
         }
@@ -98,36 +123,7 @@ impl RepoManager {
         self.download_path = path;
     }
 
-    /// load remote keys from cache. Should be called after add_remote(). Does not fail if cache not exist.
-    pub fn load_remotes_key_cache(&mut self, cache_path: &Path) -> Result<(), Error> {
-        for remote in &self.remotes {
-            if let Some(remote) = self.remote_map.get_mut(remote) {
-                let local_path = cache_path.join(format!("{}_{}", remote.name, PUB_TOML));
-                if local_path.is_file() && remote.pubkey.is_none() {
-                    let pub_key = RepoPublicKeyFile::open(local_path)?;
-                    remote.pubkey = Some(pub_key.pkey);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// save remote keys to cache. Should be called after downloads operation. Replaces old cache.
-    pub fn save_remotes_key_cache(&self, cache_path: &Path) -> Result<(), Error> {
-        for remote in &self.remotes {
-            if let Some(remote) = self.remote_map.get(remote) {
-                if let Some(pubkey) = remote.pubkey {
-                    let local_path = cache_path.join(format!("{}_{}", remote.name, PUB_TOML));
-                    let pub_key = RepoPublicKeyFile::new(pubkey);
-                    pub_key.save(local_path)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
+    /// read [install_path]/etc/pkg.d with specified target. Will reset existing remotes / locals list.
     pub fn update_remotes(&mut self, target: &str, install_path: &Path) -> Result<(), Error> {
         self.remotes = Vec::new();
         self.locals = Vec::new();
@@ -166,9 +162,10 @@ impl RepoManager {
             .next()
     }
 
-    pub fn add_remote(&mut self, path: &str, target: &str) -> Result<(), Error> {
-        let host = Self::extract_host(path)
-            .ok_or_else(|| Error::RepoPathInvalid(path.into()))?
+    /// Add a remote target. The domain url will be used as a host (unique identifier).
+    pub fn add_remote(&mut self, url: &str, target: &str) -> Result<(), Error> {
+        let host = Self::extract_host(url)
+            .ok_or_else(|| Error::RepoPathInvalid(url.into()))?
             .to_string();
 
         if self
@@ -176,8 +173,8 @@ impl RepoManager {
             .insert(
                 host.clone(),
                 RemotePath {
-                    path: format!("{}/{}", path, target),
-                    pubpath: format!("{}/{}", path, PUB_TOML),
+                    path: format!("{}/{}", url, target),
+                    pubpath: format!("{}/{}", url, PUB_TOML),
                     name: host.clone(),
                     pubkey: None,
                 },
@@ -190,6 +187,7 @@ impl RepoManager {
         Ok(())
     }
 
+    /// Add a local directory target. Specify a host as a unique identifier.
     pub fn add_local(
         &mut self,
         host: &str,
@@ -228,6 +226,7 @@ impl RepoManager {
         Ok(())
     }
 
+    /// Download a toml file. Wrapper to local_search() + download().
     fn sync_toml(&self, package_name: &PackageName) -> Result<(String, RemoteName), Error> {
         let file = format!("{package_name}.toml");
         if let Some((r, path)) = self.local_search(&file)? {
@@ -249,6 +248,7 @@ impl RepoManager {
         }
     }
 
+    /// Download a pkgar file to specified path. Wrapper to local_search() + download().
     fn sync_pkgar(
         &self,
         package_name: &PackageName,
@@ -376,7 +376,7 @@ impl RepoManager {
         Ok(None)
     }
 
-    // downloads /tmp/pkg_download/[package].pkgar
+    /// Download a pkgar file to the download path. Wrapper to sync_pkgar().
     pub fn get_package_pkgar(
         &self,
         package: &PackageName,
@@ -399,9 +399,8 @@ impl RepoManager {
         }
     }
 
-    // reads /tmp/pkg_download/[package].toml
+    /// Fetch a toml file. Wrapper to sync_toml() with notifies fetch callback.
     pub fn get_package_toml(&self, package: &PackageName) -> Result<(String, RemoteName), Error> {
-        #[cfg(feature = "library")]
         self.callback.borrow_mut().fetch_package_name(&package);
         self.sync_toml(package)
     }
