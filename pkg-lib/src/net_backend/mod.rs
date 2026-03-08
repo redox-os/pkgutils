@@ -1,15 +1,23 @@
+use std::{cell::RefCell, rc::Rc};
 use std::{
-    cell::RefCell,
     fs::File,
     io::{self, Write},
     path::Path,
-    rc::Rc,
 };
 use thiserror::Error;
 
+mod curl_backend;
+#[cfg(feature = "library")]
 mod reqwest_backend;
 
 use crate::callback::Callback;
+
+pub use curl_backend::CurlBackend;
+#[cfg(not(feature = "library"))]
+pub use curl_backend::CurlBackend as DefaultNetBackend;
+#[cfg(feature = "library")]
+pub use reqwest_backend::ReqwestBackend;
+#[cfg(feature = "library")]
 pub use reqwest_backend::ReqwestBackend as DefaultNetBackend;
 
 pub enum DownloadBackendWriter {
@@ -93,9 +101,11 @@ pub enum DownloadError {
     #[error("Download timed out")]
     Timeout,
     // Specific variant for HTTP status errors (e.g., 404, 500)
+    #[cfg(feature = "library")]
     #[error("HTTP error status: {0}")]
     HttpStatus(reqwest::StatusCode),
     // Fallback for other generic reqwest errors
+    #[cfg(feature = "library")]
     #[error("Other reqwest error: {0}")]
     Reqwest(reqwest::Error),
     // IO errors remain the same
@@ -103,6 +113,7 @@ pub enum DownloadError {
     IO(#[from] io::Error),
 }
 
+#[cfg(feature = "library")]
 impl From<reqwest::Error> for DownloadError {
     fn from(err: reqwest::Error) -> Self {
         if err.is_timeout() {

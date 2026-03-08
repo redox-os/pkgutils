@@ -1,13 +1,12 @@
+#[cfg(feature = "library")]
 pub mod pkgar_backend;
 
 use std::io;
 use thiserror::Error;
 
-use crate::{
-    net_backend::DownloadError,
-    package::{PackageError, RemotePackage, Repository},
-    PackageName, PackageState,
-};
+use crate::{net_backend::DownloadError, package::PackageError, PackageName};
+#[cfg(feature = "library")]
+use crate::{package::RemotePackage, PackageState, Repository};
 
 // todo: make this better
 #[derive(Error, Debug)]
@@ -46,12 +45,15 @@ pub enum Error {
     Download(#[from] DownloadError),
     #[error("Download error: {0}")]
     TomlRead(#[from] toml::de::Error),
+    #[cfg(feature = "library")]
     #[error("pkgar_keys error: {0}")]
     PkgarKeys(#[from] pkgar_keys::Error),
+    #[cfg(feature = "library")]
     #[error("pkgar error: {0}")]
     Pkgar(Box<pkgar::Error>),
 }
 
+#[cfg(feature = "library")]
 impl From<pkgar::Error> for Error {
     fn from(value: pkgar::Error) -> Self {
         Error::Pkgar(Box::new(value))
@@ -68,6 +70,7 @@ impl From<std::io::Error> for Error {
     }
 }
 
+#[cfg(feature = "library")]
 pub trait Backend {
     /// individually install a package
     fn install(&mut self, package: RemotePackage) -> Result<(), Error>;

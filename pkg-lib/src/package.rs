@@ -11,11 +11,14 @@ use serde::de::{value::Error as DeError, Error as DeErrorT};
 use serde_derive::{Deserialize, Serialize};
 use toml::{self, from_str, to_string};
 
-use crate::{recipes::find, RemoteName};
+use crate::recipes::find;
 
 fn is_zero(n: &u64) -> bool {
     *n == 0
 }
+
+/// Denotes that the string is a remote key
+pub type RemoteName = String;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct RemotePackage {

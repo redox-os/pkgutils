@@ -1,11 +1,15 @@
-use crate::{backend::Error, package::RemotePackage, PackageList, PackageName};
+use crate::{package::RemotePackage, PackageName};
 
-#[cfg(feature = "indicatif")]
+#[cfg(all(feature = "indicatif", feature = "library"))]
 pub use self::indicatif::IndicatifCallback;
+#[cfg(feature = "library")]
 pub use self::plain::PlainCallback;
 pub use self::silent::SilentCallback;
-#[cfg(feature = "indicatif")]
+#[cfg(feature = "library")]
+use crate::{backend::Error, PackageList};
+#[cfg(all(feature = "indicatif", feature = "library"))]
 mod indicatif;
+#[cfg(feature = "library")]
 mod plain;
 mod silent;
 
@@ -16,7 +20,9 @@ pub trait Callback {
     fn fetch_package_increment(&mut self, added_processed: usize, added_count: usize);
     fn fetch_end(&mut self);
 
+    #[cfg(feature = "library")]
     fn install_prompt(&mut self, list: &PackageList) -> Result<(), Error>;
+    #[cfg(feature = "library")]
     fn install_check_conflict(
         &mut self,
         list: &Vec<pkgar::TransactionConflict>,
@@ -27,11 +33,17 @@ pub trait Callback {
     fn download_increment(&mut self, downloaded: u64);
     fn download_end(&mut self);
 
+    #[cfg(feature = "library")]
     fn commit_start(&mut self, count: usize);
+    #[cfg(feature = "library")]
     fn commit_increment(&mut self, file: &pkgar::Transaction);
+    #[cfg(feature = "library")]
     fn commit_end(&mut self);
 
+    #[cfg(feature = "library")]
     fn abort_start(&mut self, count: usize);
+    #[cfg(feature = "library")]
     fn abort_increment(&mut self, file: &pkgar::Transaction);
+    #[cfg(feature = "library")]
     fn abort_end(&mut self);
 }
