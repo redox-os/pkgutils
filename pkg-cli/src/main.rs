@@ -65,9 +65,14 @@ enum Commands {
 // TODO: Refactor this
 fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<PackageName> {
     if all {
-        library
-            .get_all_package_names()
-            .expect("Unable to get all packages")
+        match library.get_all_package_names() {
+            Ok(packages) => packages,
+            Err(_) => {
+                eprintln!("Unable to get all packages");
+                process::exit(1);
+            }
+        }
+        
     } else {
         let mut packages = vec![];
         for p in input {
