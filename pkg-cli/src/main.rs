@@ -67,8 +67,8 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
     if all {
         match library.get_all_package_names() {
             Ok(packages) => packages,
-            Err(_) => {
-                eprintln!("Unable to get all packages");
+            Err(err) => {
+                eprintln!("Unable to get all packages: {err}");
                 process::exit(1);
             }
         }
