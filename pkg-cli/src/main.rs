@@ -174,3 +174,16 @@ fn execute_command(
 
     Ok(())
 }
+fn write_package(index:usize,name:&PackageName,) {
+    if is_tty(&io::stderr()) {
+        println!(
+            "{}{}{}: {}",
+            color::Fg(color::LightGreen),
+            index + 1,
+            style::Reset,
+            name,
+        );
+    } else {
+        println!("{}: {}", index + 1, name);
+    }
+}
