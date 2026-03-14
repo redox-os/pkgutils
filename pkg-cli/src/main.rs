@@ -161,7 +161,9 @@ fn execute_command(
         }
         Commands::List => {
             let packages = library.get_installed_packages()?;
-            println!("{:#?}", packages);
+            for (i,name) in packages.iter().enumerate() {
+                write_package(i, name);
+            }
         }
     }
 
