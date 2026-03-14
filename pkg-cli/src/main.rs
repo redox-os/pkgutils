@@ -150,7 +150,9 @@ fn execute_command(
         }
         Commands::Search { package } => {
             let packages = library.search(&package)?;
-            println!("{:?}", packages);
+            for (i,(name,_)) in packages.iter().enumerate() {
+                write_package(i, name);
+            }
         }
         Commands::Info { package } => {
             let package = PackageName::new(package)?;
