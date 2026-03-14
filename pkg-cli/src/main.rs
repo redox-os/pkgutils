@@ -72,7 +72,6 @@ fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec
                 process::exit(1);
             }
         }
-        
     } else {
         let mut packages = vec![];
         for p in input {
