@@ -179,7 +179,7 @@ fn execute_command(
     Ok(())
 }
 fn write_package(index:usize,name:&PackageName,) {
-    if is_tty(&io::stderr()) {
+    if is_tty(&io::stdout()) {
         println!(
             "{}{}{}: {}",
             color::Fg(color::LightGreen),
