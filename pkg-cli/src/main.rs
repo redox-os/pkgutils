@@ -150,7 +150,9 @@ fn execute_command(
         }
         Commands::Search { package } => {
             let packages = library.search(&package)?;
-            println!("{:?}", packages);
+            for (i,(name,_)) in packages.iter().enumerate() {
+                write_package(i, name);
+            }
         }
         Commands::Info { package } => {
             let package = PackageName::new(package)?;
@@ -159,7 +161,9 @@ fn execute_command(
         }
         Commands::List => {
             let packages = library.get_installed_packages()?;
-            println!("{:#?}", packages);
+            for (i,name) in packages.iter().enumerate() {
+                write_package(i, name);
+            }
         }
     }
 
@@ -173,4 +177,17 @@ fn execute_command(
     }
 
     Ok(())
+}
+fn write_package(index:usize,name:&PackageName,) {
+    if is_tty(&io::stdout()) {
+        println!(
+            "{}{}{}: {}",
+            color::Fg(color::LightGreen),
+            index + 1,
+            style::Reset,
+            name,
+        );
+    } else {
+        println!("{}: {}", index + 1, name);
+    }
 }
