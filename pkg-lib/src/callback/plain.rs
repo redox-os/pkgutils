@@ -1,6 +1,8 @@
 use std::io::Write;
 
-use crate::{backend::Error, callback::Callback, package::RemotePackage};
+#[cfg(feature = "library")]
+use crate::backend::Error;
+use crate::{callback::Callback, package::RemotePackage};
 
 #[derive(Clone)]
 pub struct PlainCallback {
@@ -45,6 +47,7 @@ impl PlainCallback {
         format!("{:.2} {}", size, UNITS[i])
     }
 
+    #[cfg(feature = "library")]
     fn confirm_transaction(&self) -> Result<(), Error> {
         if self.interactive {
             eprint!("\nProceed with this transaction? [Y/n]: ");
@@ -107,6 +110,7 @@ impl Callback for PlainCallback {
         }
     }
 
+    #[cfg(feature = "library")]
     fn install_prompt(&mut self, list: &crate::PackageList) -> Result<(), Error> {
         eprintln!("");
         if !list.install.is_empty() {
@@ -147,6 +151,7 @@ impl Callback for PlainCallback {
         self.confirm_transaction()
     }
 
+    #[cfg(feature = "library")]
     fn install_check_conflict(
         &mut self,
         list: &Vec<pkgar::TransactionConflict>,
@@ -218,6 +223,7 @@ impl Callback for PlainCallback {
         }
     }
 
+    #[cfg(feature = "library")]
     fn commit_start(&mut self, count: usize) {
         eprintln!("Committing changes...");
         self.size = count as u64;
@@ -226,6 +232,7 @@ impl Callback for PlainCallback {
         self.flush();
     }
 
+    #[cfg(feature = "library")]
     fn commit_increment(&mut self, _file: &pkgar::Transaction) {
         self.pos += 1;
         if self.unknown_size {
@@ -236,10 +243,12 @@ impl Callback for PlainCallback {
         self.flush();
     }
 
+    #[cfg(feature = "library")]
     fn commit_end(&mut self) {
         eprintln!("\nCommit done.");
     }
 
+    #[cfg(feature = "library")]
     fn abort_start(&mut self, count: usize) {
         eprintln!("Aborting transaction...");
         self.size = count as u64;
@@ -248,6 +257,7 @@ impl Callback for PlainCallback {
         self.flush();
     }
 
+    #[cfg(feature = "library")]
     fn abort_increment(&mut self, _file: &pkgar::Transaction) {
         self.pos += 1;
         if self.unknown_size {
@@ -258,6 +268,7 @@ impl Callback for PlainCallback {
         self.flush();
     }
 
+    #[cfg(feature = "library")]
     fn abort_end(&mut self) {
         eprintln!("\nAbort done.");
     }
