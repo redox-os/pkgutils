@@ -93,7 +93,8 @@ fn main() {
     } else {
         ("/tmp/pkg_install", "x86_64-unknown-redox")
     };
-
+    let color_support_stdout = is_tty(&io::stdout());
+    let color_support_stderr = is_tty(&io::stderr());
     let mut library = Library::new(install_path, target, Rc::new(RefCell::new(callback)))
         .unwrap_or_else(|err| {
             eprintln!(
@@ -108,8 +109,8 @@ fn main() {
             std::process::exit(1);
         });
 
-    execute_command(args.command, &mut library).unwrap_or_else(|err| {
-        if is_tty(&io::stderr()) {
+    execute_command(args.command, &mut library,color_support_stdout).unwrap_or_else(|err| {
+        if color_support_stderr {
             eprintln!(
                 "{}{}error: {}{}{:?}{}",
                 color::Fg(color::Red),
@@ -129,6 +130,7 @@ fn main() {
 fn execute_command(
     command: Commands,
     library: &mut Library,
+    color_support:bool
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut needs_apply = false;
 
@@ -150,7 +152,9 @@ fn execute_command(
         }
         Commands::Search { package } => {
             let packages = library.search(&package)?;
-            println!("{:?}", packages);
+            for (i,(name,_)) in packages.iter().enumerate() {
+                write_package(i, name,color_support);
+            }
         }
         Commands::Info { package } => {
             let package = PackageName::new(package)?;
@@ -159,7 +163,9 @@ fn execute_command(
         }
         Commands::List => {
             let packages = library.get_installed_packages()?;
-            println!("{:#?}", packages);
+            for (i,name) in packages.iter().enumerate() {
+                write_package(i, name, color_support);
+            }
         }
     }
 
@@ -173,4 +179,17 @@ fn execute_command(
     }
 
     Ok(())
+}
+fn write_package(index:usize,name:&PackageName,color_support:bool) {
+    if color_support {
+        println!(
+            "{}{}{}: {}",
+            color::Fg(color::LightGreen),
+            index + 1,
+            style::Reset,
+            name,
+        );
+    } else {
+        println!("{}: {}", index + 1, name);
+    }
 }
