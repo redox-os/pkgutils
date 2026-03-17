@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, time::Instant};
 
 #[cfg(feature = "library")]
 use crate::backend::Error;
@@ -13,6 +13,7 @@ pub struct PlainCallback {
     fetch_total: usize,
     interactive: bool,
     download_file: Option<String>,
+    last_updated: Instant,
 }
 
 impl PlainCallback {
@@ -25,6 +26,7 @@ impl PlainCallback {
             fetch_total: 0,
             interactive: false,
             download_file: None,
+            last_updated: Instant::now(),
         }
     }
 
@@ -45,6 +47,17 @@ impl PlainCallback {
         let i = (bytes as f64).log(1024.0).floor() as usize;
         let size = bytes as f64 / 1024.0_f64.powi(i as i32);
         format!("{:.2} {}", size, UNITS[i])
+    }
+
+    fn should_update_progress<F>(&mut self, do_print: F, force: bool)
+    where
+        F: Fn(&PlainCallback),
+    {
+        let now = Instant::now();
+        if force || now.duration_since(self.last_updated).as_millis() > 80 {
+            self.last_updated = now;
+            do_print(&self);
+        }
     }
 
     #[cfg(feature = "library")]
@@ -95,11 +108,16 @@ impl Callback for PlainCallback {
         self.fetch_processed += added_processed;
         self.fetch_total += added_count;
 
-        eprint!(
-            "{RESET_LINE}Fetching: [{}/{}]",
-            self.fetch_processed, self.fetch_total
+        self.should_update_progress(
+            |this| {
+                eprint!(
+                    "{RESET_LINE}Fetching: [{}/{}]",
+                    this.fetch_processed, this.fetch_total
+                );
+                this.flush();
+            },
+            self.fetch_processed == self.fetch_total,
         );
-        self.flush();
     }
 
     fn fetch_end(&mut self) {
@@ -198,22 +216,28 @@ impl Callback for PlainCallback {
             return;
         }
 
-        // keep using MB for consistency
-        let pos_mb = self.pos as f64 / 1_048_576.0;
-        let size_mb = self.size as f64 / 1_048_576.0;
-        let file_name = self
-            .download_file
-            .as_ref()
-            .map(|s| s.as_str())
-            .unwrap_or("");
-        eprint!(
-            "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
-            self.downloading_str(),
-            file_name,
-            pos_mb,
-            size_mb
+        self.should_update_progress(
+            |this| {
+                // keep using MB for consistency
+                let pos_mb = this.pos as f64 / 1_048_576.0;
+                let size_mb = this.size as f64 / 1_048_576.0;
+                let file_name = this
+                    .download_file
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
+
+                eprint!(
+                    "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
+                    this.downloading_str(),
+                    file_name,
+                    pos_mb,
+                    size_mb
+                );
+                this.flush();
+            },
+            self.pos == self.size,
         );
-        self.flush();
     }
 
     fn download_end(&mut self) {
@@ -239,8 +263,13 @@ impl Callback for PlainCallback {
             self.size += 1;
         }
 
-        eprint!("{RESET_LINE}Committing: [{}/{}]", self.pos, self.size);
-        self.flush();
+        self.should_update_progress(
+            |this| {
+                eprint!("{RESET_LINE}Committing: [{}/{}]", this.pos, this.size);
+                this.flush();
+            },
+            self.pos == self.size,
+        );
     }
 
     #[cfg(feature = "library")]
@@ -264,8 +293,13 @@ impl Callback for PlainCallback {
             self.size += 1;
         }
 
-        eprint!("{RESET_LINE}Aborting: [{}/{}]", self.pos, self.size);
-        self.flush();
+        self.should_update_progress(
+            |this| {
+                eprint!("{RESET_LINE}Aborting: [{}/{}]", this.pos, this.size);
+                this.flush();
+            },
+            self.pos == self.size,
+        );
     }
 
     #[cfg(feature = "library")]
