@@ -1,6 +1,8 @@
-use std::io::Write;
+use std::{io::Write, time::Instant};
 
-use crate::{backend::Error, callback::Callback, package::RemotePackage};
+#[cfg(feature = "library")]
+use crate::backend::Error;
+use crate::{callback::Callback, package::RemotePackage};
 
 #[derive(Clone)]
 pub struct PlainCallback {
@@ -11,6 +13,7 @@ pub struct PlainCallback {
     fetch_total: usize,
     interactive: bool,
     download_file: Option<String>,
+    last_updated: Instant,
 }
 
 impl PlainCallback {
@@ -23,6 +26,7 @@ impl PlainCallback {
             fetch_total: 0,
             interactive: false,
             download_file: None,
+            last_updated: Instant::now(),
         }
     }
 
@@ -45,6 +49,18 @@ impl PlainCallback {
         format!("{:.2} {}", size, UNITS[i])
     }
 
+    fn should_update_progress<F>(&mut self, do_print: F, force: bool)
+    where
+        F: Fn(&PlainCallback),
+    {
+        let now = Instant::now();
+        if force || now.duration_since(self.last_updated).as_millis() > 80 {
+            self.last_updated = now;
+            do_print(&self);
+        }
+    }
+
+    #[cfg(feature = "library")]
     fn confirm_transaction(&self) -> Result<(), Error> {
         if self.interactive {
             eprint!("\nProceed with this transaction? [Y/n]: ");
@@ -92,11 +108,16 @@ impl Callback for PlainCallback {
         self.fetch_processed += added_processed;
         self.fetch_total += added_count;
 
-        eprint!(
-            "{RESET_LINE}Fetching: [{}/{}]",
-            self.fetch_processed, self.fetch_total
+        self.should_update_progress(
+            |this| {
+                eprint!(
+                    "{RESET_LINE}Fetching: [{}/{}]",
+                    this.fetch_processed, this.fetch_total
+                );
+                this.flush();
+            },
+            self.fetch_processed == self.fetch_total,
         );
-        self.flush();
     }
 
     fn fetch_end(&mut self) {
@@ -107,6 +128,7 @@ impl Callback for PlainCallback {
         }
     }
 
+    #[cfg(feature = "library")]
     fn install_prompt(&mut self, list: &crate::PackageList) -> Result<(), Error> {
         eprintln!("");
         if !list.install.is_empty() {
@@ -147,6 +169,7 @@ impl Callback for PlainCallback {
         self.confirm_transaction()
     }
 
+    #[cfg(feature = "library")]
     fn install_check_conflict(
         &mut self,
         list: &Vec<pkgar::TransactionConflict>,
@@ -193,22 +216,28 @@ impl Callback for PlainCallback {
             return;
         }
 
-        // keep using MB for consistency
-        let pos_mb = self.pos as f64 / 1_048_576.0;
-        let size_mb = self.size as f64 / 1_048_576.0;
-        let file_name = self
-            .download_file
-            .as_ref()
-            .map(|s| s.as_str())
-            .unwrap_or("");
-        eprint!(
-            "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
-            self.downloading_str(),
-            file_name,
-            pos_mb,
-            size_mb
+        self.should_update_progress(
+            |this| {
+                // keep using MB for consistency
+                let pos_mb = this.pos as f64 / 1_048_576.0;
+                let size_mb = this.size as f64 / 1_048_576.0;
+                let file_name = this
+                    .download_file
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
+
+                eprint!(
+                    "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
+                    this.downloading_str(),
+                    file_name,
+                    pos_mb,
+                    size_mb
+                );
+                this.flush();
+            },
+            self.pos == self.size,
         );
-        self.flush();
     }
 
     fn download_end(&mut self) {
@@ -218,6 +247,7 @@ impl Callback for PlainCallback {
         }
     }
 
+    #[cfg(feature = "library")]
     fn commit_start(&mut self, count: usize) {
         eprintln!("Committing changes...");
         self.size = count as u64;
@@ -226,20 +256,28 @@ impl Callback for PlainCallback {
         self.flush();
     }
 
+    #[cfg(feature = "library")]
     fn commit_increment(&mut self, _file: &pkgar::Transaction) {
         self.pos += 1;
         if self.unknown_size {
             self.size += 1;
         }
 
-        eprint!("{RESET_LINE}Committing: [{}/{}]", self.pos, self.size);
-        self.flush();
+        self.should_update_progress(
+            |this| {
+                eprint!("{RESET_LINE}Committing: [{}/{}]", this.pos, this.size);
+                this.flush();
+            },
+            self.pos == self.size,
+        );
     }
 
+    #[cfg(feature = "library")]
     fn commit_end(&mut self) {
         eprintln!("\nCommit done.");
     }
 
+    #[cfg(feature = "library")]
     fn abort_start(&mut self, count: usize) {
         eprintln!("Aborting transaction...");
         self.size = count as u64;
@@ -248,16 +286,23 @@ impl Callback for PlainCallback {
         self.flush();
     }
 
+    #[cfg(feature = "library")]
     fn abort_increment(&mut self, _file: &pkgar::Transaction) {
         self.pos += 1;
         if self.unknown_size {
             self.size += 1;
         }
 
-        eprint!("{RESET_LINE}Aborting: [{}/{}]", self.pos, self.size);
-        self.flush();
+        self.should_update_progress(
+            |this| {
+                eprint!("{RESET_LINE}Aborting: [{}/{}]", this.pos, this.size);
+                this.flush();
+            },
+            self.pos == self.size,
+        );
     }
 
+    #[cfg(feature = "library")]
     fn abort_end(&mut self) {
         eprintln!("\nAbort done.");
     }

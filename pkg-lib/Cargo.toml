@@ -25,7 +25,7 @@ pkgar-core = { version = "0.2", optional = true }
 pkgar-keys = { version = "0.2", optional = true }
 serde = "1"
 serde_derive = "1"
-thiserror = "1"
+thiserror = "2"
 toml = "0.8.2"
 
 [features]

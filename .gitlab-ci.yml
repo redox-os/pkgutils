@@ -15,6 +15,11 @@ fmt:
     - rustup component add rustfmt
     - cargo fmt -- --check
 
+cargo-build:
+  stage: test
+  script:
+    - cargo build -p redox-pkg --no-default-features
+
 cargo-test:
   stage: test
   script:
