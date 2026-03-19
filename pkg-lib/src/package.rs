@@ -4,12 +4,10 @@ use std::{
     env,
     ffi::{OsStr, OsString},
     fmt, fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
-use serde::de::{value::Error as DeError, Error as DeErrorT};
 use serde_derive::{Deserialize, Serialize};
-use toml::{self, from_str, to_string};
 
 use crate::recipes::find;
 
@@ -76,8 +74,8 @@ impl Package {
         }
 
         let toml = fs::read_to_string(&file)
-            .map_err(|err| PackageError::Parse(DeError::custom(err), Some(file.clone())))?;
-        toml::from_str(&toml).map_err(|err| PackageError::Parse(DeError::custom(err), Some(file)))
+            .map_err(|err| PackageError::FileError(err.raw_os_error(), file.clone()))?;
+        toml::from_str(&toml).map_err(|err| PackageError::Parse(err, Some(file)))
     }
 
     pub fn new_recursive(
@@ -160,15 +158,26 @@ impl Package {
         (packages, packages_map)
     }
 
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-        from_str(text)
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PackageError> {
+        let path = path.as_ref();
+        if !path.is_file() {
+            return Err(PackageError::FileMissing(path.to_path_buf()));
+        }
+        let toml = std::fs::read_to_string(path)
+            .map_err(|err| PackageError::FileError(err.raw_os_error(), path.to_path_buf()))?;
+
+        toml::from_str(&toml).map_err(|e| PackageError::Parse(e, Some(path.to_path_buf())))
+    }
+
+    pub fn from_toml(text: &str) -> Result<Self, PackageError> {
+        toml::from_str(text).map_err(|err| PackageError::Parse(err, None))
     }
 
     #[allow(dead_code)]
     pub fn to_toml(&self) -> String {
         // to_string *should* be safe to unwrap for this struct
         // use error handling callbacks for this
-        to_string(self).unwrap()
+        toml::to_string(self).unwrap()
     }
 }
 
@@ -424,8 +433,19 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-        from_str(text)
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PackageError> {
+        let path = path.as_ref();
+        if !path.is_file() {
+            return Err(PackageError::FileMissing(path.to_path_buf()));
+        }
+        let toml = std::fs::read_to_string(path)
+            .map_err(|err| PackageError::FileError(err.raw_os_error(), path.to_path_buf()))?;
+
+        toml::from_str(&toml).map_err(|e| PackageError::Parse(e, Some(path.to_path_buf())))
+    }
+
+    pub fn from_toml(text: &str) -> Result<Self, PackageError> {
+        toml::from_str(text).map_err(|err| PackageError::Parse(err, None))
     }
 }
 
@@ -436,12 +456,14 @@ impl Repository {
 pub enum PackageError {
     #[error("Missing package file {0:?}")]
     FileMissing(PathBuf),
+    #[error("I/O package file error: {err}: {1}", err=std::io::Error::from_raw_os_error(.0.unwrap_or(0)))]
+    FileError(Option<i32>, PathBuf),
     #[error("Package {0:?} name invalid")]
     PackageNameInvalid(String),
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
     #[error("Failed parsing package: {0}; file: {1:?}")]
-    Parse(serde::de::value::Error, Option<PathBuf>),
+    Parse(toml::de::Error, Option<PathBuf>),
     #[error("Recursion limit reached while processing dependencies; tree: {0:?}")]
     Recursion(VecDeque<PackageName>),
     #[error("Package {0:?} is missing one or more dependencies")]
@@ -467,7 +489,10 @@ impl PackageError {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::package::{Repository, SourceIdentifier};
+    use crate::{
+        package::{Repository, SourceIdentifier},
+        PackageError,
+    };
 
     use super::{Package, PackageName};
 
@@ -524,7 +549,7 @@ mod tests {
     "#;
 
     #[test]
-    fn package_name_split() -> Result<(), toml::de::Error> {
+    fn package_name_split() -> Result<(), PackageError> {
         let name1 = PackageName::new("foo").unwrap();
         let name2 = PackageName::new("foo.bar").unwrap();
         let name3 = PackageName::new("host:foo").unwrap();
@@ -549,7 +574,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_with_depends() -> Result<(), toml::de::Error> {
+    fn deserialize_with_depends() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_DEPENDS)?;
         let expected = Package {
             name: PackageName("gzdoom".into()),
@@ -568,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_no_depends() -> Result<(), toml::de::Error> {
+    fn deserialize_no_depends() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_NO_DEPENDS)?;
         let expected = Package {
             name: PackageName("kmquake2".into()),
@@ -582,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_empty_depends() -> Result<(), toml::de::Error> {
+    fn deserialize_empty_depends() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_EMPTY_DEPENDS)?;
         let expected = Package {
             name: PackageName("iodoom3".into()),
@@ -597,7 +622,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_empty_version() -> Result<(), toml::de::Error> {
+    fn deserialize_empty_version() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_EMPTY_VERSION)?;
         let expected = Package {
             name: PackageName("dev-essentials".into()),
@@ -611,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_repository() -> Result<(), toml::de::Error> {
+    fn deserialize_repository() -> Result<(), PackageError> {
         let actual = Repository::from_toml(WORKING_REPOSITORY)?;
         let expected = Repository {
             packages: BTreeMap::from([("foo".into(), "bar".into())]),
@@ -623,7 +648,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_repository_outdated() -> Result<(), toml::de::Error> {
+    fn deserialize_repository_outdated() -> Result<(), PackageError> {
         let actual = Repository::from_toml(WORKING_OUTDATED_REPOSITORY)?;
         let expected = Repository {
             outdated_packages: BTreeMap::from([(
@@ -655,7 +680,7 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip() -> Result<(), toml::de::Error> {
+    fn roundtrip() -> Result<(), PackageError> {
         let package = Package::from_toml(WORKING_DEPENDS)?;
         let package_roundtrip = Package::from_toml(&package.to_toml())?;
 

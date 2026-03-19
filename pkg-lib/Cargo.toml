@@ -22,7 +22,6 @@ ignore = "0.4"
 indicatif = { version = "0.17", optional = true }
 pkgar = { version = "0.2", optional = true }
 pkgar-core = { version = "0.2", optional = true }
-pkgar-keys = { version = "0.2", optional = true }
 serde = "1"
 serde_derive = "1"
 thiserror = "2"
@@ -31,7 +30,7 @@ toml = "0.8.2"
 [features]
 default = ["library"]
 indicatif = ["dep:indicatif", "library"]
-library = ["pkgar", "pkgar-core", "pkgar-keys", "reqwest"]
+library = ["pkgar", "pkgar-core", "reqwest"]
 
 [dependencies.reqwest]
 version = "0.12"
