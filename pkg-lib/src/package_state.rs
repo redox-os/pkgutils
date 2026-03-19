@@ -6,6 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
+    path::Path,
 };
 
 /// Contains current user packages state
@@ -46,6 +47,16 @@ pub struct PackageList {
 }
 
 impl PackageState {
+    pub fn from_sysroot<P: AsRef<Path>>(install_path: P) -> Result<Self, toml::de::Error> {
+        let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
+        let file = std::fs::read_to_string(&packages_path);
+
+        match file {
+            Ok(toml) => PackageState::from_toml(&toml),
+            Err(_) => Ok(PackageState::default()),
+        }
+    }
+
     pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
         toml::from_str(text)
     }
@@ -53,6 +64,15 @@ impl PackageState {
     pub fn to_toml(&self) -> String {
         // to_string *should* be safe to unwrap for this struct
         toml::to_string(self).unwrap()
+    }
+
+    pub fn to_sysroot<P: AsRef<Path>>(&self, install_path: P) -> Result<(), std::io::Error> {
+        let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
+        let packages_dir = packages_path.parent().unwrap();
+        if !packages_dir.is_dir() {
+            std::fs::create_dir_all(packages_dir)?;
+        }
+        std::fs::write(&packages_path, self.to_toml())
     }
 
     // mutably add valid packages to the graph.

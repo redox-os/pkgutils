@@ -18,7 +18,6 @@ mod repo_manager;
 mod sorensen;
 
 const DOWNLOAD_DIR: &str = "/tmp/pkg_download/";
-#[cfg(feature = "library")]
 const PACKAGES_TOML_PATH: &str = "etc/pkg/packages.toml";
 const PACKAGES_REMOTE_DIR: &str = "etc/pkg.d";
 #[cfg(feature = "library")]
