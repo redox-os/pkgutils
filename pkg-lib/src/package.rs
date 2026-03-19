@@ -4,12 +4,10 @@ use std::{
     env,
     ffi::{OsStr, OsString},
     fmt, fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
-use serde::de::{value::Error as DeError, Error as DeErrorT};
 use serde_derive::{Deserialize, Serialize};
-use toml::{self, from_str, to_string};
 
 use crate::recipes::find;
 
@@ -76,8 +74,8 @@ impl Package {
         }
 
         let toml = fs::read_to_string(&file)
-            .map_err(|err| PackageError::Parse(DeError::custom(err), Some(file.clone())))?;
-        toml::from_str(&toml).map_err(|err| PackageError::Parse(DeError::custom(err), Some(file)))
+            .map_err(|err| PackageError::FileError(err.raw_os_error(), file.clone()))?;
+        toml::from_str(&toml).map_err(|err| PackageError::Parse(err, Some(file)))
     }
 
     pub fn new_recursive(
@@ -160,15 +158,26 @@ impl Package {
         (packages, packages_map)
     }
 
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-        from_str(text)
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PackageError> {
+        let path = path.as_ref();
+        if !path.is_file() {
+            return Err(PackageError::FileMissing(path.to_path_buf()));
+        }
+        let toml = std::fs::read_to_string(path)
+            .map_err(|err| PackageError::FileError(err.raw_os_error(), path.to_path_buf()))?;
+
+        toml::from_str(&toml).map_err(|e| PackageError::Parse(e, Some(path.to_path_buf())))
+    }
+
+    pub fn from_toml(text: &str) -> Result<Self, PackageError> {
+        toml::from_str(text).map_err(|err| PackageError::Parse(err, None))
     }
 
     #[allow(dead_code)]
     pub fn to_toml(&self) -> String {
         // to_string *should* be safe to unwrap for this struct
         // use error handling callbacks for this
-        to_string(self).unwrap()
+        toml::to_string(self).unwrap()
     }
 }
 
@@ -424,8 +433,19 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-        from_str(text)
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PackageError> {
+        let path = path.as_ref();
+        if !path.is_file() {
+            return Err(PackageError::FileMissing(path.to_path_buf()));
+        }
+        let toml = std::fs::read_to_string(path)
+            .map_err(|err| PackageError::FileError(err.raw_os_error(), path.to_path_buf()))?;
+
+        toml::from_str(&toml).map_err(|e| PackageError::Parse(e, Some(path.to_path_buf())))
+    }
+
+    pub fn from_toml(text: &str) -> Result<Self, PackageError> {
+        toml::from_str(text).map_err(|err| PackageError::Parse(err, None))
     }
 }
 
@@ -436,12 +456,14 @@ impl Repository {
 pub enum PackageError {
     #[error("Missing package file {0:?}")]
     FileMissing(PathBuf),
+    #[error("I/O package file error: {err}: {1}", err=std::io::Error::from_raw_os_error(.0.unwrap_or(0)))]
+    FileError(Option<i32>, PathBuf),
     #[error("Package {0:?} name invalid")]
     PackageNameInvalid(String),
     #[error("Package {0:?} not found")]
     PackageNotFound(PackageName),
     #[error("Failed parsing package: {0}; file: {1:?}")]
-    Parse(serde::de::value::Error, Option<PathBuf>),
+    Parse(toml::de::Error, Option<PathBuf>),
     #[error("Recursion limit reached while processing dependencies; tree: {0:?}")]
     Recursion(VecDeque<PackageName>),
     #[error("Package {0:?} is missing one or more dependencies")]

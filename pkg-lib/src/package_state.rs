@@ -1,6 +1,6 @@
 use crate::{
     package::{RemoteName, RemotePackage},
-    PackageName, RepoPublicKeyFile,
+    Package, PackageError, PackageName, RepoPublicKeyFile,
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{
@@ -36,6 +36,25 @@ pub struct InstallState {
     pub dependents: BTreeSet<PackageName>,
 }
 
+impl InstallState {
+    pub fn from_package(
+        pkg: &Package,
+        remote: RemoteName,
+        manual: bool,
+        dependents: BTreeSet<PackageName>,
+    ) -> Self {
+        Self {
+            remote,
+            blake3: pkg.blake3.clone(),
+            manual,
+            network_size: pkg.network_size,
+            storage_size: pkg.storage_size,
+            dependencies: pkg.depends.iter().cloned().collect(),
+            dependents,
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct PackageList {
     pub install: Vec<PackageName>,
@@ -47,18 +66,19 @@ pub struct PackageList {
 }
 
 impl PackageState {
-    pub fn from_sysroot<P: AsRef<Path>>(install_path: P) -> Result<Self, toml::de::Error> {
+    pub fn from_sysroot<P: AsRef<Path>>(install_path: P) -> Result<Self, PackageError> {
         let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
-        let file = std::fs::read_to_string(&packages_path);
 
-        match file {
-            Ok(toml) => PackageState::from_toml(&toml),
+        match std::fs::read_to_string(&packages_path) {
+            Ok(toml) => {
+                toml::from_str(&toml).map_err(|e| PackageError::Parse(e, Some(packages_path)))
+            }
             Err(_) => Ok(PackageState::default()),
         }
     }
 
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-        toml::from_str(text)
+    pub fn from_toml(text: &str) -> Result<Self, PackageError> {
+        toml::from_str(text).map_err(|err| PackageError::Parse(err, None))
     }
 
     pub fn to_toml(&self) -> String {
@@ -150,15 +170,7 @@ impl PackageState {
                 )
             };
 
-            let new_state = InstallState {
-                remote,
-                blake3: pkg.blake3.clone(),
-                manual,
-                network_size: pkg.network_size,
-                storage_size: pkg.storage_size,
-                dependencies: pkg.depends.iter().cloned().collect(),
-                dependents,
-            };
+            let new_state = InstallState::from_package(pkg, remote, manual, dependents);
 
             self.installed.insert(pkg.name.clone(), new_state);
 
