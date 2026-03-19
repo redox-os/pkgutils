@@ -489,7 +489,10 @@ impl PackageError {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::package::{Repository, SourceIdentifier};
+    use crate::{
+        package::{Repository, SourceIdentifier},
+        PackageError,
+    };
 
     use super::{Package, PackageName};
 
@@ -546,7 +549,7 @@ mod tests {
     "#;
 
     #[test]
-    fn package_name_split() -> Result<(), toml::de::Error> {
+    fn package_name_split() -> Result<(), PackageError> {
         let name1 = PackageName::new("foo").unwrap();
         let name2 = PackageName::new("foo.bar").unwrap();
         let name3 = PackageName::new("host:foo").unwrap();
@@ -571,7 +574,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_with_depends() -> Result<(), toml::de::Error> {
+    fn deserialize_with_depends() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_DEPENDS)?;
         let expected = Package {
             name: PackageName("gzdoom".into()),
@@ -590,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_no_depends() -> Result<(), toml::de::Error> {
+    fn deserialize_no_depends() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_NO_DEPENDS)?;
         let expected = Package {
             name: PackageName("kmquake2".into()),
@@ -604,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_empty_depends() -> Result<(), toml::de::Error> {
+    fn deserialize_empty_depends() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_EMPTY_DEPENDS)?;
         let expected = Package {
             name: PackageName("iodoom3".into()),
@@ -619,7 +622,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_empty_version() -> Result<(), toml::de::Error> {
+    fn deserialize_empty_version() -> Result<(), PackageError> {
         let actual = Package::from_toml(WORKING_EMPTY_VERSION)?;
         let expected = Package {
             name: PackageName("dev-essentials".into()),
@@ -633,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_repository() -> Result<(), toml::de::Error> {
+    fn deserialize_repository() -> Result<(), PackageError> {
         let actual = Repository::from_toml(WORKING_REPOSITORY)?;
         let expected = Repository {
             packages: BTreeMap::from([("foo".into(), "bar".into())]),
@@ -645,7 +648,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_repository_outdated() -> Result<(), toml::de::Error> {
+    fn deserialize_repository_outdated() -> Result<(), PackageError> {
         let actual = Repository::from_toml(WORKING_OUTDATED_REPOSITORY)?;
         let expected = Repository {
             outdated_packages: BTreeMap::from([(
@@ -677,7 +680,7 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip() -> Result<(), toml::de::Error> {
+    fn roundtrip() -> Result<(), PackageError> {
         let package = Package::from_toml(WORKING_DEPENDS)?;
         let package_roundtrip = Package::from_toml(&package.to_toml())?;
 

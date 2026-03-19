@@ -509,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    fn test_toml_integration() -> Result<(), toml::de::Error> {
+    fn test_toml_integration() -> Result<(), PackageError> {
         const TOML_DATA: &str = r#"
             [installed.bash]
             remote = "origin"
