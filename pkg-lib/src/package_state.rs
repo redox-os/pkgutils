@@ -1,8 +1,7 @@
 use crate::{
     package::{RemoteName, RemotePackage},
-    PackageName,
+    PackageName, RepoPublicKeyFile,
 };
-use pkgar_keys::PublicKeyFile;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -17,7 +16,7 @@ pub struct PackageState {
     pub protected: BTreeSet<PackageName>,
     /// installed public keys per remote name.
     /// using pkgar_keys as a wrapper of dryoc public key.
-    pub pubkeys: BTreeMap<RemoteName, PublicKeyFile>,
+    pub pubkeys: BTreeMap<RemoteName, RepoPublicKeyFile>,
     /// install state per packages
     pub installed: BTreeMap<PackageName, InstallState>,
 }

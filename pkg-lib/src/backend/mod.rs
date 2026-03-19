@@ -46,9 +46,6 @@ pub enum Error {
     #[error("Download error: {0}")]
     TomlRead(#[from] toml::de::Error),
     #[cfg(feature = "library")]
-    #[error("pkgar_keys error: {0}")]
-    PkgarKeys(#[from] pkgar_keys::Error),
-    #[cfg(feature = "library")]
     #[error("pkgar error: {0}")]
     Pkgar(Box<pkgar::Error>),
 }

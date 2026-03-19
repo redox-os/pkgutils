@@ -4,7 +4,6 @@ pub mod callback;
 pub use library::Library;
 pub mod net_backend;
 pub use package::*;
-#[cfg(feature = "library")]
 pub use package_state::*;
 pub use repo_manager::*;
 pub mod recipes;
@@ -12,7 +11,6 @@ pub mod recipes;
 #[cfg(feature = "library")]
 mod library;
 mod package;
-#[cfg(feature = "library")]
 mod package_state;
 mod repo_manager;
 

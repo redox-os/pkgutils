@@ -7,7 +7,6 @@ use std::{
 
 use pkgar::{MergedTransaction, PackageFile, Transaction};
 use pkgar_core::PublicKey;
-use pkgar_keys::PublicKeyFile;
 
 use super::{Backend, Error};
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
     package::{RemotePackage, Repository},
     package_state::PackageState,
     repo_manager::RepoManager,
-    Package, PackageName,
+    Package, PackageName, RepoPublicKeyFile,
 };
 
 /// Package backend using pkgar
@@ -246,7 +245,7 @@ impl Backend for PkgarBackend {
             let Some(pubkey) = v.pubkey else {
                 return Err(Error::RepoNotLoaded(k.to_string()));
             };
-            let pk = PublicKeyFile::new(pubkey);
+            let pk = RepoPublicKeyFile::new(pubkey);
             self.packages.pubkeys.insert(k.to_string(), pk);
         }
         fs::write(&packages_path, self.packages.to_toml())?;

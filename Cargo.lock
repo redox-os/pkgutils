@@ -1255,7 +1255,6 @@ dependencies = [
  "indicatif",
  "pkgar",
  "pkgar-core",
- "pkgar-keys",
  "reqwest",
  "serde",
  "serde_derive",
