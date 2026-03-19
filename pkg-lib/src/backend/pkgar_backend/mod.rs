@@ -7,7 +7,6 @@ use std::{
 
 use pkgar::{MergedTransaction, PackageFile, Transaction};
 use pkgar_core::PublicKey;
-use pkgar_keys::PublicKeyFile;
 
 use super::{Backend, Error};
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
     package::{RemotePackage, Repository},
     package_state::PackageState,
     repo_manager::RepoManager,
-    Package, PackageName,
+    Package, PackageName, RepoPublicKeyFile,
 };
 
 /// Package backend using pkgar
@@ -36,25 +35,12 @@ impl PkgarBackend {
     pub fn new<P: AsRef<Path>>(install_path: P, repo_manager: RepoManager) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
 
-        let packages_path = install_path.join(crate::PACKAGES_TOML_PATH);
-        let packages_dir = install_path.join(crate::PACKAGES_HEAD_DIR);
-        let file = fs::read_to_string(&packages_path);
-
-        let packages;
-        match file {
-            Ok(toml) => {
-                packages = PackageState::from_toml(&toml)?;
-            }
-            Err(_) => {
-                packages = PackageState::default();
-                fs::create_dir_all(Path::new(&packages_path).parent().unwrap())?;
-            }
-        }
+        let packages = PackageState::from_sysroot(install_path)?;
 
         // TODO: Use File::lock. This only checks permission
-        fs::write(&packages_path, packages.to_toml())?;
+        packages.to_sysroot(install_path)?;
 
-        fs::create_dir_all(&packages_dir)?;
+        fs::create_dir_all(install_path.join(crate::PACKAGES_HEAD_DIR))?;
 
         let callback = repo_manager.callback.clone();
 
@@ -241,15 +227,14 @@ impl Backend for PkgarBackend {
         self.callback.borrow_mut().commit_end();
 
         self.packages = new_state;
-        let packages_path = self.install_path.join(crate::PACKAGES_TOML_PATH);
         for (k, v) in &self.repo_manager.remote_map {
             let Some(pubkey) = v.pubkey else {
                 return Err(Error::RepoNotLoaded(k.to_string()));
             };
-            let pk = PublicKeyFile::new(pubkey);
+            let pk = RepoPublicKeyFile::new(pubkey);
             self.packages.pubkeys.insert(k.to_string(), pk);
         }
-        fs::write(&packages_path, self.packages.to_toml())?;
+        self.packages.to_sysroot(&self.install_path)?;
         Ok(transaction.total_committed())
     }
 

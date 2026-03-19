@@ -1,12 +1,12 @@
 use crate::{
     package::{RemoteName, RemotePackage},
-    PackageName,
+    Package, PackageError, PackageName, RepoPublicKeyFile,
 };
-use pkgar_keys::PublicKeyFile;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
+    path::Path,
 };
 
 /// Contains current user packages state
@@ -17,7 +17,7 @@ pub struct PackageState {
     pub protected: BTreeSet<PackageName>,
     /// installed public keys per remote name.
     /// using pkgar_keys as a wrapper of dryoc public key.
-    pub pubkeys: BTreeMap<RemoteName, PublicKeyFile>,
+    pub pubkeys: BTreeMap<RemoteName, RepoPublicKeyFile>,
     /// install state per packages
     pub installed: BTreeMap<PackageName, InstallState>,
 }
@@ -36,6 +36,25 @@ pub struct InstallState {
     pub dependents: BTreeSet<PackageName>,
 }
 
+impl InstallState {
+    pub fn from_package(
+        pkg: &Package,
+        remote: RemoteName,
+        manual: bool,
+        dependents: BTreeSet<PackageName>,
+    ) -> Self {
+        Self {
+            remote,
+            blake3: pkg.blake3.clone(),
+            manual,
+            network_size: pkg.network_size,
+            storage_size: pkg.storage_size,
+            dependencies: pkg.depends.iter().cloned().collect(),
+            dependents,
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct PackageList {
     pub install: Vec<PackageName>,
@@ -47,13 +66,33 @@ pub struct PackageList {
 }
 
 impl PackageState {
-    pub fn from_toml(text: &str) -> Result<Self, toml::de::Error> {
-        toml::from_str(text)
+    pub fn from_sysroot<P: AsRef<Path>>(install_path: P) -> Result<Self, PackageError> {
+        let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
+
+        match std::fs::read_to_string(&packages_path) {
+            Ok(toml) => {
+                toml::from_str(&toml).map_err(|e| PackageError::Parse(e, Some(packages_path)))
+            }
+            Err(_) => Ok(PackageState::default()),
+        }
+    }
+
+    pub fn from_toml(text: &str) -> Result<Self, PackageError> {
+        toml::from_str(text).map_err(|err| PackageError::Parse(err, None))
     }
 
     pub fn to_toml(&self) -> String {
         // to_string *should* be safe to unwrap for this struct
         toml::to_string(self).unwrap()
+    }
+
+    pub fn to_sysroot<P: AsRef<Path>>(&self, install_path: P) -> Result<(), std::io::Error> {
+        let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
+        let packages_dir = packages_path.parent().unwrap();
+        if !packages_dir.is_dir() {
+            std::fs::create_dir_all(packages_dir)?;
+        }
+        std::fs::write(&packages_path, self.to_toml())
     }
 
     // mutably add valid packages to the graph.
@@ -131,15 +170,7 @@ impl PackageState {
                 )
             };
 
-            let new_state = InstallState {
-                remote,
-                blake3: pkg.blake3.clone(),
-                manual,
-                network_size: pkg.network_size,
-                storage_size: pkg.storage_size,
-                dependencies: pkg.depends.iter().cloned().collect(),
-                dependents,
-            };
+            let new_state = InstallState::from_package(pkg, remote, manual, dependents);
 
             self.installed.insert(pkg.name.clone(), new_state);
 
@@ -478,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    fn test_toml_integration() -> Result<(), toml::de::Error> {
+    fn test_toml_integration() -> Result<(), PackageError> {
         const TOML_DATA: &str = r#"
             [installed.bash]
             remote = "origin"
