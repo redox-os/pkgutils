@@ -106,7 +106,7 @@ impl PkgarBackend {
             .join(format!("{package}.pkgar_head"));
 
         let mut package = PackageFile::new(archive_path, &pubkey)?;
-        package.split(&head_path, None)?;
+        package.split(&head_path, None::<&Path>)?;
 
         Ok(())
     }

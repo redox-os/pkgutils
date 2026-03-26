@@ -1,15 +1,12 @@
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, VecDeque},
-    env,
     ffi::{OsStr, OsString},
-    fmt, fs,
+    fmt,
     path::{Path, PathBuf},
 };
 
 use serde_derive::{Deserialize, Serialize};
-
-use crate::recipes::find;
 
 fn is_zero(n: &u64) -> bool {
     *n == 0
@@ -64,100 +61,6 @@ pub enum PackagePrefix {
 }
 
 impl Package {
-    pub fn new(name: &PackageName) -> Result<Self, PackageError> {
-        let dir = find(name.name()).ok_or_else(|| PackageError::PackageNotFound(name.clone()))?;
-        let target = env::var("TARGET").map_err(|_| PackageError::TargetInvalid)?;
-
-        let file = dir.join("target").join(target).join("stage.toml");
-        if !file.is_file() {
-            return Err(PackageError::FileMissing(file));
-        }
-
-        let toml = fs::read_to_string(&file)
-            .map_err(|err| PackageError::FileError(err.raw_os_error(), file.clone()))?;
-        toml::from_str(&toml).map_err(|err| PackageError::Parse(err, Some(file)))
-    }
-
-    pub fn new_recursive(
-        names: &[PackageName],
-        nonstop: bool,
-        recursion: usize,
-    ) -> Result<Vec<Self>, PackageError> {
-        if names.len() == 0 {
-            return Ok(vec![]);
-        }
-        let (list, map) = Self::new_recursive_nonstop(names, recursion);
-        if nonstop && list.len() > 0 {
-            Ok(list)
-        } else if !nonstop && map.len() == list.len() {
-            Ok(list)
-        } else {
-            let (_, res) = map.into_iter().find(|(_, v)| v.is_err()).unwrap();
-            Err(res.err().unwrap())
-        }
-    }
-
-    // list ordered success packages and map of failed packages
-    // a package can be both success and failed if dependencies aren't satistied
-    pub fn new_recursive_nonstop(
-        names: &[PackageName],
-        recursion: usize,
-    ) -> (Vec<Self>, BTreeMap<PackageName, Result<(), PackageError>>) {
-        let mut packages = Vec::new();
-        let mut packages_map = BTreeMap::new();
-        for name in names {
-            if packages_map.contains_key(name) {
-                continue;
-            }
-
-            let package = if recursion == 0 {
-                Err(PackageError::Recursion(Default::default()))
-            } else {
-                Self::new(name)
-            };
-
-            match package {
-                Ok(package) => {
-                    let mut has_invalid_dependency = false;
-                    let (dependencies, dependencies_map) =
-                        Self::new_recursive_nonstop(&package.depends, recursion - 1);
-                    for dependency in dependencies {
-                        if !packages_map.contains_key(&dependency.name) {
-                            packages_map.insert(dependency.name.clone(), Ok(()));
-                            packages.push(dependency);
-                        }
-                    }
-                    for (dep_name, result) in dependencies_map {
-                        if let Err(mut e) = result {
-                            if !packages_map.contains_key(&dep_name) {
-                                e.append_recursion(name);
-                                packages_map.insert(dep_name, Err(e));
-                            }
-                            has_invalid_dependency = true;
-                        }
-                    }
-                    // TODO: this if check is redundant
-                    if !packages_map.contains_key(name) {
-                        packages_map.insert(
-                            name.clone(),
-                            if has_invalid_dependency {
-                                Err(PackageError::DependencyInvalid(name.clone()))
-                            } else {
-                                Ok(())
-                            },
-                        );
-                        packages.push(package);
-                    }
-                }
-                Err(e) => {
-                    packages_map.insert(name.clone(), Err(e));
-                }
-            }
-        }
-
-        (packages, packages_map)
-    }
-
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PackageError> {
         let path = path.as_ref();
         if !path.is_file() {
@@ -468,8 +371,6 @@ pub enum PackageError {
     Recursion(VecDeque<PackageName>),
     #[error("Package {0:?} is missing one or more dependencies")]
     DependencyInvalid(PackageName),
-    #[error("TARGET triplet env var unset or invalid")]
-    TargetInvalid,
 }
 
 impl PackageError {
