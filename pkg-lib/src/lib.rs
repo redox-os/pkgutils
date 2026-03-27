@@ -6,7 +6,6 @@ pub mod net_backend;
 pub use package::*;
 pub use package_state::*;
 pub use repo_manager::*;
-pub mod recipes;
 
 #[cfg(feature = "library")]
 mod library;
