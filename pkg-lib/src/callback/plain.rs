@@ -54,7 +54,8 @@ impl PlainCallback {
         F: Fn(&PlainCallback),
     {
         let now = Instant::now();
-        if force || now.duration_since(self.last_updated).as_millis() > 80 {
+        // 20 FPS, same default with indicatif
+        if force || now.duration_since(self.last_updated).as_millis() >= 50 {
             self.last_updated = now;
             do_print(&self);
         }
