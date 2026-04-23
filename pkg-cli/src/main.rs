@@ -150,11 +150,7 @@ fn execute_command(
             needs_apply = true;
         }
         Commands::Update { packages, all } => {
-            let packages = if packages.is_empty() && !all {
-                library.get_all_package_names()?
-            } else {
-                procces_packages(packages, library, all)
-            };
+            let packages = procces_packages(packages, library, all || packages.is_empty());
             library.update(packages)?;
             needs_apply = true;
         }
