@@ -63,7 +63,7 @@ enum Commands {
 }
 
 // TODO: Refactor this
-fn procces_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<PackageName> {
+fn process_packages(input: Vec<String>, library: &mut Library, all: bool) -> Vec<PackageName> {
     if all {
         match library.get_all_package_names() {
             Ok(packages) => packages,
@@ -140,18 +140,18 @@ fn execute_command(
 
     match command {
         Commands::Install { packages, all } => {
-            let packages = procces_packages(packages, library, all);
+            let packages = process_packages(packages, library, all);
             library.install(packages)?;
             needs_apply = true;
         }
         Commands::Remove { packages, all } => {
-            let packages = procces_packages(packages, library, all);
+            let packages = process_packages(packages, library, all);
             library.uninstall(packages)?;
             needs_apply = true;
         }
         Commands::Update { packages, all } => {
             let empty = packages.is_empty();
-            let packages = procces_packages(packages, library, all || empty);
+            let packages = process_packages(packages, library, all || empty);
             library.update(packages)?;
             needs_apply = true;
         }
