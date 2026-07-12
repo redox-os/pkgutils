@@ -374,6 +374,7 @@ mod tests {
                 blake3: "hash".to_string(),
                 source_identifier: "src".to_string(),
                 commit_identifier: "commit".to_string(),
+                patch_identifier: "patch".to_string(),
                 time_identifier: "time".to_string(),
                 storage_size: 1000,
                 network_size: 500,

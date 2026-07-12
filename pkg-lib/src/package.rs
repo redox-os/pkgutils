@@ -40,6 +40,9 @@ pub struct Package {
     /// git commit of redox repository
     #[serde(skip_serializing_if = "String::is_empty")]
     pub commit_identifier: String,
+    /// combined patch files hash
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub patch_identifier: String,
     /// time when this package published in IS0 8601
     #[serde(skip_serializing_if = "String::is_empty")]
     pub time_identifier: String,
@@ -81,6 +84,22 @@ impl Package {
         // to_string *should* be safe to unwrap for this struct
         // use error handling callbacks for this
         toml::to_string(self).unwrap()
+    }
+
+    pub fn apply_from_ident(&mut self, ident: SourceIdentifier) {
+        self.commit_identifier = ident.commit_identifier;
+        self.patch_identifier = ident.patch_identifier;
+        self.source_identifier = ident.source_identifier;
+        self.time_identifier = ident.time_identifier;
+    }
+
+    pub fn to_ident(&self) -> SourceIdentifier {
+        SourceIdentifier {
+            commit_identifier: self.commit_identifier.clone(),
+            patch_identifier: self.patch_identifier.clone(),
+            source_identifier: self.source_identifier.clone(),
+            time_identifier: self.time_identifier.clone(),
+        }
     }
 }
 
@@ -334,7 +353,10 @@ impl fmt::Display for PackageInfo {
             }
         )?;
         writeln!(f, "name:          {}", p.name.as_str())?;
-        writeln!(f, "version:       {}", p.version)?;
+        if !p.version.is_empty() {
+            // only present if this is not a metapackage
+            writeln!(f, "version:       {}", p.version)?;
+        }
         writeln!(f, "remote:        {}", self.package.remote)?;
         writeln!(f, "remote_path:   {}", self.remote.path)?;
         writeln!(f, "target:        {}", p.target)?;
@@ -342,8 +364,12 @@ impl fmt::Display for PackageInfo {
         writeln!(f, "network_size:  {} bytes", p.network_size)?;
         writeln!(f, "blake3:        {}", p.blake3)?;
         writeln!(f, "source_id:     {}", p.source_identifier)?;
+        if !p.patch_identifier.is_empty() {
+            // only present if the source code has been patched
+            writeln!(f, "patch_id:      {}", p.patch_identifier)?;
+        }
         writeln!(f, "build_id:      {}", p.commit_identifier)?;
-        writeln!(f, "build_date:    {}", p.time_identifier)?;
+        writeln!(f, "build_time:    {}", p.time_identifier)?;
         writeln!(f, "depends:       {}", deps_str)
     }
 }
@@ -357,9 +383,19 @@ pub struct SourceIdentifier {
     /// git commit of redox repository
     #[serde(skip_serializing_if = "String::is_empty")]
     pub commit_identifier: String,
+    /// combined patch files hash
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub patch_identifier: String,
     /// time when source updated in IS0 8601
     #[serde(skip_serializing_if = "String::is_empty")]
     pub time_identifier: String,
+}
+
+impl SourceIdentifier {
+    /// Is source updated, by comparing to [`Self::source_identifier`] and [`Self::patch_identifier`]?
+    pub fn is_updated(&self, now_source: &str, now_patch: &str) -> bool {
+        now_source == self.source_identifier && now_patch == self.patch_identifier
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -600,6 +636,7 @@ mod tests {
                     source_identifier:
                         "1a0e5353205e106bd9b3c0f4a5f37ee1156a1e1c8feb771d1b4842c216612cba".into(),
                     commit_identifier: "da93b635fec96a6fac7da9bf7742d850cbce68b4".into(),
+                    patch_identifier: "".into(),
                     time_identifier: "2025-12-13T05:33:07Z".into(),
                 },
             )]),
