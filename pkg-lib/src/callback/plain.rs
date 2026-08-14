@@ -167,10 +167,7 @@ impl Callback for PlainCallback {
     }
 
     #[cfg(feature = "library")]
-    fn install_check_conflict(
-        &mut self,
-        list: &Vec<pkgar::TransactionConflict>,
-    ) -> Result<(), Error> {
+    fn install_check_conflict(&mut self, list: &[pkgar::TransactionConflict]) -> Result<(), Error> {
         if list.is_empty() {
             return Ok(());
         }

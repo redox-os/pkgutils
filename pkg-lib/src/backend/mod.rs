@@ -90,7 +90,7 @@ pub trait Backend {
     /// get state of current installation
     fn get_package_state(&self) -> PackageState;
     /// check if there's pending transaction conflicts before committing
-    fn commit_check_conflict(&self) -> Result<&Vec<pkgar::TransactionConflict>, Error>;
+    fn commit_check_conflict(&self) -> Result<&[pkgar::TransactionConflict], Error>;
     /// commit all pending changes, and set state of current installation
     fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error>;
     /// abort all pending changes
