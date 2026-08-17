@@ -27,7 +27,7 @@ impl Callback for SilentCallback {
     }
 
     #[cfg(feature = "library")]
-    fn install_check_conflict(&mut self, _: &Vec<pkgar::TransactionConflict>) -> Result<(), Error> {
+    fn install_check_conflict(&mut self, _: &[pkgar::TransactionConflict]) -> Result<(), Error> {
         Ok(())
     }
 

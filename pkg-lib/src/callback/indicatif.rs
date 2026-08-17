@@ -93,10 +93,7 @@ impl Callback for IndicatifCallback {
         self.pb.suspend(|| self.fallback.install_prompt(list))
     }
 
-    fn install_check_conflict(
-        &mut self,
-        list: &Vec<pkgar::TransactionConflict>,
-    ) -> Result<(), Error> {
+    fn install_check_conflict(&mut self, list: &[pkgar::TransactionConflict]) -> Result<(), Error> {
         self.pb
             .suspend(|| self.fallback.install_check_conflict(list))
     }

@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use pkgar::{MergedTransaction, PackageFile, Transaction};
+use pkgar::{PackageFile, Transaction};
 use pkgar_core::PublicKey;
 
 use super::{Backend, Error};
@@ -27,7 +27,7 @@ pub struct PkgarBackend {
     /// Things in "/etc/pkg.d" and inet
     repo_manager: RepoManager,
     /// temporary commit
-    commits: Option<MergedTransaction>,
+    commits: Option<Transaction>,
     keys_synced: bool,
     callback: Rc<RefCell<dyn Callback>>,
 }
@@ -51,17 +51,14 @@ impl PkgarBackend {
             packages,
             repo_manager,
             // packages_lock,
-            commits: Some(MergedTransaction::new()),
+            commits: Some(Transaction::new()),
             keys_synced: false,
             callback,
         })
     }
 
     fn add_transaction(&mut self, transaction: Transaction, src: Option<&PackageFile>) {
-        let mut commits = self
-            .commits
-            .take()
-            .unwrap_or_else(|| MergedTransaction::new());
+        let mut commits = self.commits.take().unwrap_or_else(|| Transaction::new());
         commits.merge(transaction, src);
         self.commits = Some(commits);
     }
@@ -208,7 +205,7 @@ impl Backend for PkgarBackend {
         self.packages.clone()
     }
 
-    fn commit_check_conflict(&self) -> Result<&Vec<pkgar::TransactionConflict>, Error> {
+    fn commit_check_conflict(&self) -> Result<&[pkgar::TransactionConflict], Error> {
         let transaction = self
             .commits
             .as_ref()
@@ -220,8 +217,7 @@ impl Backend for PkgarBackend {
         let mut transaction = self
             .commits
             .take()
-            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?
-            .into_transaction();
+            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?;
         self.callback
             .borrow_mut()
             .commit_start(transaction.pending_commit());
@@ -252,8 +248,7 @@ impl Backend for PkgarBackend {
         let mut transaction = self
             .commits
             .take()
-            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?
-            .into_transaction();
+            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?;
         self.callback
             .borrow_mut()
             .abort_start(transaction.pending_commit());
