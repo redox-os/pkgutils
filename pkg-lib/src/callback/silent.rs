@@ -31,13 +31,29 @@ impl Callback for SilentCallback {
         Ok(())
     }
 
-    fn install_extract(&mut self, _: &RemotePackage) {}
-
     fn download_start(&mut self, _: u64, _: &str) {}
 
     fn download_increment(&mut self, _: u64) {}
 
     fn download_end(&mut self) {}
+
+    #[cfg(feature = "library")]
+    fn extract_start(&mut self, _pkg_name: &RemotePackage, _index_count: usize) {}
+
+    #[cfg(feature = "library")]
+    fn extract_increment(&mut self, _indexed: usize) {}
+
+    #[cfg(feature = "library")]
+    fn extract_end(&mut self) {}
+
+    #[cfg(feature = "library")]
+    fn uncheck_start(&mut self, _pkg_name: &crate::PackageName, _index_count: usize) {}
+
+    #[cfg(feature = "library")]
+    fn uncheck_increment(&mut self, _indexed: usize) {}
+
+    #[cfg(feature = "library")]
+    fn uncheck_end(&mut self) {}
 
     #[cfg(feature = "library")]
     fn commit_start(&mut self, _: usize) {}

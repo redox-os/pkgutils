@@ -6,13 +6,12 @@ use crate::{callback::Callback, package::RemotePackage};
 
 #[derive(Clone)]
 pub struct PlainCallback {
-    size: u64,
     unknown_size: bool,
     pos: u64,
-    fetch_processed: usize,
-    fetch_total: usize,
+    size: u64,
+    file: Option<String>,
+
     interactive: bool,
-    download_file: Option<String>,
     last_updated: Instant,
 }
 
@@ -22,10 +21,8 @@ impl PlainCallback {
             size: 0,
             unknown_size: false,
             pos: 0,
-            fetch_processed: 0,
-            fetch_total: 0,
             interactive: false,
-            download_file: None,
+            file: None,
             last_updated: Instant::now(),
         }
     }
@@ -39,14 +36,34 @@ impl PlainCallback {
         let _ = std::io::stderr().flush();
     }
 
-    pub fn format_size(bytes: u64) -> String {
-        if bytes == 0 {
-            return "0 B".to_string();
+    /// Convert bytes into readable string
+    pub fn format_bytes(len: u64) -> String {
+        const GB: u64 = 1024 * 1024 * 1024;
+        const MB: u64 = 1024 * 1024;
+        const KB: u64 = 1024;
+
+        if len > GB {
+            Self::format_bytes_inner(len, GB, "GB")
+        } else if len > MB {
+            Self::format_bytes_inner(len, MB, "MB")
+        } else if len > KB {
+            Self::format_bytes_inner(len, KB, "KB")
+        } else {
+            format!("{len} B")
         }
-        const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
-        let i = (bytes as f64).log(1024.0).floor() as usize;
-        let size = bytes as f64 / 1024.0_f64.powi(i as i32);
-        format!("{:.2} {}", size, UNITS[i])
+    }
+
+    fn format_bytes_inner(len: u64, divisor: u64, suffix: &'static str) -> String {
+        use std::fmt::Write;
+        let mut s = format!("{}", len / divisor);
+        if s.len() == 1 {
+            let _ = write!(s, ".{:02}", (len % divisor) / (divisor / 100));
+        } else if s.len() == 2 {
+            let _ = write!(s, ".{:01}", (len % divisor) / (divisor / 10));
+        }
+
+        let _ = write!(s, " {suffix}");
+        s
     }
 
     fn should_update_progress<F>(&mut self, do_print: F, force: bool)
@@ -81,8 +98,24 @@ impl PlainCallback {
         Ok(())
     }
 
-    fn downloading_str(&self) -> &'static str {
+    // These maybe localized in future
+    pub(crate) const fn fetching_str(&self) -> &'static str {
+        "Fetching"
+    }
+    pub(crate) const fn downloading_str(&self) -> &'static str {
         "Downloading"
+    }
+    pub(crate) const fn extracting_str(&self) -> &'static str {
+        "Extracting"
+    }
+    pub(crate) const fn checking_str(&self) -> &'static str {
+        "Checking"
+    }
+    pub(crate) const fn committing_str(&self) -> &'static str {
+        "Committing"
+    }
+    pub(crate) const fn aborting_str(&self) -> &'static str {
+        "Aborting"
     }
 }
 
@@ -90,8 +123,8 @@ const RESET_LINE: &str = "\r\x1b[2K";
 
 impl Callback for PlainCallback {
     fn fetch_start(&mut self, initial_count: usize) {
-        self.fetch_total = 0;
-        self.fetch_processed = 0;
+        self.size = 0;
+        self.pos = 0;
         self.fetch_package_increment(0, initial_count);
     }
 
@@ -102,23 +135,25 @@ impl Callback for PlainCallback {
     }
 
     fn fetch_package_increment(&mut self, added_processed: usize, added_count: usize) {
-        self.fetch_processed += added_processed;
-        self.fetch_total += added_count;
+        self.pos += added_processed as u64;
+        self.size += added_count as u64;
 
         self.should_update_progress(
             |this| {
                 eprint!(
-                    "{RESET_LINE}Fetching: [{}/{}]",
-                    this.fetch_processed, this.fetch_total
+                    "{RESET_LINE}{}: [{}/{}]",
+                    this.fetching_str(),
+                    this.pos,
+                    this.size
                 );
                 this.flush();
             },
-            self.fetch_processed == self.fetch_total,
+            self.pos == self.size,
         );
     }
 
     fn fetch_end(&mut self) {
-        if self.fetch_processed == self.fetch_total {
+        if self.pos == self.size {
             eprintln!("{RESET_LINE}Fetch complete.");
         } else {
             eprintln!("{RESET_LINE}Fetch incomplete.");
@@ -151,15 +186,21 @@ impl Callback for PlainCallback {
 
         eprintln!();
         if list.network_size > 0 {
-            eprintln!("  Download size:  {}", Self::format_size(list.network_size));
+            eprintln!(
+                "  Download size:  {}",
+                Self::format_bytes(list.network_size)
+            );
         }
         if list.install_size > 0 {
-            eprintln!("  Install size:   {}", Self::format_size(list.install_size));
+            eprintln!(
+                "  Install size:   {}",
+                Self::format_bytes(list.install_size)
+            );
         }
         if list.uninstall_size > 0 {
             eprintln!(
                 "  Uninstall size: {}",
-                Self::format_size(list.uninstall_size)
+                Self::format_bytes(list.uninstall_size)
             );
         }
 
@@ -185,18 +226,13 @@ impl Callback for PlainCallback {
         self.confirm_transaction()
     }
 
-    fn install_extract(&mut self, remote_pkg: &RemotePackage) {
-        eprintln!("Extracting {}...", remote_pkg.package.name);
-        self.flush();
-    }
-
     fn download_start(&mut self, length: u64, file: &str) {
         self.size = length;
         self.unknown_size = length == 0;
         self.pos = 0;
         if !self.unknown_size {
             eprint!("{RESET_LINE}{} {file}", self.downloading_str());
-            self.download_file = Some(file.to_string());
+            self.file = Some(file.to_string());
             self.flush();
         }
     }
@@ -215,11 +251,7 @@ impl Callback for PlainCallback {
                 // keep using MB for consistency
                 let pos_mb = this.pos as f64 / 1_048_576.0;
                 let size_mb = this.size as f64 / 1_048_576.0;
-                let file_name = this
-                    .download_file
-                    .as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("");
+                let file_name = this.file.as_ref().map(|s| s.as_str()).unwrap_or("");
 
                 eprint!(
                     "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
@@ -237,7 +269,95 @@ impl Callback for PlainCallback {
     fn download_end(&mut self) {
         if !self.unknown_size {
             eprintln!("");
-            self.download_file = None;
+            self.file = None;
+        }
+    }
+
+    #[cfg(feature = "library")]
+    fn extract_start(&mut self, pkg_name: &RemotePackage, index_count: usize) {
+        self.unknown_size = index_count == 0;
+        self.size = index_count as u64;
+        let file = &pkg_name.package.name;
+        eprint!("{RESET_LINE}{} {file}", self.extracting_str());
+        self.file = Some(file.to_string());
+        self.flush();
+    }
+
+    #[cfg(feature = "library")]
+    fn extract_increment(&mut self, indexed: usize) {
+        self.pos += indexed as u64;
+        if self.unknown_size {
+            self.size += indexed as u64;
+        }
+        if self.unknown_size {
+            return;
+        }
+
+        self.should_update_progress(
+            |this| {
+                let file_name = this.file.as_ref().map(|s| s.as_str()).unwrap_or("");
+                eprint!(
+                    "{RESET_LINE}{} {} [{}/{}]",
+                    this.extracting_str(),
+                    file_name,
+                    this.pos,
+                    this.size
+                );
+                this.flush();
+            },
+            self.pos == self.size,
+        );
+    }
+
+    #[cfg(feature = "library")]
+    fn extract_end(&mut self) {
+        if !self.unknown_size {
+            eprintln!("");
+            self.file = None;
+        }
+    }
+
+    #[cfg(feature = "library")]
+    fn uncheck_start(&mut self, pkg_name: &crate::PackageName, index_count: usize) {
+        self.unknown_size = index_count == 0;
+        self.size = index_count as u64;
+        let file = pkg_name.as_str();
+        eprintln!("{} {}...", self.extracting_str(), file);
+        self.file = Some(file.to_string());
+        self.flush();
+    }
+
+    #[cfg(feature = "library")]
+    fn uncheck_increment(&mut self, indexed: usize) {
+        self.pos += indexed as u64;
+        if self.unknown_size {
+            self.size += indexed as u64;
+        }
+        if self.unknown_size {
+            return;
+        }
+
+        self.should_update_progress(
+            |this| {
+                let file_name = this.file.as_ref().map(|s| s.as_str()).unwrap_or("");
+                eprint!(
+                    "{RESET_LINE}{} {} [{}/{}]",
+                    this.checking_str(),
+                    file_name,
+                    this.pos,
+                    this.size
+                );
+                this.flush();
+            },
+            self.pos == self.size,
+        );
+    }
+
+    #[cfg(feature = "library")]
+    fn uncheck_end(&mut self) {
+        if !self.unknown_size {
+            eprintln!("");
+            self.file = None;
         }
     }
 
@@ -259,7 +379,12 @@ impl Callback for PlainCallback {
 
         self.should_update_progress(
             |this| {
-                eprint!("{RESET_LINE}Committing: [{}/{}]", this.pos, this.size);
+                eprint!(
+                    "{RESET_LINE}{}: [{}/{}]",
+                    this.committing_str(),
+                    this.pos,
+                    this.size
+                );
                 this.flush();
             },
             self.pos == self.size,
@@ -289,7 +414,12 @@ impl Callback for PlainCallback {
 
         self.should_update_progress(
             |this| {
-                eprint!("{RESET_LINE}Aborting: [{}/{}]", this.pos, this.size);
+                eprint!(
+                    "{RESET_LINE}{}: [{}/{}]",
+                    this.aborting_str(),
+                    this.pos,
+                    this.size
+                );
                 this.flush();
             },
             self.pos == self.size,

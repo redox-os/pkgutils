@@ -101,9 +101,8 @@ pub enum DownloadError {
     #[error("Download timed out")]
     Timeout,
     // Specific variant for HTTP status errors (e.g., 404, 500)
-    #[cfg(feature = "library")]
     #[error("HTTP error status: {0}")]
-    HttpStatus(reqwest::StatusCode),
+    HttpStatus(u16),
     // Fallback for other generic reqwest errors
     #[cfg(feature = "library")]
     #[error("Other reqwest error: {0}")]
@@ -123,7 +122,8 @@ impl From<reqwest::Error> for DownloadError {
         } else if err.is_status() {
             DownloadError::HttpStatus(
                 err.status()
-                    .unwrap_or(reqwest::StatusCode::INTERNAL_SERVER_ERROR),
+                    .unwrap_or(reqwest::StatusCode::INTERNAL_SERVER_ERROR)
+                    .as_u16(),
             )
         } else {
             DownloadError::Reqwest(err)

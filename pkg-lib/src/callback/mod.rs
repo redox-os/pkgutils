@@ -22,11 +22,17 @@ pub trait Callback {
     fn install_prompt(&mut self, list: &PackageList) -> Result<(), Error>;
     #[cfg(feature = "library")]
     fn install_check_conflict(&mut self, list: &[pkgar::TransactionConflict]) -> Result<(), Error>;
-    fn install_extract(&mut self, pkg_name: &RemotePackage);
 
     fn download_start(&mut self, length: u64, file: &str);
     fn download_increment(&mut self, downloaded: u64);
     fn download_end(&mut self);
+
+    #[cfg(feature = "library")]
+    fn extract_start(&mut self, pkg_name: &RemotePackage, index_count: usize);
+    #[cfg(feature = "library")]
+    fn extract_increment(&mut self, indexed: usize);
+    #[cfg(feature = "library")]
+    fn extract_end(&mut self);
 
     #[cfg(feature = "library")]
     fn commit_start(&mut self, count: usize);
@@ -34,6 +40,13 @@ pub trait Callback {
     fn commit_increment(&mut self, file: &pkgar::Transaction);
     #[cfg(feature = "library")]
     fn commit_end(&mut self);
+
+    #[cfg(feature = "library")]
+    fn uncheck_start(&mut self, pkg_name: &PackageName, index_count: usize);
+    #[cfg(feature = "library")]
+    fn uncheck_increment(&mut self, indexed: usize);
+    #[cfg(feature = "library")]
+    fn uncheck_end(&mut self);
 
     #[cfg(feature = "library")]
     fn abort_start(&mut self, count: usize);
