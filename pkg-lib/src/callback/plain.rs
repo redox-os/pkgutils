@@ -1,8 +1,8 @@
 use std::{io::Write, time::Instant};
 
+use crate::callback::Callback;
 #[cfg(feature = "library")]
-use crate::backend::Error;
-use crate::{callback::Callback, package::RemotePackage};
+use crate::{backend::Error, package::RemotePackage};
 
 #[derive(Clone)]
 pub struct PlainCallback {
@@ -12,6 +12,7 @@ pub struct PlainCallback {
     file: Option<String>,
 
     interactive: bool,
+    always_yes: Option<bool>,
     last_updated: Instant,
 }
 
@@ -22,14 +23,24 @@ impl PlainCallback {
             unknown_size: false,
             pos: 0,
             interactive: false,
+            // default to yes for scripting purposes
+            always_yes: Some(true),
             file: None,
             last_updated: Instant::now(),
         }
     }
 
-    /// Set if user require to agree on terminal
+    /// Set if user can be asked on terminal
     pub fn set_interactive(&mut self, enabled: bool) {
         self.interactive = enabled;
+    }
+
+    /// Set if always to assume yes.
+    /// - `Some(false)` -> Always abort if any problem encountered
+    /// - `None` ->        Ask, otherwise determined automatically
+    /// - `Some(true)`  -> Always yes regardless of interactive mode
+    pub fn set_always_yes(&mut self, enabled: Option<bool>) {
+        self.always_yes = enabled;
     }
 
     fn flush(&self) {
@@ -79,8 +90,10 @@ impl PlainCallback {
     }
 
     #[cfg(feature = "library")]
-    fn confirm_transaction(&self) -> Result<(), Error> {
-        if self.interactive {
+    fn confirm_transaction(&self, safe_to_go: bool) -> Result<(), Error> {
+        if self.always_yes == Some(true) {
+            eprintln!();
+        } else if self.interactive {
             eprint!("\nProceed with this transaction? [Y/n]: ");
             self.flush();
 
@@ -91,10 +104,12 @@ impl PlainCallback {
             if input == "n" || input == "no" {
                 return Err(Error::Interrupted);
             }
-        } else {
+        } else if safe_to_go {
             eprintln!();
+        } else {
+            eprintln!("\nThis session is not interactive, refusing to continue.");
+            return Err(Error::Interrupted);
         }
-
         Ok(())
     }
 
@@ -105,15 +120,19 @@ impl PlainCallback {
     pub(crate) const fn downloading_str(&self) -> &'static str {
         "Downloading"
     }
+    #[cfg(feature = "library")]
     pub(crate) const fn extracting_str(&self) -> &'static str {
         "Extracting"
     }
+    #[cfg(feature = "library")]
     pub(crate) const fn checking_str(&self) -> &'static str {
         "Checking"
     }
+    #[cfg(feature = "library")]
     pub(crate) const fn committing_str(&self) -> &'static str {
         "Committing"
     }
+    #[cfg(feature = "library")]
     pub(crate) const fn aborting_str(&self) -> &'static str {
         "Aborting"
     }
@@ -204,26 +223,51 @@ impl Callback for PlainCallback {
             );
         }
 
-        self.confirm_transaction()
+        self.confirm_transaction(true)
     }
 
     #[cfg(feature = "library")]
-    fn install_check_conflict(&mut self, list: &[pkgar::TransactionConflict]) -> Result<(), Error> {
-        if list.is_empty() {
+    fn install_check(
+        &mut self,
+        conflict: &[pkgar::TransactionConflict],
+        ignored: &[pkgar::TransactionIgnored],
+    ) -> Result<(), Error> {
+        if conflict.is_empty() && ignored.is_empty() {
             return Ok(());
         }
 
-        eprintln!("Transaction conflict detected:");
-        for pkg in list {
-            eprintln!(
-                "  -> {} (from {:?} replaced by {:?})",
-                pkg.conflicted_path.display(),
-                pkg.former_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
-                pkg.newer_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
-            );
+        if !conflict.is_empty() {
+            eprintln!("Transaction conflict detected, ignoring:");
+            for pkg in conflict {
+                eprintln!(
+                    "  -> {} by {:?} (originally {:?})",
+                    pkg.conflicted_path.display(),
+                    pkg.newer_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+                    pkg.former_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+                );
+            }
         }
 
-        self.confirm_transaction()
+        if !ignored.is_empty() {
+            eprintln!("Some transactions are ignored:");
+            for pkg in ignored.iter().take(20) {
+                eprintln!(
+                    "  -> {} by {:?} ({})",
+                    pkg.ignored_path.display(),
+                    pkg.src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+                    match pkg.reason {
+                        pkgar::TransactionIgnoredReason::Missing => "already deleted",
+                        pkgar::TransactionIgnoredReason::Modified => "modified locally",
+                        pkgar::TransactionIgnoredReason::Exists => "already exists",
+                    }
+                );
+            }
+            if ignored.len() > 20 {
+                eprintln!("  -> and {} more...", ignored.len() - 20);
+            }
+        }
+
+        self.confirm_transaction(conflict.is_empty())
     }
 
     fn download_start(&mut self, length: u64, file: &str) {

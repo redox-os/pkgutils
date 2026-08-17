@@ -8,7 +8,6 @@ use std::{fs, path::PathBuf};
 
 use crate::backend::wrap_io_err;
 use crate::callback::Callback;
-#[cfg(feature = "library")]
 use crate::net_backend::DownloadError;
 use crate::net_backend::{DownloadBackend, DownloadBackendWriter};
 use crate::package::RemoteName;

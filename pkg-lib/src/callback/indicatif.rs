@@ -30,6 +30,10 @@ impl IndicatifCallback {
         self.fallback.set_interactive(enabled);
     }
 
+    pub fn set_always_yes(&mut self, enabled: Option<bool>) {
+        self.fallback.set_always_yes(enabled);
+    }
+
     fn fetch_style(&self) -> ProgressStyle {
         ProgressStyle::with_template(
           "{prefix:>12.cyan.bold} {msg} [{percent:>3}%] [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})"
@@ -101,9 +105,13 @@ impl Callback for IndicatifCallback {
         self.pb.suspend(|| self.fallback.install_prompt(list))
     }
 
-    fn install_check_conflict(&mut self, list: &[pkgar::TransactionConflict]) -> Result<(), Error> {
+    fn install_check(
+        &mut self,
+        conflict: &[pkgar::TransactionConflict],
+        ignored: &[pkgar::TransactionIgnored],
+    ) -> Result<(), Error> {
         self.pb
-            .suspend(|| self.fallback.install_check_conflict(list))
+            .suspend(|| self.fallback.install_check(conflict, ignored))
     }
 
     fn download_start(&mut self, length: u64, file: &str) {

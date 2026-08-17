@@ -280,8 +280,13 @@ impl Backend for PkgarBackend {
         self.packages.clone()
     }
 
-    fn commit_check_conflict(&self) -> Result<&[pkgar::TransactionConflict], Error> {
-        Ok(self.commits.get_possible_conflicts())
+    fn commit_check(
+        &self,
+    ) -> Result<(&[pkgar::TransactionConflict], &[pkgar::TransactionIgnored]), Error> {
+        Ok((
+            self.commits.get_possible_conflicts(),
+            self.commits.get_ignored_entries(),
+        ))
     }
 
     fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error> {
@@ -324,5 +329,9 @@ impl Backend for PkgarBackend {
         }
         self.callback.borrow_mut().abort_end();
         Ok(transaction.total_committed())
+    }
+
+    fn set_nocheck(&mut self, nocheck: bool) {
+        self.skip_local_check = nocheck;
     }
 }

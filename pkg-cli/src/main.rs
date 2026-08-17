@@ -18,9 +18,15 @@ struct Cli {
     command: Commands,
 
     // these are optional configuration that will be prompted when needed
-    /// use cURL backend
+    /// Use cURL backend to perform download
     #[arg(long, global = true)]
     curl: bool,
+    /// Always reply with yes even with interactive tty
+    #[arg(long, global = true)]
+    yes: bool,
+    /// Do not try to preserve locally changed files
+    #[arg(long, global = true)]
+    nocheck: bool,
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -112,7 +118,15 @@ fn main() {
     let color_support_stdout = is_tty(&io::stdout());
     let color_support_stderr = is_tty(&io::stderr());
     callback.set_interactive(color_support_stdout);
-    let library = LibraryBuilder::new(install_path).with_callback(Rc::new(RefCell::new(callback)));
+    if !args.yes {
+        // TODO: --pedantic to enable Some(false)
+        callback.set_always_yes(None);
+    }
+    let mut library =
+        LibraryBuilder::new(install_path).with_callback(Rc::new(RefCell::new(callback)));
+    if args.nocheck {
+        library = library.with_nocheck(args.nocheck)
+    }
 
     let err = loop {
         let net_library = library.clone_with_net_backend(if args.curl {
@@ -124,7 +138,8 @@ fn main() {
             Ok(_) => break Ok(()),
             e @ Err(Error::MissingPermissions) => break e,
             Err(err @ Error::Download(_)) if !args.curl => {
-                if !color_support_stdout {
+                // it doesn't feel right to retry when using --yes
+                if !color_support_stdout || args.yes {
                     break Err(err);
                 }
                 report_error(color_support_stderr, &err);
