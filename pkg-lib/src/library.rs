@@ -250,9 +250,10 @@ impl Library {
             }
         }
 
+        let (conflicts, ignored) = self.backend.commit_check()?;
         self.callback
             .borrow_mut()
-            .install_check_conflict(self.backend.commit_check_conflict()?)?;
+            .install_check(conflicts, ignored)?;
 
         self.backend.commit_state(self.package_state.clone())
     }

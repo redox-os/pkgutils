@@ -30,6 +30,10 @@ impl IndicatifCallback {
         self.fallback.set_interactive(enabled);
     }
 
+    pub fn set_always_yes(&mut self, enabled: Option<bool>) {
+        self.fallback.set_always_yes(enabled);
+    }
+
     fn fetch_style(&self) -> ProgressStyle {
         ProgressStyle::with_template(
           "{prefix:>12.cyan.bold} {msg} [{percent:>3}%] [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})"
@@ -46,9 +50,17 @@ impl IndicatifCallback {
             .progress_chars("=> ")
     }
 
+    fn extract_style(&self) -> ProgressStyle {
+        ProgressStyle::with_template(
+                "{prefix:>12.yellow.bold} {msg} [{percent:>3}%] [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})",
+            )
+            .unwrap()
+            .progress_chars("=> ")
+    }
+
     fn commit_style(&self) -> ProgressStyle {
         ProgressStyle::with_template(
-          "{prefix:>12.yellow.bold} {msg} [{percent:>3}%] [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})"
+          "{prefix:>12.orange.bold} {msg} [{percent:>3}%] [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})"
         )
         .unwrap()
         .progress_chars("=> ")
@@ -56,7 +68,7 @@ impl IndicatifCallback {
 
     fn abort_style() -> ProgressStyle {
         ProgressStyle::with_template(
-        "{prefix:>12.red.bold} {msg} [{elapsed_precise}] [{wide_bar:.red/blue}] {pos}/{len} ({eta})",
+        "{prefix:>12.red.bold} {msg} [{percent:>3}%] [{elapsed_precise}] [{wide_bar:.red/blue}] {pos}/{len} ({eta})",
     )
     .unwrap()
     .progress_chars("=> ")
@@ -67,7 +79,7 @@ impl Callback for IndicatifCallback {
     fn fetch_start(&mut self, initial_count: usize) {
         self.pb = ProgressBar::new(initial_count as u64);
         self.pb.set_style(self.fetch_style());
-        self.pb.set_prefix("Fetching");
+        self.pb.set_prefix(self.fallback.fetching_str());
         self.pb.set_message("metadata");
     }
 
@@ -93,15 +105,13 @@ impl Callback for IndicatifCallback {
         self.pb.suspend(|| self.fallback.install_prompt(list))
     }
 
-    fn install_check_conflict(&mut self, list: &[pkgar::TransactionConflict]) -> Result<(), Error> {
+    fn install_check(
+        &mut self,
+        conflict: &[pkgar::TransactionConflict],
+        ignored: &[pkgar::TransactionIgnored],
+    ) -> Result<(), Error> {
         self.pb
-            .suspend(|| self.fallback.install_check_conflict(list))
-    }
-
-    fn install_extract(&mut self, remote_pkg: &RemotePackage) {
-        self.pb.suspend(|| {
-            self.fallback.install_extract(remote_pkg);
-        });
+            .suspend(|| self.fallback.install_check(conflict, ignored))
     }
 
     fn download_start(&mut self, length: u64, file: &str) {
@@ -112,7 +122,7 @@ impl Callback for IndicatifCallback {
         }
         self.pb = ProgressBar::new(length);
         self.pb.set_style(self.download_style());
-        self.pb.set_prefix("Downloading");
+        self.pb.set_prefix(self.fallback.downloading_str());
 
         let msg = match Url::parse(file) {
             Err(_) => file.to_owned(),
@@ -141,6 +151,44 @@ impl Callback for IndicatifCallback {
         self.has_download = true;
     }
 
+    fn extract_start(&mut self, pkg_name: &RemotePackage, index_count: usize) {
+        self.unknown_len = index_count == 0;
+        self.pb = ProgressBar::new(index_count as u64);
+        self.pb.set_style(self.extract_style());
+        self.pb.set_prefix(self.fallback.extracting_str());
+        self.pb.set_message(pkg_name.package.name.to_string());
+    }
+
+    fn extract_increment(&mut self, indexed: usize) {
+        self.pb.inc(indexed as u64);
+        if self.unknown_len {
+            self.pb.inc_length(indexed as u64);
+        }
+    }
+
+    fn extract_end(&mut self) {
+        self.pb.finish_and_clear();
+    }
+
+    fn uncheck_start(&mut self, pkg_name: &crate::PackageName, index_count: usize) {
+        self.unknown_len = index_count == 0;
+        self.pb = ProgressBar::new(index_count as u64);
+        self.pb.set_style(self.extract_style());
+        self.pb.set_prefix(self.fallback.checking_str());
+        self.pb.set_message(pkg_name.to_string());
+    }
+
+    fn uncheck_increment(&mut self, indexed: usize) {
+        self.pb.inc(indexed as u64);
+        if self.unknown_len {
+            self.pb.inc_length(indexed as u64);
+        }
+    }
+
+    fn uncheck_end(&mut self) {
+        self.pb.finish_and_clear();
+    }
+
     fn commit_start(&mut self, count: usize) {
         if self.has_download {
             println!("Download complete.");
@@ -150,8 +198,8 @@ impl Callback for IndicatifCallback {
         self.pb = ProgressBar::new(count as u64);
         self.unknown_len = count == 0;
         self.pb.set_style(self.commit_style());
-        self.pb.set_prefix("Committing");
-        self.pb.set_message("transaction changes");
+        self.pb.set_prefix(self.fallback.committing_str());
+        self.pb.set_message("changes");
     }
 
     fn commit_increment(&mut self, _file: &pkgar::Transaction) {
@@ -175,8 +223,8 @@ impl Callback for IndicatifCallback {
         self.pb = ProgressBar::new(count as u64);
         self.unknown_len = count == 0;
         self.pb.set_style(Self::abort_style());
-        self.pb.set_prefix("Aborting");
-        self.pb.set_message("reverting changes");
+        self.pb.set_prefix(self.fallback.aborting_str());
+        self.pb.set_message("changes");
     }
 
     fn abort_increment(&mut self, _file: &pkgar::Transaction) {

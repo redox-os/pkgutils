@@ -8,7 +8,6 @@ use std::{fs, path::PathBuf};
 
 use crate::backend::wrap_io_err;
 use crate::callback::Callback;
-#[cfg(feature = "library")]
 use crate::net_backend::DownloadError;
 use crate::net_backend::{DownloadBackend, DownloadBackendWriter};
 use crate::package::RemoteName;
@@ -247,7 +246,7 @@ impl RepoManager {
             return Ok((toml, r));
         }
         let mut writer = DownloadBackendWriter::ToBuf(Vec::new());
-        match self.download(&file, None, &mut writer) {
+        match self.download(&file, None, None, &mut writer) {
             Ok(r) => {
                 let text = writer.to_inner_buf();
                 let toml = String::from_utf8(text)
@@ -275,7 +274,7 @@ impl RepoManager {
         let mut writer = DownloadBackendWriter::ToFile(
             File::create(&dst_path).map_err(wrap_io_err!(&dst_path, "Creating"))?,
         );
-        match self.download(&file, Some(len_hint), &mut writer) {
+        match self.download(&file, Some(len_hint), None, &mut writer) {
             Ok(r) => Ok((dst_path, r)),
             Err(Error::ValidRepoNotFound) => {
                 Err(PackageError::PackageNotFound(package_name.to_owned()).into())
@@ -344,37 +343,58 @@ impl RepoManager {
         &self,
         file: &str,
         len: Option<u64>,
-        mut dest: &mut DownloadBackendWriter,
+        remote: Option<&RemoteName>,
+        dest: &mut DownloadBackendWriter,
     ) -> Result<RemoteName, Error> {
         if !self.download_path.exists() {
             fs::create_dir_all(self.download_path.clone())
                 .map_err(wrap_io_err!(&self.download_path, "Creating dir"))?;
         }
 
-        for rname in self.remotes.iter() {
-            let Some(remote) = self.remote_map.get(rname) else {
-                continue;
-            };
-            if remote.path == "" {
-                // installer repository
-                continue;
-            }
-
-            let remote_path = format!("{}/{}", remote.path, file);
-            let res =
-                self.download_backend
-                    .download(&remote_path, len, &mut dest, self.callback.clone());
-            match res {
-                Ok(_) => return Ok(rname.into()),
-                #[cfg(feature = "library")]
-                Err(DownloadError::HttpStatus(_)) => continue,
-                Err(e) => {
-                    return Err(Error::Download(e));
+        match remote {
+            Some(rname) => {
+                if let Some(remote) = self.remote_map.get(rname) {
+                    if remote.path != "" {
+                        return match self.download_inner(remote, file, len, dest) {
+                            Ok(_) => Ok(rname.into()),
+                            Err(e) => Err(Error::Download(e)),
+                        };
+                    }
                 }
-            };
+            }
+            None => {
+                for rname in self.remotes.iter() {
+                    let Some(remote) = self.remote_map.get(rname) else {
+                        continue;
+                    };
+                    if remote.path == "" {
+                        // installer repository
+                        continue;
+                    }
+                    match self.download_inner(remote, file, len, dest) {
+                        Ok(_) => return Ok(rname.into()),
+                        Err(DownloadError::HttpStatus(_)) => continue,
+                        Err(e) => {
+                            return Err(Error::Download(e));
+                        }
+                    };
+                }
+            }
         }
 
         Err(Error::ValidRepoNotFound)
+    }
+
+    fn download_inner(
+        &self,
+        remote: &RemotePath,
+        file: &str,
+        len: Option<u64>,
+        mut dest: &mut DownloadBackendWriter,
+    ) -> Result<(), DownloadError> {
+        let remote_path = format!("{}/{}", remote.path, file);
+        self.download_backend
+            .download(&remote_path, len, &mut dest, self.callback.clone())
     }
 
     /// Locate and return path and report which locals it's downloaded from.

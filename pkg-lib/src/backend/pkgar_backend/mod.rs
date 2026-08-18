@@ -6,7 +6,7 @@ use std::{
 };
 
 use pkgar::{PackageFile, Transaction};
-use pkgar_core::PublicKey;
+use pkgar_core::PackageSrc;
 
 use super::{Backend, Error};
 use crate::{
@@ -27,8 +27,9 @@ pub struct PkgarBackend {
     /// Things in "/etc/pkg.d" and inet
     repo_manager: RepoManager,
     /// temporary commit
-    commits: Option<Transaction>,
+    commits: Transaction,
     keys_synced: bool,
+    skip_local_check: bool,
     callback: Rc<RefCell<dyn Callback>>,
 }
 
@@ -51,16 +52,18 @@ impl PkgarBackend {
             packages,
             repo_manager,
             // packages_lock,
-            commits: Some(Transaction::new()),
+            commits: Transaction::new(),
             keys_synced: false,
+            skip_local_check: false,
             callback,
         })
     }
 
-    fn add_transaction(&mut self, transaction: Transaction, src: Option<&PackageFile>) {
-        let mut commits = self.commits.take().unwrap_or_else(|| Transaction::new());
-        commits.merge(transaction, src);
-        self.commits = Some(commits);
+    fn add_transaction(
+        &mut self,
+        mut tfn: impl FnMut(&mut Self) -> Result<(), pkgar::Error>,
+    ) -> Result<(), Error> {
+        tfn(self).map_err(|e| Error::Pkgar(Box::new(e)))
     }
 
     // reads /var/lib/packages/[package].pkgar_head
@@ -94,9 +97,8 @@ impl PkgarBackend {
 
     fn create_head(
         &self,
-        archive_path: &Path,
+        package_file: &mut PackageFile,
         package: &PackageName,
-        pubkey: &PublicKey,
     ) -> Result<(), Error> {
         // creates a head file
         let head_path = self
@@ -104,8 +106,7 @@ impl PkgarBackend {
             .join(crate::PACKAGES_HEAD_DIR)
             .join(format!("{package}.pkgar_head"));
 
-        let mut package = PackageFile::new(archive_path, &pubkey)?;
-        package.split(&head_path, None::<&Path>)?;
+        package_file.split(&head_path, None::<&Path>)?;
 
         Ok(())
     }
@@ -128,6 +129,78 @@ impl PkgarBackend {
         self.keys_synced = true;
         Ok(())
     }
+
+    fn install_inner(
+        &mut self,
+        package: &RemotePackage,
+        pkg: &mut PackageFile,
+        entries: Vec<pkgar_core::Entry>,
+    ) -> Result<(), Error> {
+        self.callback
+            .borrow_mut()
+            .extract_start(package, entries.len());
+        let mut last_entries;
+        for entry in entries {
+            last_entries = self.commits.total_indexed();
+            if let Err(e) = self.add_transaction(|backend| {
+                backend.commits.install_one(
+                    pkg,
+                    &entry,
+                    &backend.install_path,
+                    backend.skip_local_check,
+                )
+            }) {
+                self.callback.borrow_mut().extract_end();
+                return Err(e);
+            }
+            self.callback
+                .borrow_mut()
+                .extract_increment(self.commits.total_indexed() - last_entries);
+        }
+        self.callback.borrow_mut().extract_end();
+        Ok(())
+    }
+
+    fn uninstall_inner(
+        &mut self,
+        package: &PackageName,
+        pkg: &PackageFile,
+        entries: Vec<pkgar_core::Entry>,
+    ) -> Result<(), Error> {
+        let show_progress = !self.skip_local_check;
+        if show_progress {
+            self.callback
+                .borrow_mut()
+                .uncheck_start(package, entries.len());
+        }
+        let mut last_entries;
+        for entry in &entries {
+            last_entries = self.commits.total_indexed();
+            if let Err(e) = self.add_transaction(|backend| {
+                backend.commits.remove_one(
+                    Some(pkg),
+                    entry,
+                    &backend.install_path,
+                    backend.skip_local_check,
+                )
+            }) {
+                if show_progress {
+                    self.callback.borrow_mut().uncheck_end();
+                }
+                return Err(e);
+            }
+            if show_progress {
+                self.callback
+                    .borrow_mut()
+                    .uncheck_increment(self.commits.total_indexed() - last_entries);
+            }
+        }
+        // there's no I/O if skip_local_check enabled
+        if show_progress {
+            self.callback.borrow_mut().uncheck_end();
+        }
+        Ok(())
+    }
 }
 
 impl Backend for PkgarBackend {
@@ -141,10 +214,10 @@ impl Backend for PkgarBackend {
             .repo_manager
             .get_package_pkgar(&package.package.name, package.package.network_size)?;
         let mut pkg = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
-        self.callback.borrow_mut().install_extract(&package);
-        let install = Transaction::install(&mut pkg, &self.install_path)?;
-        self.create_head(&local_path, &package.package.name, &repo.pubkey.unwrap())?;
-        self.add_transaction(install, Some(&pkg));
+        let entries = pkg.read_entries()?;
+        self.install_inner(&package, &mut pkg, entries)?;
+
+        self.create_head(&mut pkg, &package.package.name)?;
         Ok(())
     }
 
@@ -153,10 +226,9 @@ impl Backend for PkgarBackend {
             return Err(Error::ProtectedPackage(package));
         }
         self.sync_keys()?;
-
         let mut pkg = self.get_package_head(&package)?;
-        let remove = Transaction::remove(&mut pkg, &self.install_path)?;
-        self.add_transaction(remove, Some(&pkg));
+        let entries = pkg.read_entries()?;
+        self.uninstall_inner(&package, &pkg, entries)?;
 
         self.remove_package_head(&package)?;
 
@@ -167,14 +239,17 @@ impl Backend for PkgarBackend {
         self.sync_keys()?;
 
         let name = &package.package.name;
-        let mut pkg = self.get_package_head(name)?;
+        let mut old = self.get_package_head(name)?;
         let (local_path, repo) = self
             .repo_manager
             .get_package_pkgar(name, package.package.network_size)?;
-        let mut pkg2 = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
-        let update = Transaction::replace(&mut pkg, &mut pkg2, &self.install_path)?;
-        self.create_head(&local_path, &name, &repo.pubkey.unwrap())?;
-        self.add_transaction(update, Some(&pkg));
+        let mut new = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
+        let old_entries = old.read_entries()?;
+        let new_entries = new.read_entries()?;
+        let (to_install, to_remove) = self.commits.replace_diff(&old_entries, &new_entries)?;
+        self.uninstall_inner(name, &old, to_remove)?;
+        self.install_inner(&package, &mut new, to_install)?;
+        self.create_head(&mut new, &name)?;
         Ok(())
     }
 
@@ -205,26 +280,23 @@ impl Backend for PkgarBackend {
         self.packages.clone()
     }
 
-    fn commit_check_conflict(&self) -> Result<&[pkgar::TransactionConflict], Error> {
-        let transaction = self
-            .commits
-            .as_ref()
-            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?;
-        Ok(transaction.get_possible_conflicts())
+    fn commit_check(
+        &self,
+    ) -> Result<(&[pkgar::TransactionConflict], &[pkgar::TransactionIgnored]), Error> {
+        Ok((
+            self.commits.get_possible_conflicts(),
+            self.commits.get_ignored_entries(),
+        ))
     }
 
     fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error> {
-        let mut transaction = self
-            .commits
-            .take()
-            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?;
+        let mut transaction = core::mem::replace(&mut self.commits, Transaction::new());
         self.callback
             .borrow_mut()
             .commit_start(transaction.pending_commit());
         while transaction.pending_commit() > 0 {
             self.callback.borrow_mut().commit_increment(&transaction);
             if let Err(e) = transaction.commit_one() {
-                self.add_transaction(transaction, None);
                 return Err(Error::from(e));
             }
         }
@@ -245,21 +317,21 @@ impl Backend for PkgarBackend {
     }
 
     fn abort_state(&mut self) -> Result<usize, Error> {
-        let mut transaction = self
-            .commits
-            .take()
-            .ok_or_else(|| Error::Pkgar(Box::new(pkgar::Error::DataNotInitialized)))?;
+        let mut transaction = core::mem::replace(&mut self.commits, Transaction::new());
         self.callback
             .borrow_mut()
             .abort_start(transaction.pending_commit());
         while transaction.pending_commit() > 0 {
             self.callback.borrow_mut().commit_increment(&transaction);
             if let Err(e) = transaction.abort_one() {
-                self.add_transaction(transaction, None);
                 return Err(Error::from(e));
             }
         }
         self.callback.borrow_mut().abort_end();
         Ok(transaction.total_committed())
+    }
+
+    fn set_nocheck(&mut self, nocheck: bool) {
+        self.skip_local_check = nocheck;
     }
 }
