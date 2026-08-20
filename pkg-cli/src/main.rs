@@ -8,6 +8,7 @@ use pkg::{
     Library, LibraryBuilder, PackageName, RepoManager,
 };
 use termion::{color, is_tty, style};
+mod cpu;
 
 /// Redox Package Manager
 #[derive(Clone, Debug, Parser)]
@@ -79,6 +80,9 @@ enum Commands {
 
     /// Test if remote repository is working
     Test,
+
+    /// Cpu eligibility test
+    CpuTest,
 }
 
 // TODO: Refactor this
@@ -189,11 +193,26 @@ fn execute_command(
 ) -> Result<(), Error> {
     let mut needs_apply = false;
     let install_path = library.install_path();
-    if matches!(cli.command, Commands::Test) {
-        let mut r: RepoManager = library.try_into()?;
-        r.test_sync_keys()?;
-        eprintln!("OK");
-        return Ok(());
+    match cli.command {
+        Commands::Test => {
+            let mut r: RepoManager = library.try_into()?;
+            r.test_sync_keys()?;
+            eprintln!("OK");
+            return Ok(());
+        }
+        Commands::CpuTest => {
+            let d = cpu::CpuDetection::probe();
+            eprintln!("Eligible cpu level: {:?}", d.eligible);
+            if let Some(n) = d.next_eligible() {
+                eprintln!(
+                    "Next cpu level requirement for {:?}: {:?}",
+                    n,
+                    d.unsatisfied_extensions(n)
+                );
+            }
+            return Ok(());
+        }
+        _ => {}
     }
     let mut library =
         Library::new_with_builder(library, |r| r.update_remotes(target, &install_path))?;
@@ -233,6 +252,7 @@ fn execute_command(
             }
         }
         Commands::Test => unreachable!(),
+        Commands::CpuTest => unreachable!(),
     }
 
     if needs_apply {
