@@ -16,6 +16,12 @@ pub struct PlainCallback {
     last_updated: Instant,
 }
 
+impl Default for PlainCallback {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PlainCallback {
     pub fn new() -> Self {
         Self {
@@ -85,7 +91,7 @@ impl PlainCallback {
         // 20 FPS, same default with indicatif
         if force || now.duration_since(self.last_updated).as_millis() >= 50 {
             self.last_updated = now;
-            do_print(&self);
+            do_print(self);
         }
     }
 
@@ -181,7 +187,7 @@ impl Callback for PlainCallback {
 
     #[cfg(feature = "library")]
     fn install_prompt(&mut self, list: &crate::PackageList) -> Result<(), Error> {
-        eprintln!("");
+        eprintln!();
         if !list.install.is_empty() {
             eprintln!("Packages to install:");
             for pkg in &list.install {
@@ -242,8 +248,8 @@ impl Callback for PlainCallback {
                 eprintln!(
                     "  -> {} by {:?} (originally {:?})",
                     pkg.conflicted_path.display(),
-                    pkg.newer_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
-                    pkg.former_src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+                    pkg.newer_src.as_deref().unwrap_or("?"),
+                    pkg.former_src.as_deref().unwrap_or("?"),
                 );
             }
         }
@@ -254,7 +260,7 @@ impl Callback for PlainCallback {
                 eprintln!(
                     "  -> {} by {:?} ({})",
                     pkg.ignored_path.display(),
-                    pkg.src.as_ref().map(|p| p.as_str()).unwrap_or("?"),
+                    pkg.src.as_deref().unwrap_or("?"),
                     match pkg.reason {
                         pkgar::TransactionIgnoredReason::Missing => "already deleted",
                         pkgar::TransactionIgnoredReason::Modified => "modified locally",
@@ -295,7 +301,7 @@ impl Callback for PlainCallback {
                 // keep using MB for consistency
                 let pos_mb = this.pos as f64 / 1_048_576.0;
                 let size_mb = this.size as f64 / 1_048_576.0;
-                let file_name = this.file.as_ref().map(|s| s.as_str()).unwrap_or("");
+                let file_name = this.file.as_deref().unwrap_or("");
 
                 eprint!(
                     "{RESET_LINE}{} {} [{:.2} MB / {:.2} MB]",
@@ -312,7 +318,7 @@ impl Callback for PlainCallback {
 
     fn download_end(&mut self) {
         if !self.unknown_size {
-            eprintln!("");
+            eprintln!();
             self.file = None;
         }
     }
@@ -339,7 +345,7 @@ impl Callback for PlainCallback {
 
         self.should_update_progress(
             |this| {
-                let file_name = this.file.as_ref().map(|s| s.as_str()).unwrap_or("");
+                let file_name = this.file.as_deref().unwrap_or("");
                 eprint!(
                     "{RESET_LINE}{} {} [{}/{}]",
                     this.extracting_str(),
@@ -356,7 +362,7 @@ impl Callback for PlainCallback {
     #[cfg(feature = "library")]
     fn extract_end(&mut self) {
         if !self.unknown_size {
-            eprintln!("");
+            eprintln!();
             self.file = None;
         }
     }
@@ -383,7 +389,7 @@ impl Callback for PlainCallback {
 
         self.should_update_progress(
             |this| {
-                let file_name = this.file.as_ref().map(|s| s.as_str()).unwrap_or("");
+                let file_name = this.file.as_deref().unwrap_or("");
                 eprint!(
                     "{RESET_LINE}{} {} [{}/{}]",
                     this.checking_str(),
@@ -400,7 +406,7 @@ impl Callback for PlainCallback {
     #[cfg(feature = "library")]
     fn uncheck_end(&mut self) {
         if !self.unknown_size {
-            eprintln!("");
+            eprintln!();
             self.file = None;
         }
     }

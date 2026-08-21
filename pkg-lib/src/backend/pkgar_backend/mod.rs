@@ -248,8 +248,8 @@ impl Backend for PkgarBackend {
         let new_entries = new.read_entries()?;
         let (to_install, to_remove) = self.commits.replace_diff(&old_entries, &new_entries)?;
         self.uninstall_inner(name, &old, to_remove)?;
-        self.install_inner(&package, &mut new, to_install)?;
-        self.create_head(&mut new, &name)?;
+        self.install_inner(package, &mut new, to_install)?;
+        self.create_head(&mut new, name)?;
         Ok(())
     }
 

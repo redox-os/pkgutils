@@ -6,6 +6,12 @@ use crate::{backend::Error, package::RemotePackage};
 #[derive(Clone)]
 pub struct SilentCallback {}
 
+impl Default for SilentCallback {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SilentCallback {
     pub fn new() -> Self {
         Self {}

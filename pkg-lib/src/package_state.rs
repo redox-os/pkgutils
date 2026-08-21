@@ -124,8 +124,7 @@ impl PackageState {
                         has_missing_deps = true;
                     } else if missing_set.contains(dep_name) {
                         has_missing_deps = true;
-                    } else {
-                    }
+                    } 
                 }
 
                 if has_missing_deps {
@@ -216,17 +215,13 @@ impl PackageState {
             };
             let missing_dependents: Vec<_> = state
                 .dependents
-                .iter()
-                .cloned()
-                .filter(|dep| !remove_set.contains(dep))
+                .iter().filter(|&dep| !remove_set.contains(dep)).cloned()
                 .collect();
             let missing_dependencies: Vec<_> = state
                 .dependencies
-                .iter()
-                .cloned()
-                .filter(|dep| {
+                .iter().filter(|&dep| {
                     !remove_set.contains(dep) && self.installed.get(dep).is_some_and(|p| !p.manual)
-                })
+                }).cloned()
                 .collect();
 
             if missing_dependents.is_empty() && missing_dependencies.is_empty() {

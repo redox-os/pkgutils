@@ -166,11 +166,11 @@ impl PackageName {
         self.0.starts_with("target:")
     }
 
-    fn strip<'a>(
-        &'a self,
+    fn strip(
+        &self,
         strip_os: bool,
         strip_pkg: bool,
-    ) -> (Option<&'a str>, &'a str, Option<&'a str>) {
+    ) -> (Option<&str>, &str, Option<&str>) {
         let mut s = self.0.as_str();
         let mut os = None;
         let mut pkg = None;
