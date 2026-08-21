@@ -59,13 +59,6 @@ impl PkgarBackend {
         })
     }
 
-    fn add_transaction(
-        &mut self,
-        mut tfn: impl FnMut(&mut Self) -> Result<(), pkgar::Error>,
-    ) -> Result<(), Error> {
-        tfn(self).map_err(|e| Error::Pkgar(Box::new(e)))
-    }
-
     // reads /var/lib/packages/[package].pkgar_head
     fn get_package_head(&self, package: &PackageName) -> Result<PackageFile, Error> {
         let path = self
@@ -142,14 +135,11 @@ impl PkgarBackend {
         let mut last_entries;
         for entry in entries {
             last_entries = self.commits.total_indexed();
-            if let Err(e) = self.add_transaction(|backend| {
-                backend.commits.install_one(
-                    pkg,
-                    &entry,
-                    &backend.install_path,
-                    backend.skip_local_check,
-                )
-            }) {
+            if let Err(e) = self
+                .commits
+                .install_one(pkg, &entry, &self.install_path, self.skip_local_check)
+                .map_err(|e| Error::Pkgar(Box::new(e)))
+            {
                 self.callback.borrow_mut().extract_end();
                 return Err(e);
             }
@@ -176,14 +166,11 @@ impl PkgarBackend {
         let mut last_entries;
         for entry in &entries {
             last_entries = self.commits.total_indexed();
-            if let Err(e) = self.add_transaction(|backend| {
-                backend.commits.remove_one(
-                    Some(pkg),
-                    entry,
-                    &backend.install_path,
-                    backend.skip_local_check,
-                )
-            }) {
+            if let Err(e) = self
+                .commits
+                .remove_one(Some(pkg), entry, &self.install_path, self.skip_local_check)
+                .map_err(|e| Error::Pkgar(Box::new(e)))
+            {
                 if show_progress {
                     self.callback.borrow_mut().uncheck_end();
                 }

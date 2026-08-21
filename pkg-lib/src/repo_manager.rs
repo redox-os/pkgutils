@@ -210,7 +210,7 @@ impl RepoManager {
             ));
         }
         // load to check for failure early
-        let pubkey = RepoPublicKeyFile::open(&pubkey_path).inspect_err(|e| {
+        let pubkey = RepoPublicKeyFile::open(&pubkey_path).inspect_err(|_| {
             // probably corrupted
             let _ = fs::remove_file(&pubkey_path);
         })?;
@@ -248,8 +248,8 @@ impl RepoManager {
         match self.download(&file, None, None, &mut writer) {
             Ok(r) => {
                 let text = writer.to_inner_buf();
-                let toml = String::from_utf8(text)
-                    .map_err(|_| Error::ContentIsNotValidUnicode(file))?;
+                let toml =
+                    String::from_utf8(text).map_err(|_| Error::ContentIsNotValidUnicode(file))?;
                 Ok((toml, r))
             }
             Err(Error::ValidRepoNotFound) => {
@@ -307,7 +307,7 @@ impl RepoManager {
             fs::create_dir_all(download_dir)
                 .map_err(wrap_io_err!(&download_dir, "Creating dir"))?;
         }
-        for (_, remote) in self.remote_map.iter_mut() {
+        for remote in self.remote_map.values_mut() {
             if remote.pubkey.is_some() {
                 continue;
             }
@@ -322,7 +322,7 @@ impl RepoManager {
                         self.callback.clone(),
                     )?;
                 }
-                let pubkey = RepoPublicKeyFile::open(&local_keypath).inspect_err(|e| {
+                let pubkey = RepoPublicKeyFile::open(&local_keypath).inspect_err(|_| {
                     // probably corrupted
                     let _ = fs::remove_file(&local_keypath);
                 })?;
@@ -388,7 +388,7 @@ impl RepoManager {
         remote: &RemotePath,
         file: &str,
         len: Option<u64>,
-        mut dest: &mut DownloadBackendWriter,
+        dest: &mut DownloadBackendWriter,
     ) -> Result<(), DownloadError> {
         let remote_path = format!("{}/{}", remote.path, file);
         self.download_backend

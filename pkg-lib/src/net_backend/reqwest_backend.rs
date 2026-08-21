@@ -39,7 +39,7 @@ impl DownloadBackend for ReqwestBackend {
         let mut data = [0; 8192];
         loop {
             let count = resp.read(&mut data)?;
-            writer.write(&data[..count])?;
+            writer.write_all(&data[..count])?;
             if count == 0 {
                 break;
             }
