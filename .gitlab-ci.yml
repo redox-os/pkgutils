@@ -19,6 +19,8 @@ cargo-build:
   stage: test
   script:
     - cargo build -p redox-pkg --no-default-features
+    - cargo build -p redox-pkg --no-default-features --features indicatif
+    - cargo build -p redox-pkg-cli
 
 cargo-test:
   stage: test
