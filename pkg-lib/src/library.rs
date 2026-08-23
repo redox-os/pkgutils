@@ -24,7 +24,7 @@ impl Library {
         let backend = builder.build(remotes_fn)?;
         Ok(Library {
             package_state: backend.get_package_state(),
-            backend: backend,
+            backend,
             cached_info: BTreeMap::new(),
             callback,
         })
@@ -105,7 +105,7 @@ impl Library {
             pinfos.push(premote);
         }
         let remainder = self.package_state.install(&pinfos);
-        if remainder.len() > 0 {
+        if !remainder.is_empty() {
             self.callback
                 .borrow_mut()
                 .fetch_package_increment(0, remainder.len());
@@ -123,7 +123,7 @@ impl Library {
             return Err(Error::RepoRecursion(packages));
         }
         let remainder = self.package_state.uninstall(&packages);
-        if remainder.len() > 0 {
+        if !remainder.is_empty() {
             self.uninstall_inner(remainder, iter - 1)?;
         }
         Ok(())
@@ -133,7 +133,7 @@ impl Library {
     pub fn update(&mut self, mut packages: Vec<PackageName>) -> Result<(), Error> {
         let repo_list = self.backend.get_repository_detail()?;
         let local_list = self.backend.get_package_state();
-        if packages.len() == 0 {
+        if packages.is_empty() {
             packages = local_list.get_installed_list();
         }
 
@@ -158,11 +158,8 @@ impl Library {
             .keys()
             .cloned()
             .fold(Vec::new(), |mut acc, x| {
-                match PackageName::new(x) {
-                    Ok(name) => {
-                        acc.push(name);
-                    }
-                    Err(_) => {}
+                if let Ok(name) = PackageName::new(x) {
+                    acc.push(name);
                 };
                 acc
             });

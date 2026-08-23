@@ -1,12 +1,12 @@
 use crate::PackageName;
 
-#[cfg(all(feature = "indicatif"))]
+#[cfg(feature = "indicatif")]
 pub use self::indicatif::IndicatifCallback;
 pub use self::plain::PlainCallback;
 pub use self::silent::SilentCallback;
 #[cfg(feature = "library")]
 use crate::{backend::Error, package::RemotePackage, PackageList};
-#[cfg(all(feature = "indicatif"))]
+#[cfg(feature = "indicatif")]
 mod indicatif;
 mod plain;
 mod silent;
