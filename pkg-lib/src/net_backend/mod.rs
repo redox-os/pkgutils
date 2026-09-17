@@ -8,7 +8,7 @@ use thiserror::Error;
 
 mod curl_backend;
 #[cfg(feature = "library")]
-mod reqwest_backend;
+mod ureq_backend;
 
 use crate::callback::Callback;
 
@@ -16,9 +16,9 @@ pub use curl_backend::CurlBackend;
 #[cfg(not(feature = "library"))]
 pub use curl_backend::CurlBackend as DefaultNetBackend;
 #[cfg(feature = "library")]
-pub use reqwest_backend::ReqwestBackend;
+pub use ureq_backend::UreqBackend;
 #[cfg(feature = "library")]
-pub use reqwest_backend::ReqwestBackend as DefaultNetBackend;
+pub use ureq_backend::UreqBackend as DefaultNetBackend;
 
 pub enum DownloadBackendWriter {
     ToFile(File),
@@ -105,8 +105,8 @@ pub enum DownloadError {
     HttpStatus(u16),
     // Fallback for other generic reqwest errors
     #[cfg(feature = "library")]
-    #[error("Other reqwest error: {0}")]
-    Reqwest(reqwest::Error),
+    #[error("Other ureq error: {0}")]
+    Ureq(ureq::Error),
     // IO errors remain the same
     #[error("IO error: {0}")]
     IO(#[from] io::Error),
@@ -115,18 +115,12 @@ pub enum DownloadError {
 }
 
 #[cfg(feature = "library")]
-impl From<reqwest::Error> for DownloadError {
-    fn from(err: reqwest::Error) -> Self {
-        if err.is_timeout() {
-            DownloadError::Timeout
-        } else if err.is_status() {
-            DownloadError::HttpStatus(
-                err.status()
-                    .unwrap_or(reqwest::StatusCode::INTERNAL_SERVER_ERROR)
-                    .as_u16(),
-            )
-        } else {
-            DownloadError::Reqwest(err)
+impl From<ureq::Error> for DownloadError {
+    fn from(err: ureq::Error) -> Self {
+        match err {
+            ureq::Error::Timeout(_) => DownloadError::Timeout,
+            ureq::Error::StatusCode(code) => DownloadError::HttpStatus(code),
+            err => DownloadError::Ureq(err),
         }
     }
 }

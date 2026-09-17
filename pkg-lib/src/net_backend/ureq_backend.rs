@@ -7,19 +7,21 @@ use std::{
 
 use super::{Callback, DownloadBackend, DownloadError};
 use crate::net_backend::DownloadBackendWriter;
-use reqwest::blocking::Client;
+use ureq::Agent;
 
 /// Network backend
 #[derive(Clone)]
-pub struct ReqwestBackend {
-    client: Client,
+pub struct UreqBackend {
+    client: Agent,
 }
 
-impl DownloadBackend for ReqwestBackend {
+impl DownloadBackend for UreqBackend {
     fn new() -> Result<Self, DownloadError> {
-        let client = Client::builder()
-            .connect_timeout(Duration::new(5, 0))
-            .build()?;
+        let client = Agent::new_with_config(
+            Agent::config_builder()
+                .timeout_connect(Some(Duration::new(5, 0)))
+                .build(),
+        );
         Ok(Self { client })
     }
 
@@ -31,12 +33,12 @@ impl DownloadBackend for ReqwestBackend {
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<(), DownloadError> {
         let mut callback = callback.borrow_mut();
-
-        let mut resp = self.client.get(remote_path).send()?.error_for_status()?;
+        let mut resp = self.client.get(remote_path).call()?;
 
         callback.download_start(remote_len.unwrap_or(0), remote_path);
-
+        let mut resp = resp.body_mut().as_reader();
         let mut data = [0; 8192];
+
         loop {
             let count = resp.read(&mut data)?;
             writer.write_all(&data[..count])?;
@@ -46,7 +48,6 @@ impl DownloadBackend for ReqwestBackend {
             callback.download_increment(count as u64);
         }
         writer.flush()?;
-
         callback.download_end();
 
         Ok(())
