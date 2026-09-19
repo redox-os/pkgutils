@@ -25,4 +25,4 @@ cargo-build:
 cargo-test:
   stage: test
   script:
-    - cargo test -p redox-pkg --features indicatif --locked  -- --nocapture --test-threads=1
+    - cargo test --release -p redox-pkg --features indicatif --locked  -- --nocapture --test-threads=1
