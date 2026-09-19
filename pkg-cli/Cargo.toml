@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 redox-pkg = { path = "../pkg-lib", features = ["indicatif"] }
-pkgar-core = "0.2.3"
+pkgar-core = "0.2.4"
 
 clap = { version = "4.3", features = ["cargo", "derive"] }
 glob = "0.3"

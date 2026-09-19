@@ -63,15 +63,6 @@ impl CpuDetection {
         }
     }
 
-    pub fn next_eligible(&self) -> Option<Architecture> {
-        // TODO: move to pkgar
-        match self.eligible {
-            Architecture::X86_64 => Some(Architecture::X86_64v3),
-            Architecture::AArch64 => Some(Architecture::AArch64v8_2),
-            _ => None,
-        }
-    }
-
     fn has_all_requirements(extensions: &HashSet<String>, arch: Architecture) -> bool {
         Self::required_for(arch)
             .iter()

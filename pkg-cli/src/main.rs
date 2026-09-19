@@ -203,7 +203,7 @@ fn execute_command(
         Commands::CpuTest => {
             let d = cpu::CpuDetection::probe();
             eprintln!("Eligible cpu level: {:?}", d.eligible);
-            if let Some(n) = d.next_eligible() {
+            if let Some(n) = d.eligible.next_architecture() {
                 eprintln!(
                     "Next cpu level requirement for {:?}: {:?}",
                     n,
