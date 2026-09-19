@@ -327,6 +327,7 @@ impl Callback for PlainCallback {
     fn extract_start(&mut self, pkg_name: &RemotePackage, index_count: usize) {
         self.unknown_size = index_count == 0;
         self.size = index_count as u64;
+        self.pos = 0;
         let file = &pkg_name.package.name;
         eprint!("{RESET_LINE}{} {file}", self.extracting_str());
         self.file = Some(file.to_string());
