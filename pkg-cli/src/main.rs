@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use pkg::{
     backend::Error,
     callback::IndicatifCallback,
-    net_backend::{CurlBackend, DownloadBackend, ReqwestBackend},
+    net_backend::{CurlBackend, DownloadBackend, UreqBackend},
     Library, LibraryBuilder, PackageName, RepoManager,
 };
 use termion::{color, is_tty, style};
@@ -136,7 +136,7 @@ fn main() {
         let net_library = library.clone_with_net_backend(if args.curl {
             Box::new(CurlBackend::new().unwrap())
         } else {
-            Box::new(ReqwestBackend::new().unwrap())
+            Box::new(UreqBackend::new().unwrap())
         });
         match execute_command(args.clone(), net_library, target, color_support_stdout) {
             Ok(_) => break Ok(()),

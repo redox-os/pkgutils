@@ -29,10 +29,10 @@ toml = "0.8.2"
 [features]
 default = ["library"]
 indicatif = ["dep:indicatif"]
-library = ["pkgar", "pkgar-core", "reqwest"]
+library = ["pkgar", "pkgar-core", "ureq"]
 
-[dependencies.reqwest]
-version = "0.12"
+[dependencies.ureq]
+version = "3.4"
 default-features = false
-features = ["blocking", "rustls-tls"]
+features = ["rustls"]
 optional = true
