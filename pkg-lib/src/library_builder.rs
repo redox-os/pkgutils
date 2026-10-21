@@ -7,9 +7,8 @@ use std::{
 use crate::{
     backend::{pkgar_backend::PkgarBackend, Backend, Error},
     callback::{Callback, SilentCallback},
-    net_backend::DefaultNetBackend,
-    net_backend::{DownloadBackend, DownloadError},
-    RepoManager,
+    net_backend::{DefaultNetBackend, DownloadBackend, DownloadError},
+    PathIndex, RepoManager,
 };
 
 /// A struct to customize Library
@@ -61,11 +60,12 @@ impl LibraryBuilder {
     }
     pub fn build(
         self,
-        remotes_fn: impl Fn(&mut RepoManager) -> Result<(), Error>,
+        remotes_fn: impl Fn(&mut RepoManager, &PathIndex) -> Result<(), Error>,
     ) -> Result<Box<dyn Backend>, Error> {
+        let install_path = PathIndex::from_base_path(self.install_path);
         let mut repo_manager = RepoManager::new(self.callback, self.download_backend?);
-        remotes_fn(&mut repo_manager)?;
-        let mut backend = PkgarBackend::new(self.install_path, repo_manager)?;
+        remotes_fn(&mut repo_manager, &install_path)?;
+        let mut backend = PkgarBackend::new(install_path, repo_manager)?;
         if self.nocheck {
             backend.set_nocheck(self.nocheck);
         }
