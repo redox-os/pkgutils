@@ -8,11 +8,11 @@ use std::path::{Path, PathBuf};
 pub struct PathIndex {
     /// Absolute path to install
     pub base_dir: PathBuf,
-    /// Relative path to config dir: "etc" or $XDG_CONFIG_HOME/
+    /// Relative path to config dir: "etc" or "$XDG_CONFIG_HOME/"
     pub config_dir: PathBuf,
-    /// Relative path to parent of bin dir: "usr" or ".local/" ($XDG_BIN_HOME)
-    pub parent_bin_dir: PathBuf,
-    /// Relative path to data dir: "share" or  or ".local/share/" ($XDG_DATA_DIR)
+    /// Relative path to usr dir: "usr" or "~/.local/"
+    pub usr_dir: PathBuf,
+    /// Relative path to data dir: "share" or "~/.local/share/" ($XDG_DATA_DIR)
     pub share_dir: PathBuf,
     /// Absolute path to download: /tmp/pkg_download or $XDG_RUNTIME_DIR/pkg_download
     pub download_dir: PathBuf,
@@ -20,7 +20,7 @@ pub struct PathIndex {
     pub config_repos: PathBuf,
     /// Absolute path to config files: /etc/pkg or $XDG_CONFIG_HOME/pkg
     pub config_files: PathBuf,
-    /// Absolute path to package heads: /var/lib/packages or $XDG_STATE_HOME/packages
+    /// Absolute path to package heads: /var/lib/packages or "~/.local/state/packages" ($XDG_STATE_HOME)
     pub var_heads: PathBuf,
     /// Fast check if any of *_dir variables are mapped
     pub use_xdg: bool,
@@ -36,26 +36,36 @@ impl PathIndex {
         };
         #[cfg(not(feature = "library"))]
         let (home, use_xdg) = (None::<PathBuf>, false);
-        let (config, state, data, bin, runtime, use_xdg) = paths(use_xdg, home.as_deref());
+        Self::from_base_path_and_xdg(base_dir, home.as_deref(), use_xdg)
+    }
+    pub fn from_base_path_and_xdg(
+        base_dir: PathBuf,
+        home: Option<&Path>,
+        use_xdg: bool,
+    ) -> PathIndex {
+        let (config, state, data, runtime, use_xdg) = paths(use_xdg, home.clone());
         let download_dir = match &runtime {
             Some(r) => r.join("pkg_download"),
-            None => base_dir.join("/tmp/pkg_download"),
+            None => PathBuf::from("/tmp/pkg_download"),
         };
         let config_dir = match config {
             Some(r) => r,
+            None if use_xdg => PathBuf::from(".config"),
             None => PathBuf::from("etc"),
         };
         let share_dir = match data {
             Some(r) => r,
+            None if use_xdg => PathBuf::from(".local/share"),
             None => PathBuf::from("usr/share"),
         };
         let state_dir = match state {
             Some(r) => r,
+            None if use_xdg => PathBuf::from(".local/state"),
             None => PathBuf::from("var/lib"),
         };
-        let parent_bin_dir = match bin.as_ref().and_then(|r| r.parent()) {
-            Some(r) => r.to_path_buf(),
-            None => PathBuf::from("usr"),
+        let usr_dir = match use_xdg {
+            true => PathBuf::from(".local"),
+            false => PathBuf::from("usr"),
         };
         let config_repos = base_dir.join(&config_dir).join("pkg.d");
         let config_files = base_dir.join(&config_dir).join("pkg");
@@ -64,7 +74,7 @@ impl PathIndex {
         PathIndex {
             base_dir,
             config_dir,
-            parent_bin_dir,
+            usr_dir,
             share_dir,
             download_dir,
             config_repos,
@@ -90,10 +100,14 @@ impl PathIndex {
         }
 
         let mut mapping = None;
-        let paths: [(&[u8], &PathBuf); 3] = [
+        let paths: [(&[u8], &PathBuf); _] = [
             (b"etc/", &self.config_dir),
             (b"usr/share/", &self.share_dir),
-            (b"usr/", &self.parent_bin_dir),
+            (b"usr/bin/", &self.usr_dir.join("bin")),
+            (b"usr/games/", &self.usr_dir.join("games")),
+            (b"usr/include/", &self.usr_dir.join("include")),
+            (b"usr/lib/", &self.usr_dir.join("lib")),
+            (b"usr/libexec/", &self.usr_dir.join("libexec")),
         ];
         for (path, dir) in paths {
             if entry.path.starts_with(path) {
@@ -105,7 +119,11 @@ impl PathIndex {
         }
 
         let Some((prefix_len, mut base_dir)) = mapping else {
-            // invalid entry: TODO: warn?
+            // invalid entry, TODO: error out
+            println!(
+                "skipping entry due to invalid location: {}",
+                OsStr::from_bytes(entry.path_bytes()).display()
+            );
             return None;
         };
 
@@ -138,26 +156,18 @@ fn paths(
     Option<PathBuf>,
     Option<PathBuf>,
     Option<PathBuf>,
-    Option<PathBuf>,
     bool,
 ) {
     #[cfg(feature = "library")]
     if use_xdg {
         let make_relative = |path: Option<PathBuf>| -> Option<PathBuf> {
-            path.map(|p| {
-                if let Some(h) = home {
-                    p.strip_prefix(h).unwrap_or(&p).to_path_buf()
-                } else {
-                    p
-                }
-            })
+            path.and_then(|p| home.and_then(|h| p.strip_prefix(h).map(|s| s.to_path_buf()).ok()))
         };
         // based on dirs code, all except runtime dir is guaranteed to present if home is available.
         let config = make_relative(dirs::config_dir());
         let state = make_relative(dirs::state_dir());
         let data = make_relative(dirs::data_dir());
-        let bin = make_relative(dirs::executable_dir());
-        return (config, state, data, bin, dirs::runtime_dir(), true);
+        return (config, state, data, dirs::runtime_dir(), true);
     }
-    (None, None, None, None, None, false)
+    (None, None, None, None, false)
 }

@@ -14,6 +14,7 @@ use crate::{
 /// A struct to customize Library
 pub struct LibraryBuilder {
     install_path: PathBuf,
+    install_path_index: Option<PathIndex>,
     pub(crate) callback: Rc<RefCell<dyn Callback>>,
     download_backend: Result<Box<dyn DownloadBackend>, DownloadError>,
     nocheck: bool,
@@ -29,6 +30,7 @@ impl LibraryBuilder {
             };
         Self {
             install_path: install_path.as_ref().to_path_buf(),
+            install_path_index: None,
             callback: Rc::new(RefCell::new(callback)),
             download_backend,
             nocheck: false,
@@ -36,6 +38,11 @@ impl LibraryBuilder {
     }
     pub fn with_install_path<P: Into<PathBuf>>(mut self, install_path: P) -> Self {
         self.install_path = install_path.into();
+        self.install_path_index = None;
+        self
+    }
+    pub fn with_install_path_index(mut self, path_index: PathIndex) -> Self {
+        self.install_path_index = Some(path_index);
         self
     }
     pub fn with_callback(mut self, callback: Rc<RefCell<dyn Callback>>) -> Self {
@@ -53,6 +60,7 @@ impl LibraryBuilder {
     pub fn clone_with_net_backend(&self, backend: Box<dyn DownloadBackend>) -> Self {
         Self {
             install_path: self.install_path.clone(),
+            install_path_index: self.install_path_index.clone(),
             callback: self.callback.clone(),
             download_backend: Ok(backend),
             nocheck: self.nocheck,
@@ -62,7 +70,9 @@ impl LibraryBuilder {
         self,
         remotes_fn: impl Fn(&mut RepoManager, &PathIndex) -> Result<(), Error>,
     ) -> Result<Box<dyn Backend>, Error> {
-        let install_path = PathIndex::from_base_path(self.install_path);
+        let install_path = self
+            .install_path_index
+            .unwrap_or_else(|| PathIndex::from_base_path(self.install_path));
         let mut repo_manager = RepoManager::new(self.callback, self.download_backend?);
         remotes_fn(&mut repo_manager, &install_path)?;
         let mut backend = PkgarBackend::new(install_path, repo_manager)?;

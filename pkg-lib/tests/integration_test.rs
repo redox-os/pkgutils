@@ -6,7 +6,7 @@ use pkg::callback::IndicatifCallback;
 #[cfg(not(feature = "indicatif"))]
 use pkg::callback::PlainCallback;
 
-use pkg::{Library, PackageName, PackageState};
+use pkg::{Library, LibraryBuilder, PackageName, PackageState, PathIndex};
 
 #[test]
 fn test_pkg_install() -> Result<(), Box<dyn std::error::Error>> {
@@ -105,6 +105,56 @@ fn test_pkg_update() -> Result<(), Box<dyn std::error::Error>> {
     // should have one update
     library.update(vec![PackageName::new("ncurses")?])?;
     library.apply()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_pkg_xdg_install() -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs;
+
+    #[cfg(feature = "indicatif")]
+    let callback = IndicatifCallback::new();
+
+    #[cfg(not(feature = "indicatif"))]
+    let callback = PlainCallback::new();
+
+    let tmp_dir = std::env::current_dir()?.join("tests/staging_xdg_install");
+
+    // Simulate redox OS pkg library
+    if tmp_dir.exists() {
+        fs::remove_dir_all(&tmp_dir)?;
+    }
+    let pkg_d_dir = tmp_dir.join(".config/pkg.d");
+    fs::create_dir_all(&pkg_d_dir)?;
+    let source_file = pkg_d_dir.join("50_redox");
+    fs::write(&source_file, "https://static.redox-os.org/pkg")?;
+
+    fs::create_dir_all(&tmp_dir)?;
+
+    let mut builder = LibraryBuilder::new(tmp_dir.clone());
+    builder = builder.with_callback(Rc::new(RefCell::new(callback)));
+    builder = builder.with_install_path_index(PathIndex::from_base_path_and_xdg(
+        tmp_dir.clone(),
+        Some(&tmp_dir),
+        true,
+    ));
+    let mut library =
+        Library::new_with_builder(builder, |r, p| r.update_remotes("x86_64-unknown-redox", p))
+            .unwrap();
+
+    // ncurses has terminfo
+    let list = vec![PackageName::new("ncurses")?];
+    library.install(list)?;
+    library.apply()?;
+
+    assert_eq!(library.get_installed_packages().unwrap().len(), 2);
+
+    let list = vec![PackageName::new("ncurses")?];
+    library.uninstall(list)?;
+    library.apply()?;
+
+    assert_eq!(library.get_installed_packages().unwrap().len(), 0);
 
     Ok(())
 }
