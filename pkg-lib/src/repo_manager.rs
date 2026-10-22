@@ -381,7 +381,8 @@ impl RepoManager {
                     }
                     match self.download_inner(remote, file, len, dest) {
                         Ok(_) => return Ok(rname.into()),
-                        Err(DownloadError::HttpStatus(_)) => continue,
+                        Err(DownloadError::HttpStatus(404)) => continue,
+                        Err(DownloadError::HttpStatus(403)) => continue,
                         Err(e) => {
                             return Err(Error::Download(e));
                         }
