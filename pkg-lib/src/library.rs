@@ -2,7 +2,7 @@ use crate::backend::{Backend, Error};
 use crate::callback::Callback;
 use crate::package::{PackageInfo, PackageName, RemotePackage};
 use crate::repo_manager::RepoManager;
-use crate::{sorensen, LibraryBuilder, PackageState};
+use crate::{sorensen, LibraryBuilder, PackageState, PathIndex};
 use std::collections::{btree_map, BTreeMap};
 use std::{cell::RefCell, cmp::Ordering, path::Path, rc::Rc};
 
@@ -18,7 +18,7 @@ impl Library {
     /// Create from builder
     pub fn new_with_builder(
         builder: LibraryBuilder,
-        remotes_fn: impl Fn(&mut RepoManager) -> Result<(), Error>, // TODO: move to builder
+        remotes_fn: impl Fn(&mut RepoManager, &PathIndex) -> Result<(), Error>, // TODO: move to builder
     ) -> Result<Self, Error> {
         let callback = builder.callback.clone();
         let backend = builder.build(remotes_fn)?;
@@ -38,7 +38,7 @@ impl Library {
     ) -> Result<Self, Error> {
         let install_path = install_path.as_ref();
         let builder = LibraryBuilder::new(install_path).with_callback(callback);
-        Self::new_with_builder(builder, |r| r.update_remotes(target, install_path))
+        Self::new_with_builder(builder, |r, p| r.update_remotes(target, p))
     }
 
     /// Create local-based package library from provided local on install_path
@@ -50,7 +50,7 @@ impl Library {
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<Self, Error> {
         let builder = LibraryBuilder::new(install_path).with_callback(callback);
-        Self::new_with_builder(builder, |r| {
+        Self::new_with_builder(builder, |r, _| {
             r.add_local(
                 "local",
                 &source_dir.as_ref().to_string_lossy(),
@@ -68,7 +68,7 @@ impl Library {
         callback: Rc<RefCell<dyn Callback>>,
     ) -> Result<Self, Error> {
         let builder = LibraryBuilder::new(install_path).with_callback(callback);
-        Self::new_with_builder(builder, |r| {
+        Self::new_with_builder(builder, |r, _| {
             for remote_url in remote_urls {
                 r.add_remote(remote_url.trim(), target)?;
             }

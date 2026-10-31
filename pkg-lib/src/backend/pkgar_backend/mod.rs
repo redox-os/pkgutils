@@ -1,9 +1,4 @@
-use std::{
-    cell::RefCell,
-    fs,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{cell::RefCell, fs, path::Path, rc::Rc};
 
 use pkgar::{PackageFile, Transaction};
 use pkgar_core::PackageSrc;
@@ -15,14 +10,14 @@ use crate::{
     package::{RemotePackage, Repository},
     package_state::PackageState,
     repo_manager::RepoManager,
-    Package, PackageName, RemoteName, RemotePath, RepoPublicKeyFile,
+    Package, PackageName, PathIndex, RemoteName, RemotePath, RepoPublicKeyFile,
 };
 
 /// Package backend using pkgar
 pub struct PkgarBackend {
     /// Root path, usually "/"
-    install_path: PathBuf,
-    /// Things in "/etc/pkg/package.toml"
+    install_path: PathIndex,
+    /// Things in "/etc/pkg/packages.toml"
     packages: PackageState,
     /// Things in "/etc/pkg.d" and inet
     repo_manager: RepoManager,
@@ -34,17 +29,15 @@ pub struct PkgarBackend {
 }
 
 impl PkgarBackend {
-    pub fn new(install_path: PathBuf, repo_manager: RepoManager) -> Result<Self, Error> {
+    pub fn new(install_path: PathIndex, mut repo_manager: RepoManager) -> Result<Self, Error> {
         let packages = PackageState::from_sysroot(&install_path)?;
 
         // TODO: Use File::lock. This only checks permission
-        packages
-            .to_sysroot(&install_path)
-            .map_err(wrap_io_err!(&install_path, "Writing"))?;
+        packages.to_sysroot(&install_path)?;
 
-        let dir = install_path.join(crate::PACKAGES_HEAD_DIR);
-        fs::create_dir_all(&dir).map_err(wrap_io_err!(&dir, "Creating dir"))?;
-
+        fs::create_dir_all(&install_path.var_heads)
+            .map_err(wrap_io_err!(&install_path.var_heads, "Creating dir"))?;
+        repo_manager.set_download_path(install_path.download_dir.clone());
         let callback = repo_manager.callback.clone();
 
         Ok(PkgarBackend {
@@ -63,7 +56,7 @@ impl PkgarBackend {
     fn get_package_head(&self, package: &PackageName) -> Result<PackageFile, Error> {
         let path = self
             .install_path
-            .join(crate::PACKAGES_HEAD_DIR)
+            .var_heads
             .join(format!("{package}.pkgar_head"));
 
         let Some(pkg) = self.packages.installed.get(package) else {
@@ -81,7 +74,7 @@ impl PkgarBackend {
     fn remove_package_head(&mut self, package: &PackageName) -> Result<(), Error> {
         let path = self
             .install_path
-            .join(crate::PACKAGES_HEAD_DIR)
+            .var_heads
             .join(format!("{package}.pkgar_head"));
 
         fs::remove_file(&path).map_err(wrap_io_err!(&path, "Removing file"))?;
@@ -96,7 +89,7 @@ impl PkgarBackend {
         // creates a head file
         let head_path = self
             .install_path
-            .join(crate::PACKAGES_HEAD_DIR)
+            .var_heads
             .join(format!("{package}.pkgar_head"));
 
         package_file.split(&head_path, None::<&Path>)?;
@@ -134,10 +127,18 @@ impl PkgarBackend {
             .extract_start(package, entries.len());
         let mut last_entries;
         for entry in entries {
+            let Some(entry) = self.install_path.map_entry(entry) else {
+                continue;
+            };
             last_entries = self.commits.total_indexed();
             if let Err(e) = self
                 .commits
-                .install_one(pkg, &entry, &self.install_path, self.skip_local_check)
+                .install_one(
+                    pkg,
+                    &entry,
+                    &self.install_path.base_dir,
+                    self.skip_local_check,
+                )
                 .map_err(|e| Error::Pkgar(Box::new(e)))
             {
                 self.callback.borrow_mut().extract_end();
@@ -164,11 +165,19 @@ impl PkgarBackend {
                 .uncheck_start(package, entries.len());
         }
         let mut last_entries;
-        for entry in &entries {
+        for entry in entries {
+            let Some(entry) = self.install_path.map_entry(entry) else {
+                continue;
+            };
             last_entries = self.commits.total_indexed();
             if let Err(e) = self
                 .commits
-                .remove_one(Some(pkg), entry, &self.install_path, self.skip_local_check)
+                .remove_one(
+                    Some(pkg),
+                    &entry,
+                    &self.install_path.base_dir,
+                    self.skip_local_check,
+                )
                 .map_err(|e| Error::Pkgar(Box::new(e)))
             {
                 if show_progress {
@@ -297,9 +306,7 @@ impl Backend for PkgarBackend {
             let pk = RepoPublicKeyFile::new(pubkey);
             self.packages.pubkeys.insert(k.to_string(), pk);
         }
-        self.packages
-            .to_sysroot(&self.install_path)
-            .map_err(wrap_io_err!(&self.install_path, "Writing"))?;
+        self.packages.to_sysroot(&self.install_path)?;
         Ok(transaction.total_committed())
     }
 

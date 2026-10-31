@@ -1,12 +1,12 @@
 use crate::{
+    backend::{wrap_io_err, Error},
     package::{RemoteName, RemotePackage},
-    Package, PackageError, PackageName, RepoPublicKeyFile,
+    Package, PackageError, PackageName, PathIndex, RepoPublicKeyFile,
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
-    path::Path,
 };
 
 /// Contains current user packages state
@@ -66,8 +66,8 @@ pub struct PackageList {
 }
 
 impl PackageState {
-    pub fn from_sysroot<P: AsRef<Path>>(install_path: P) -> Result<Self, PackageError> {
-        let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
+    pub fn from_sysroot(install_path: &PathIndex) -> Result<Self, PackageError> {
+        let packages_path = install_path.packages_toml_path();
 
         match std::fs::read_to_string(&packages_path) {
             Ok(toml) => {
@@ -86,13 +86,14 @@ impl PackageState {
         toml::to_string(self).unwrap()
     }
 
-    pub fn to_sysroot<P: AsRef<Path>>(&self, install_path: P) -> Result<(), std::io::Error> {
-        let packages_path = install_path.as_ref().join(crate::PACKAGES_TOML_PATH);
-        let packages_dir = packages_path.parent().unwrap();
-        if !packages_dir.is_dir() {
-            std::fs::create_dir_all(packages_dir)?;
+    pub fn to_sysroot(&self, install_path: &PathIndex) -> Result<(), Error> {
+        let packages_path = install_path.packages_toml_path();
+        if !install_path.config_files.is_dir() {
+            std::fs::create_dir_all(&install_path.config_files)
+                .map_err(wrap_io_err!(&install_path.config_files, "Creating dir"))?;
         }
         std::fs::write(&packages_path, self.to_toml())
+            .map_err(wrap_io_err!(&packages_path, "Writing"))
     }
 
     // mutably add valid packages to the graph.

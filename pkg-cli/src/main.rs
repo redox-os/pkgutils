@@ -1,11 +1,11 @@
-use std::{cell::RefCell, io, process, rc::Rc};
+use std::{cell::RefCell, io, path::PathBuf, process, rc::Rc};
 
 use clap::{Parser, Subcommand};
 use pkg::{
     backend::Error,
     callback::IndicatifCallback,
     net_backend::{CurlBackend, DownloadBackend, UreqBackend},
-    Library, LibraryBuilder, PackageName, RepoManager,
+    Library, LibraryBuilder, PackageName, PathIndex, RepoManager,
 };
 use termion::{color, is_tty, style};
 mod cpu;
@@ -28,6 +28,9 @@ struct Cli {
     /// Do not try to preserve locally changed files
     #[arg(long, global = true)]
     nocheck: bool,
+    /// Install to home dir, experimental
+    #[arg(long, global = true)]
+    user: bool,
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -115,9 +118,17 @@ fn main() {
     let mut callback = IndicatifCallback::new();
 
     let (install_path, target) = if cfg!(target_os = "redox") {
-        ("/", env!("TARGET"))
+        (
+            if args.user {
+                PathIndex::current_home_dir()
+            } else {
+                PathBuf::from("/")
+            },
+            env!("TARGET"),
+        )
     } else {
-        ("/tmp/pkg_install", "x86_64-unknown-redox")
+        // for demonstration only
+        (PathBuf::from("/tmp/pkg_install"), "x86_64-unknown-redox")
     };
     let color_support_stdout = is_tty(&io::stdout());
     let color_support_stderr = is_tty(&io::stderr());
@@ -192,7 +203,6 @@ fn execute_command(
     color_support: bool,
 ) -> Result<(), Error> {
     let mut needs_apply = false;
-    let install_path = library.install_path();
     match cli.command {
         Commands::Test => {
             let mut r: RepoManager = library.try_into()?;
@@ -214,8 +224,7 @@ fn execute_command(
         }
         _ => {}
     }
-    let mut library =
-        Library::new_with_builder(library, |r| r.update_remotes(target, &install_path))?;
+    let mut library = Library::new_with_builder(library, |r, p| r.update_remotes(target, p))?;
     let library = &mut library;
     match cli.command {
         Commands::Install { packages, all } => {

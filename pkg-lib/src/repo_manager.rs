@@ -11,8 +11,8 @@ use crate::callback::Callback;
 use crate::net_backend::DownloadError;
 use crate::net_backend::{DownloadBackend, DownloadBackendWriter};
 use crate::package::RemoteName;
+use crate::PathIndex;
 use crate::{backend::Error, package::PackageError, PackageName};
-use crate::{DOWNLOAD_DIR, PACKAGES_REMOTE_DIR};
 use serde_derive::{Deserialize, Serialize};
 /// Remote package management
 pub struct RepoManager {
@@ -111,7 +111,7 @@ impl RepoManager {
         Self {
             remotes: Vec::new(),
             locals: Vec::new(),
-            download_path: DOWNLOAD_DIR.into(),
+            download_path: PathBuf::from("/tmp/pkg_download"),
             download_backend: Rc::new(download_backend),
             callback,
             remote_map: BTreeMap::new(),
@@ -129,17 +129,17 @@ impl RepoManager {
     }
 
     /// read [install_path]/etc/pkg.d with specified target. Will reset existing remotes / locals list.
-    pub fn update_remotes(&mut self, target: &str, install_path: &Path) -> Result<(), Error> {
+    pub fn update_remotes(&mut self, target: &str, install_path: &PathIndex) -> Result<(), Error> {
         self.remotes = Vec::new();
         self.locals = Vec::new();
         self.remote_map = BTreeMap::new();
 
-        let repos_path = install_path.join(PACKAGES_REMOTE_DIR);
+        let repos_path = &install_path.config_repos;
         let mut repo_files = Vec::new();
         for entry_res in
-            fs::read_dir(&repos_path).map_err(wrap_io_err!(&repos_path, "Reading dir"))?
+            fs::read_dir(repos_path).map_err(wrap_io_err!(repos_path, "Reading dir"))?
         {
-            let entry = entry_res.map_err(wrap_io_err!(&repos_path, "Reading dir item"))?;
+            let entry = entry_res.map_err(wrap_io_err!(repos_path, "Reading dir item"))?;
             let path = entry.path();
             if path.is_file() {
                 repo_files.push(path);
@@ -156,8 +156,18 @@ impl RepoManager {
             }
         }
         // optional local path
-        let local_pub_path = install_path.join("pkg");
-        let _ = self.add_local("installer_key", "", target, &local_pub_path);
+        if self
+            .add_local(
+                "installer_key",
+                "",
+                target,
+                &install_path.base_dir.join("pkg"),
+            )
+            .is_err()
+        {
+            // newer path
+            let _ = self.add_local("installer_key", "", target, &install_path.config_files);
+        };
         Ok(())
     }
 
@@ -371,7 +381,8 @@ impl RepoManager {
                     }
                     match self.download_inner(remote, file, len, dest) {
                         Ok(_) => return Ok(rname.into()),
-                        Err(DownloadError::HttpStatus(_)) => continue,
+                        Err(DownloadError::HttpStatus(404)) => continue,
+                        Err(DownloadError::HttpStatus(403)) => continue,
                         Err(e) => {
                             return Err(Error::Download(e));
                         }
