@@ -30,7 +30,14 @@ pub struct PkgarBackend {
 
 impl PkgarBackend {
     pub fn new(install_path: PathIndex, mut repo_manager: RepoManager) -> Result<Self, Error> {
-        let packages = PackageState::from_sysroot(&install_path)?;
+        let mut packages = PackageState::from_sysroot(&install_path)?;
+
+        if let Some(target) = repo_manager.machine_target.as_ref()
+            && packages.machine_target.is_empty()
+        {
+            // TODO: CPU feature eligibility
+            packages.machine_target = target.to_string()
+        }
 
         // TODO: Use File::lock. This only checks permission
         packages.to_sysroot(&install_path)?;

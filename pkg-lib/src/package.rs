@@ -451,7 +451,7 @@ impl PackageError {
     /// the recursion limit to be reached. This functions conditionally pushes a package
     /// name if the error is a recursion error to make it easier to build the stack.
     pub fn append_recursion(&mut self, name: &PackageName) {
-        if let PackageError::Recursion(ref mut packages) = self {
+        if let PackageError::Recursion(packages) = self {
             packages.push_front(name.clone());
         }
     }

@@ -25,6 +25,8 @@ pub struct RepoManager {
     pub download_path: PathBuf,
     pub download_backend: Rc<Box<dyn DownloadBackend>>,
 
+    /// machine target hint
+    pub machine_target: Option<String>,
     pub callback: Rc<RefCell<dyn Callback>>,
 }
 
@@ -47,6 +49,7 @@ impl Clone for RepoManager {
             remote_map: self.remote_map.clone(),
             download_path: self.download_path.clone(),
             download_backend: self.download_backend.clone(),
+            machine_target: self.machine_target.clone(),
             callback: self.callback.clone(),
         }
     }
@@ -114,6 +117,7 @@ impl RepoManager {
             download_path: PathBuf::from("/tmp/pkg_download"),
             download_backend: Rc::new(download_backend),
             callback,
+            machine_target: None,
             remote_map: BTreeMap::new(),
         }
     }
@@ -200,6 +204,9 @@ impl RepoManager {
             .is_none()
         {
             self.remotes.push(host);
+            if self.machine_target.is_none() {
+                self.machine_target = Some(target.to_string());
+            }
         };
 
         Ok(())
@@ -243,6 +250,9 @@ impl RepoManager {
             .is_none()
         {
             self.locals.push(host.into());
+            if self.machine_target.is_none() {
+                self.machine_target = Some(target.to_string());
+            }
         };
         Ok(())
     }
