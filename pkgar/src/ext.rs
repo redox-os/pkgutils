@@ -129,16 +129,17 @@ pub(crate) fn copy_and_hash<R: Read, W: Write>(
     Ok((written, hasher.finalize()))
 }
 
-/// Create a diff between two entries, returns (entries_to_install, entries_to_remove, skipped_entries_count)
+/// Create a diff between two entries, returns (entries_to_install, entries_to_update(old, new), entries_to_remove, skipped_entries_count)
 pub(crate) fn diff_package(
     old_entries: &[Entry],
     new_entries: &[Entry],
-) -> Result<(Vec<Entry>, Vec<Entry>, usize), Error> {
+) -> Result<(Vec<Entry>, Vec<(Entry, Entry)>, Vec<Entry>, usize), Error> {
     let mut old_map = BTreeMap::new();
     for entry in old_entries {
         old_map.insert(entry.check_path()?.to_path_buf(), entry);
     }
     let mut entries_to_install = Vec::new();
+    let mut entries_to_update = Vec::new();
     let mut skipped_entries_count = 0;
     for entry in new_entries {
         let path = entry.check_path()?;
@@ -148,7 +149,10 @@ pub(crate) fn diff_package(
             Some(old_hash) if old_hash.blake3() == entry.blake3() => {
                 skipped_entries_count += 1;
             }
-            _ => {
+            Some(old) => {
+                entries_to_update.push((**old, *entry));
+            }
+            None => {
                 entries_to_install.push(*entry);
             }
         }
@@ -157,7 +161,12 @@ pub(crate) fn diff_package(
     for old_e in old_map.into_values() {
         entries_to_remove.push(*old_e);
     }
-    Ok((entries_to_install, entries_to_remove, skipped_entries_count))
+    Ok((
+        entries_to_install,
+        entries_to_update,
+        entries_to_remove,
+        skipped_entries_count,
+    ))
 }
 
 /// Implements reader based on data flags
