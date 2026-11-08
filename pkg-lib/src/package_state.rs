@@ -1,7 +1,7 @@
 use crate::{
-    backend::{wrap_io_err, Error},
-    package::{RemoteName, RemotePackage},
     Package, PackageError, PackageName, PathIndex, RepoPublicKeyFile,
+    backend::{Error, wrap_io_err},
+    package::{RemoteName, RemotePackage},
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{
@@ -15,6 +15,8 @@ use std::{
 pub struct PackageState {
     /// list of can't be accidentally uninstalled packages
     pub protected: BTreeSet<PackageName>,
+    /// machine target hint for offline machine install
+    pub machine_target: String,
     /// installed public keys per remote name.
     /// using pkgar_keys as a wrapper of dryoc public key.
     pub pubkeys: BTreeMap<RemoteName, RepoPublicKeyFile>,
@@ -341,6 +343,7 @@ impl Default for PackageState {
             ]
             .into_iter()
             .collect(),
+            machine_target: Default::default(),
             pubkeys: Default::default(),
             installed: Default::default(),
         }
@@ -387,6 +390,7 @@ mod tests {
     fn mock_empty_db() -> PackageState {
         PackageState {
             protected: BTreeSet::new(),
+            machine_target: String::new(),
             pubkeys: BTreeMap::new(),
             installed: BTreeMap::new(),
         }

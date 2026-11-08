@@ -2,8 +2,8 @@ use crate::backend::{Backend, Error};
 use crate::callback::Callback;
 use crate::package::{PackageInfo, PackageName, RemotePackage};
 use crate::repo_manager::RepoManager;
-use crate::{sorensen, LibraryBuilder, PackageState, PathIndex};
-use std::collections::{btree_map, BTreeMap};
+use crate::{LibraryBuilder, PackageState, PathIndex, sorensen};
+use std::collections::{BTreeMap, btree_map};
 use std::{cell::RefCell, cmp::Ordering, path::Path, rc::Rc};
 
 pub struct Library {
@@ -225,7 +225,9 @@ impl Library {
             // TODO: Allow self-trusting the package?
             let r = self.backend.uninstall(package.clone());
             if let Err(Error::RepoCacheNotFound(e)) = &r {
-                eprintln!("Repository source of {e} is not valid, please reinstall repository public keys to allow erasing, or reinstall the package.");
+                eprintln!(
+                    "Repository source of {e} is not valid, please reinstall repository public keys to allow erasing, or reinstall the package."
+                );
             }
             r?
         }
