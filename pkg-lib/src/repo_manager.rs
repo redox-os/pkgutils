@@ -156,18 +156,7 @@ impl RepoManager {
             }
         }
         // optional local path
-        if self
-            .add_local(
-                "installer_key",
-                "",
-                target,
-                &install_path.base_dir.join("pkg"),
-            )
-            .is_err()
-        {
-            // newer path
-            let _ = self.add_local("installer_key", "", target, &install_path.config_files);
-        };
+        let _ = self.add_local("local", "", target, &install_path.config_files);
         Ok(())
     }
 
