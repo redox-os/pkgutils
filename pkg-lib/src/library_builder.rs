@@ -5,10 +5,10 @@ use std::{
 };
 
 use crate::{
-    backend::{pkgar_backend::PkgarBackend, Backend, Error},
+    PathIndex, RepoManager,
+    backend::{Backend, Error, pkgar_backend::PkgarBackend},
     callback::{Callback, SilentCallback},
     net_backend::{DefaultNetBackend, DownloadBackend, DownloadError},
-    PathIndex, RepoManager,
 };
 
 /// A struct to customize Library

@@ -6,13 +6,13 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
+use crate::PathIndex;
 use crate::backend::wrap_io_err;
 use crate::callback::Callback;
 use crate::net_backend::DownloadError;
 use crate::net_backend::{DownloadBackend, DownloadBackendWriter};
 use crate::package::RemoteName;
-use crate::PathIndex;
-use crate::{backend::Error, package::PackageError, PackageName};
+use crate::{PackageName, backend::Error, package::PackageError};
 use serde_derive::{Deserialize, Serialize};
 /// Remote package management
 pub struct RepoManager {
@@ -25,6 +25,8 @@ pub struct RepoManager {
     pub download_path: PathBuf,
     pub download_backend: Rc<Box<dyn DownloadBackend>>,
 
+    /// machine target hint
+    pub machine_target: Option<String>,
     pub callback: Rc<RefCell<dyn Callback>>,
 }
 
@@ -47,6 +49,7 @@ impl Clone for RepoManager {
             remote_map: self.remote_map.clone(),
             download_path: self.download_path.clone(),
             download_backend: self.download_backend.clone(),
+            machine_target: self.machine_target.clone(),
             callback: self.callback.clone(),
         }
     }
@@ -114,6 +117,7 @@ impl RepoManager {
             download_path: PathBuf::from("/tmp/pkg_download"),
             download_backend: Rc::new(download_backend),
             callback,
+            machine_target: None,
             remote_map: BTreeMap::new(),
         }
     }
@@ -189,6 +193,9 @@ impl RepoManager {
             .is_none()
         {
             self.remotes.push(host);
+            if self.machine_target.is_none() {
+                self.machine_target = Some(target.to_string());
+            }
         };
 
         Ok(())
@@ -232,6 +239,9 @@ impl RepoManager {
             .is_none()
         {
             self.locals.push(host.into());
+            if self.machine_target.is_none() {
+                self.machine_target = Some(target.to_string());
+            }
         };
         Ok(())
     }

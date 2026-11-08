@@ -4,9 +4,9 @@ pub mod pkgar_backend;
 use std::{io, path::PathBuf};
 use thiserror::Error;
 
-use crate::{net_backend::DownloadError, package::PackageError, PackageName};
+use crate::{PackageName, net_backend::DownloadError, package::PackageError};
 #[cfg(feature = "library")]
-use crate::{package::RemotePackage, PackageState, RemoteName, RemotePath, Repository};
+use crate::{PackageState, RemoteName, RemotePath, Repository, package::RemotePackage};
 
 // todo: make this better
 #[derive(Error, Debug)]

@@ -1,11 +1,17 @@
-use std::{cell::RefCell, io, path::PathBuf, process, rc::Rc};
+use std::{
+    cell::RefCell,
+    io,
+    path::{Path, PathBuf},
+    process,
+    rc::Rc,
+};
 
 use clap::{Parser, Subcommand};
 use pkg::{
+    Library, LibraryBuilder, PackageName, PackageState, PathIndex, RepoManager,
     backend::Error,
     callback::IndicatifCallback,
     net_backend::{CurlBackend, DownloadBackend, UreqBackend},
-    Library, LibraryBuilder, PackageName, PathIndex, RepoManager,
 };
 use termion::{color, is_tty, style};
 mod cpu;
@@ -124,11 +130,39 @@ fn main() {
             } else {
                 PathBuf::from("/")
             },
-            env!("TARGET"),
+            env!("TARGET").to_string(),
         )
     } else {
-        // for demonstration only
-        (PathBuf::from("/tmp/pkg_install"), "x86_64-unknown-redox")
+        // Check if PWD is a redox sysroot
+        let path_index = std::env::current_dir()
+            .ok()
+            .map(|s| PathIndex::from_base_path(s));
+        if let Some(target) = path_index.as_ref().and_then(|s| {
+            PackageState::from_sysroot(&s)
+                .ok()
+                .map(|s| s.machine_target)
+                .filter(|s| !s.is_empty())
+        }) {
+            (std::env::current_dir().unwrap(), target)
+        } else {
+            eprintln!(
+                "WARN: Installing to /tmp/pkg_install because current directory is not Redox OS sysroot"
+            );
+            if !Path::new("/tmp/pkg_install/etc/pkg.d").is_dir() {
+                eprintln!("ERROR: sysroot missing, to initate sysroot run:");
+                eprintln!("  mkdir -p /tmp/pkg_install/etc/pkg.d");
+                eprintln!(
+                    "  echo 'https://static.redox-os.org/pkg' > /tmp/pkg_install/etc/pkg.d/50_redox"
+                );
+                eprintln!(
+                    "Then move /tmp/pkg_install to intended location after installation completed"
+                );
+            }
+            (
+                PathBuf::from("/tmp/pkg_install"),
+                "x86_64-unknown-redox".to_string(),
+            )
+        }
     };
     let color_support_stdout = is_tty(&io::stdout());
     let color_support_stderr = is_tty(&io::stderr());
@@ -149,7 +183,7 @@ fn main() {
         } else {
             Box::new(UreqBackend::new().unwrap())
         });
-        match execute_command(args.clone(), net_library, target, color_support_stdout) {
+        match execute_command(args.clone(), net_library, &target, color_support_stdout) {
             Ok(_) => break Ok(()),
             e @ Err(Error::MissingPermissions) => break e,
             Err(err @ Error::Download(_)) if !args.curl => {
