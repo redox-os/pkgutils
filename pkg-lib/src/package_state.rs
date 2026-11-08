@@ -1,7 +1,7 @@
 use crate::{
-    backend::{wrap_io_err, Error},
-    package::{RemoteName, RemotePackage},
     Package, PackageError, PackageName, PathIndex, RepoPublicKeyFile,
+    backend::{Error, wrap_io_err},
+    package::{RemoteName, RemotePackage},
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{

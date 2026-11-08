@@ -6,13 +6,13 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{fs, path::PathBuf};
 
+use crate::PathIndex;
 use crate::backend::wrap_io_err;
 use crate::callback::Callback;
 use crate::net_backend::DownloadError;
 use crate::net_backend::{DownloadBackend, DownloadBackendWriter};
 use crate::package::RemoteName;
-use crate::PathIndex;
-use crate::{backend::Error, package::PackageError, PackageName};
+use crate::{PackageName, backend::Error, package::PackageError};
 use serde_derive::{Deserialize, Serialize};
 /// Remote package management
 pub struct RepoManager {

@@ -2,10 +2,10 @@ use std::{cell::RefCell, io, path::PathBuf, process, rc::Rc};
 
 use clap::{Parser, Subcommand};
 use pkg::{
+    Library, LibraryBuilder, PackageName, PathIndex, RepoManager,
     backend::Error,
     callback::IndicatifCallback,
     net_backend::{CurlBackend, DownloadBackend, UreqBackend},
-    Library, LibraryBuilder, PackageName, PathIndex, RepoManager,
 };
 use termion::{color, is_tty, style};
 mod cpu;

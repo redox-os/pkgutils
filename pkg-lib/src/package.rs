@@ -462,8 +462,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::{
-        package::{Repository, SourceIdentifier},
         PackageError,
+        package::{Repository, SourceIdentifier},
     };
 
     use super::{Package, PackageName};

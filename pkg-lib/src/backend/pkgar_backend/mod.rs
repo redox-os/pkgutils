@@ -5,12 +5,12 @@ use pkgar_core::PackageSrc;
 
 use super::{Backend, Error};
 use crate::{
+    Package, PackageName, PathIndex, RemoteName, RemotePath, RepoPublicKeyFile,
     backend::wrap_io_err,
     callback::Callback,
     package::{RemotePackage, Repository},
     package_state::PackageState,
     repo_manager::RepoManager,
-    Package, PackageName, PathIndex, RemoteName, RemotePath, RepoPublicKeyFile,
 };
 
 /// Package backend using pkgar

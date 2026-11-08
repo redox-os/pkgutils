@@ -14,7 +14,7 @@ description = "Redox Packaging Utilities"
 license = "MIT"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
 repository = "https://gitlab.redox-os.org/redox-os/pkgutils"
-edition = "2021"
+edition = "2024"
 
 [patch.crates-io]
 # https://github.com/briansmith/ring/issues/1999

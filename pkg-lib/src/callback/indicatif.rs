@@ -2,7 +2,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::callback::{Callback, PlainCallback};
 #[cfg(feature = "library")]
-use crate::{backend::Error, package::RemotePackage, PackageList};
+use crate::{PackageList, backend::Error, package::RemotePackage};
 
 #[derive(Clone)]
 pub struct IndicatifCallback {

@@ -5,7 +5,7 @@ pub use self::indicatif::IndicatifCallback;
 pub use self::plain::PlainCallback;
 pub use self::silent::SilentCallback;
 #[cfg(feature = "library")]
-use crate::{backend::Error, package::RemotePackage, PackageList};
+use crate::{PackageList, backend::Error, package::RemotePackage};
 #[cfg(feature = "indicatif")]
 mod indicatif;
 mod plain;
