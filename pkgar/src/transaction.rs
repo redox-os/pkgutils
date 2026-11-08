@@ -253,10 +253,14 @@ impl Transaction {
         PkgOld: PackageSrc<Err = Error> + PackageSrcExt<R1>,
         PkgNew: PackageSrc<Err = Error> + PackageSrcExt<R2>,
     {
-        let (entries_to_install, entries_to_remove) =
+        let (entries_to_install, entries_to_update, entries_to_remove) =
             self.replace_diff(old_entries, new_entries)?;
 
         self.install_with_entries(new, &entries_to_install, &base_dir, skip_local_check)?;
+
+        for (old_entry, new_entry) in entries_to_update {
+            self.replace_one(new, &old_entry, &new_entry, &base_dir, true)?;
+        }
 
         self.remove_with_entries(old, &entries_to_remove, &base_dir, skip_local_check)?;
 
@@ -269,14 +273,83 @@ impl Transaction {
         &mut self,
         old_entries: &[Entry],
         new_entries: &[Entry],
-    ) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
-        let (entries_to_install, entries_to_remove, skipped_entries) =
+    ) -> Result<(Vec<Entry>, Vec<(Entry, Entry)>, Vec<Entry>), Error> {
+        let (entries_to_install, entries_to_update, entries_to_remove, skipped_entries) =
             diff_package(old_entries, new_entries)?;
 
         // neither added nor removed, so count as two
         self.indexed += 2 * skipped_entries;
 
-        Ok((entries_to_install, entries_to_remove))
+        Ok((entries_to_install, entries_to_update, entries_to_remove))
+    }
+
+    /// Create a new action to install an [`Entry`] to `base_dir` with check against old entry.
+    /// The entry path against two entry must be identical, otherwise don't use this function.
+    ///
+    /// Setting `skip_local_check` to `true` is equivalent to install_one with the same option.
+    pub fn replace_one<Pkg, R>(
+        &mut self,
+        src: &mut Pkg,
+        old_entry: &Entry,
+        new_entry: &Entry,
+        base_dir: impl AsRef<Path>,
+        skip_local_check: bool,
+    ) -> Result<(), Error>
+    where
+        R: io::Read + io::Seek,
+        Pkg: PackageSrc<Err = Error> + PackageSrcExt<R>,
+    {
+        let relative_path = old_entry.check_path()?;
+        let target_path = base_dir.as_ref().join(relative_path);
+        self.indexed += 1;
+
+        // Generally user don't care if this not exist, even without `skip_local_check`
+        let mode = match fs::symlink_metadata(&target_path) {
+            Ok(file) => file,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(wrap_io_err!(
+                    target_path.clone(),
+                    "Opening file metadata for removal"
+                )(e));
+            }
+        };
+
+        if skip_local_check {
+            self.install_one(src, new_entry, base_dir, true)?;
+            return Ok(());
+        }
+
+        let (_, entry_data_hash) = match (mode.is_file(), mode.is_symlink()) {
+            (true, false) => {
+                let mut existing = File::open(&target_path)
+                    .map_err(wrap_io_err!(&target_path, "Opening file for removal"))?;
+
+                self.copy_and_hash(&mut existing, &mut io::sink())?
+            }
+            (_, true) => {
+                let existing = fs::read_link(&target_path)
+                    .map_err(wrap_io_err!(&target_path, "Opening symlink for removal"))?;
+                let mut data_reader = existing.as_os_str().as_bytes();
+                self.copy_and_hash(&mut data_reader, &mut io::sink())?
+            }
+            _ => {
+                return Err(Error::from(pkgar_core::Error::InvalidMode(mode.mode())));
+            }
+        };
+
+        if entry_data_hash == old_entry.blake3() {
+            self.install_one(src, new_entry, base_dir, true)?;
+        } else {
+            self.report_ignored(
+                relative_path,
+                Some(src.path().to_string()),
+                TransactionIgnoredReason::Modified,
+            );
+        }
+        Ok(())
     }
 
     /// Prepare transactions to remove files from a pkgar file.  Does not remove files with different hash
