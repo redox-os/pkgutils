@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use blake3::Hash;
 use pkgar_core::{Entry, Mode, PackageSrc};
 
-use crate::ext::{EntryExt, PackageSrcExt, copy_and_hash, diff_package};
+use crate::ext::{EntryExt, PackageSrcExt, copy_and_hash, copy_and_hash2, diff_package};
 use crate::{Error, READ_WRITE_HASH_BUF_SIZE, wrap_io_err};
 
 /// Determine the temporary path for a file, and create its parent directories.
@@ -90,9 +90,10 @@ pub struct Transaction {
     possible_conflicts: Vec<TransactionConflict>,
     ignored_entries: Vec<TransactionIgnored>,
     // this is here to avoid allocating too often
-    buf: Vec<u8>,
+    buf: Box<[u8]>,
     indexed: usize,
     committed: usize,
+    callback: Option<Box<dyn FnMut(u64, u64)>>,
 }
 
 impl Default for Transaction {
@@ -111,8 +112,14 @@ impl Transaction {
             ignored_entries: Vec::new(),
             committed: 0,
             indexed: 0,
-            buf: vec![0; READ_WRITE_HASH_BUF_SIZE],
+            buf: vec![0; READ_WRITE_HASH_BUF_SIZE].into_boxed_slice(),
+            callback: None,
         }
+    }
+
+    /// Set a callback for in-file progress, the callback args is (progress, total) in bytes of each entry.
+    pub fn set_callback<F: FnMut(u64, u64) + 'static>(&mut self, cb: F) {
+        self.callback = Some(Box::new(cb));
     }
 
     /// Creates new transactions to install from a pkgar file. Overwrites any existing file.
@@ -179,6 +186,7 @@ impl Transaction {
         let tmp_path = temp_path(&target_path, entry.blake3())?;
         let mode = entry.mode().map_err(Error::from)?;
         let mut data_reader = src.data_reader(entry)?;
+        let data_size = Some(data_reader.data_size);
         let (entry_data_size, entry_data_hash) = match mode.kind() {
             Mode::FILE => {
                 let mut tmp_file = fs::OpenOptions::new()
@@ -188,11 +196,11 @@ impl Transaction {
                     .open(&tmp_path)
                     .map_err(wrap_io_err!(tmp_path, "Opening tempfile"))?;
 
-                self.copy_and_hash(&mut data_reader, &mut tmp_file)?
+                self.copy_and_hash(&mut data_reader, &mut tmp_file, data_size)?
             }
             Mode::SYMLINK => {
                 let mut data = Vec::new();
-                let (size, hash) = self.copy_and_hash(&mut data_reader, &mut data)?;
+                let (size, hash) = self.copy_and_hash(&mut data_reader, &mut data, data_size)?;
                 let sym_target = Path::new(OsStr::from_bytes(&data));
                 symlink(sym_target, &tmp_path)
                     .map_err(wrap_io_err!(tmp_path, "Symlinking to tmp"))?;
@@ -327,13 +335,13 @@ impl Transaction {
                 let mut existing = File::open(&target_path)
                     .map_err(wrap_io_err!(&target_path, "Opening file for removal"))?;
 
-                self.copy_and_hash(&mut existing, &mut io::sink())?
+                self.copy_and_hash(&mut existing, &mut io::sink(), None)?
             }
             (_, true) => {
                 let existing = fs::read_link(&target_path)
                     .map_err(wrap_io_err!(&target_path, "Opening symlink for removal"))?;
                 let mut data_reader = existing.as_os_str().as_bytes();
-                self.copy_and_hash(&mut data_reader, &mut io::sink())?
+                self.copy_and_hash(&mut data_reader, &mut io::sink(), None)?
             }
             _ => {
                 return Err(Error::from(pkgar_core::Error::InvalidMode(mode.mode())));
@@ -433,13 +441,13 @@ impl Transaction {
                 let mut existing = File::open(&target_path)
                     .map_err(wrap_io_err!(&target_path, "Opening file for removal"))?;
 
-                self.copy_and_hash(&mut existing, &mut io::sink())?
+                self.copy_and_hash(&mut existing, &mut io::sink(), None)?
             }
             (_, true) => {
                 let existing = fs::read_link(&target_path)
                     .map_err(wrap_io_err!(&target_path, "Opening symlink for removal"))?;
                 let mut data_reader = existing.as_os_str().as_bytes();
-                self.copy_and_hash(&mut data_reader, &mut io::sink())?
+                self.copy_and_hash(&mut data_reader, &mut io::sink(), None)?
             }
             _ => {
                 return Err(Error::from(pkgar_core::Error::InvalidMode(mode.mode())));
@@ -518,8 +526,26 @@ impl Transaction {
         &mut self,
         read: &mut R,
         write: &mut W,
+        total_size: Option<u64>,
     ) -> Result<(u64, Hash), Error> {
-        copy_and_hash(read, write, &mut self.buf).map_err(wrap_io_err!("Copying and hashing file"))
+        let mut cb = self.callback.take();
+
+        let res = if let (Some(callback_fn), Some(total_size)) = (cb.as_mut(), total_size) {
+            copy_and_hash2(
+                read,
+                write,
+                &mut self.buf,
+                Some(&mut |bytes| {
+                    callback_fn(bytes, total_size);
+                }),
+            )
+        } else {
+            copy_and_hash(read, write, &mut self.buf)
+        };
+
+        self.callback = cb;
+
+        res.map_err(wrap_io_err!("Copying and hashing file"))
     }
 
     /// Apply all pending actions from end to start.
