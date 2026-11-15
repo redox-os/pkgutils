@@ -106,13 +106,23 @@ where
     }
 }
 
-/// Copy the contents of `read` into `write` by streaming through buf.
-/// The basic function of this function is analogous to io::copy, except it
-/// outputs the blake3 hash of the data streamed, and also does not allocate.
+/// Same as [`copy_and_hash2`] without callback.
 pub(crate) fn copy_and_hash<R: Read, W: Write>(
     read: &mut R,
     write: &mut W,
     buf: &mut [u8],
+) -> Result<(u64, Hash), io::Error> {
+    copy_and_hash2(read, write, buf, None::<fn(u64)>)
+}
+
+/// Copy the contents of `read` into `write` by streaming through buf.
+/// The basic function of this function is analogous to io::copy, except it
+/// outputs the blake3 hash of the data streamed, and also does not allocate.
+pub(crate) fn copy_and_hash2<R: Read, W: Write, F: FnMut(u64)>(
+    read: &mut R,
+    write: &mut W,
+    buf: &mut [u8],
+    mut callback: Option<F>,
 ) -> Result<(u64, Hash), io::Error> {
     let mut hasher = Hasher::new();
     let mut written = 0;
@@ -125,7 +135,11 @@ pub(crate) fn copy_and_hash<R: Read, W: Write>(
         hasher.update_rayon(&buf[..count]);
 
         write.write_all(&buf[..count])?;
+        if let Some(cb) = callback.as_mut() {
+            cb(written);
+        }
     }
+
     Ok((written, hasher.finalize()))
 }
 
