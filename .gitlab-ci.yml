@@ -26,3 +26,15 @@ cargo-test:
   stage: test
   script:
     - cargo test --release -p redox-pkg --features indicatif --locked  -- --nocapture --test-threads=1
+
+sh-test:
+  image: "rust:latest"
+  stage: test
+  script:
+    - cargo build --locked
+    - cargo build --locked --features=cli
+    - cargo build --locked --features=repo
+    - cargo test --locked --all-features
+    - ./test.sh
+    - ./test.sh -c
+    - ./test.sh -r

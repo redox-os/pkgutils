@@ -1,0 +1,14 @@
+[package]
+name = "pkgar-core"
+version.workspace = true
+description = "Core Data Types for the Redox Package Archive"
+license = "MIT"
+authors = ["Jeremy Soller <jackpot51@gmail.com>", "Wesley Hershberger <mggmugginsmc@gmail.com>"]
+repository = "https://gitlab.redox-os.org/redox-os/pkgar"
+edition.workspace = true
+
+[dependencies]
+bitflags = "2"
+blake3 = { version = "1.8", default-features = false, features = ["rayon"] }
+bytemuck = { version = "1", features = ["derive", "extern_crate_std"] }
+dryoc = { version = "1", default-features = false }

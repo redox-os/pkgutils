@@ -1,0 +1,37 @@
+[package]
+name = "pkgar"
+version.workspace = true
+description = "Redox Package Archive"
+license = "MIT"
+authors = ["Jeremy Soller <jackpot51@gmail.com>", "Wesley Hershberger <mggmugginsmc@gmail.com>"]
+repository = "https://gitlab.redox-os.org/redox-os/pkgar"
+edition.workspace = true
+
+[[bin]]
+name = "pkgar"
+required-features = ["cli"]
+
+[dependencies]
+bytemuck = {version = "1", features = ["derive"]}
+clap = { version = "4", optional = true, features = ["cargo"] }
+lzma-rust2 = "0.20"
+pkgar-core = { path = "../pkgar-core", version = "0.2.4" }
+pkgar-keys = { path = "../pkgar-keys", version = "0.2.4" }
+pkgar-repo = { path = "../pkgar-repo", version = "0.2.4", optional = true }
+thiserror = "2"
+
+[dependencies.blake3]
+default-features = false
+features = ["rayon"]
+version = "1.8"
+
+[dev-dependencies]
+copy_dir = "0.1"
+tempfile = "3"
+
+[features]
+default = ["std"]
+cli = ["clap", "std", "pkgar-keys/cli"]
+repo = ["pkgar-repo"]
+# TODO: not used, remove
+std = []
