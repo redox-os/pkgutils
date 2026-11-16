@@ -3,6 +3,10 @@ resolver = "2"
 members = [
     "pkg-lib",
     "pkg-cli",
+    "pkgar",
+    "pkgar-core",
+    "pkgar-keys",
+    "pkgar-repo",
 ]
 default-members = [
     "pkg-cli",

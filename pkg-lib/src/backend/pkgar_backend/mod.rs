@@ -159,6 +159,46 @@ impl PkgarBackend {
         Ok(())
     }
 
+    fn upgrade_inner(
+        &mut self,
+        package: &RemotePackage,
+        pkg: &mut PackageFile,
+        entries: Vec<(pkgar_core::Entry, pkgar_core::Entry)>,
+    ) -> Result<(), Error> {
+        self.callback
+            .borrow_mut()
+            .extract_start(package, entries.len());
+        let mut last_entries;
+        for (old_entry, new_entry) in entries {
+            let Some(old_entry) = self.install_path.map_entry(old_entry) else {
+                continue;
+            };
+            let Some(new_entry) = self.install_path.map_entry(new_entry) else {
+                continue;
+            };
+            last_entries = self.commits.total_indexed();
+            if let Err(e) = self
+                .commits
+                .replace_one(
+                    pkg,
+                    &old_entry,
+                    &new_entry,
+                    &self.install_path.base_dir,
+                    self.skip_local_check,
+                )
+                .map_err(|e| Error::Pkgar(Box::new(e)))
+            {
+                self.callback.borrow_mut().extract_end();
+                return Err(e);
+            }
+            self.callback
+                .borrow_mut()
+                .extract_increment(self.commits.total_indexed() - last_entries);
+        }
+        self.callback.borrow_mut().extract_end();
+        Ok(())
+    }
+
     fn uninstall_inner(
         &mut self,
         package: &PackageName,
@@ -249,8 +289,11 @@ impl Backend for PkgarBackend {
         let mut new = PackageFile::new(&local_path, &repo.pubkey.unwrap())?;
         let old_entries = old.read_entries()?;
         let new_entries = new.read_entries()?;
-        let (to_install, to_remove) = self.commits.replace_diff(&old_entries, &new_entries)?;
+        let (to_install, to_update, to_remove) =
+            self.commits.replace_diff(&old_entries, &new_entries)?;
+
         self.uninstall_inner(name, &old, to_remove)?;
+        self.upgrade_inner(package, &mut new, to_update)?;
         self.install_inner(package, &mut new, to_install)?;
         self.create_head(&mut new, name)?;
         Ok(())
