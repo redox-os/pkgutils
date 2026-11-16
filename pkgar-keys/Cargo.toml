@@ -1,0 +1,28 @@
+[package]
+name = "pkgar-keys"
+version.workspace = true
+description = "Key management tool/library for pkgar"
+license = "MIT"
+authors = ["Wesley Hershberger <mggmugginsmc@gmail.com>"]
+repository = "https://gitlab.redox-os.org/redox-os/pkgar"
+readme = "README.md"
+edition.workspace = true
+
+[[bin]]
+name = "pkgar-keys"
+required-features = ["cli"]
+
+[dependencies]
+clap = { version = "4", optional = true, features = ["cargo"] }
+dirs = { version = "7", optional = true }
+hex = { version = "0.4.3", features = ["serde"] }
+memsafe = "1"
+pkgar-core = { path = "../pkgar-core", version = "0.3.3" }
+serde = { version = "1", default-features = false, features = ["derive"] }
+termion = { version = "4", optional = true }
+thiserror = "2"
+toml = "1"
+
+[features]
+default = []
+cli = ["clap", "termion", "dirs"]
