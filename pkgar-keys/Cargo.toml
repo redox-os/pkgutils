@@ -17,7 +17,7 @@ clap = { version = "4", optional = true, features = ["cargo"] }
 dirs = { version = "7", optional = true }
 hex = { version = "0.4.3", features = ["serde"] }
 memsafe = "1"
-pkgar-core = { path = "../pkgar-core", version = "0.2.4" }
+pkgar-core = { path = "../pkgar-core", version = "0.3.3" }
 serde = { version = "1", default-features = false, features = ["derive"] }
 termion = { version = "4", optional = true }
 thiserror = "2"

@@ -31,10 +31,10 @@ sh-test:
   image: "rust:latest"
   stage: test
   script:
-    - cargo build --locked
-    - cargo build --locked --features=cli
-    - cargo build --locked --features=repo
-    - cargo test --locked --all-features
+    - cargo build -p pkgar --locked
+    - cargo build -p pkgar --features=cli
+    - cargo build -p pkgar --features=repo
+    - cargo test -p pkgar --all-features
     - ./test.sh
     - ./test.sh -c
     - ./test.sh -r

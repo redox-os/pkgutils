@@ -18,9 +18,9 @@ rm -rf target/test
 mkdir -p target/test
 
 if [[ "$build" == debug ]]; then
-    cargo build --all-features
+    cargo build --package=pkgar --package=pkgar-keys --all-features
 else
-    cargo build --release --all-features
+    cargo build --package=pkgar --package=pkgar-keys --release --all-features
 fi
 
 if [[ "$remote" -eq 1 ]]; then
