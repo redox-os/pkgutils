@@ -4,6 +4,7 @@ use crate::{
     package::{RemoteName, RemotePackage},
 };
 use serde_derive::{Deserialize, Serialize};
+use std::ops::Not;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -29,6 +30,7 @@ pub struct PackageState {
 pub struct InstallState {
     pub remote: RemoteName,
     pub blake3: String,
+    #[serde(default, skip_serializing_if = "<&bool>::not")]
     pub manual: bool,
     // only useful during install
     #[serde(skip_serializing)]
@@ -157,22 +159,17 @@ impl PackageState {
                 continue;
             }
 
-            let (manual, dependents, remote) = if let Some(existing) = self.installed.get(&pkg.name)
-            {
-                (
-                    existing.manual,
-                    existing.dependents.clone(),
-                    existing.remote.clone(),
-                )
+            let (manual, dependents) = if let Some(existing) = self.installed.get(&pkg.name) {
+                (existing.manual, existing.dependents.clone())
             } else {
                 (
                     false,
                     unsatisfied_deps.remove(&pkg.name).unwrap_or_default(),
-                    rpkg.remote.to_string(),
                 )
             };
 
-            let new_state = InstallState::from_package(pkg, remote, manual, dependents);
+            let new_state =
+                InstallState::from_package(pkg, rpkg.remote.to_string(), manual, dependents);
 
             self.installed.insert(pkg.name.clone(), new_state);
 
