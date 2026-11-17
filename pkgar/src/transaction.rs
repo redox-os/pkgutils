@@ -267,7 +267,7 @@ impl Transaction {
         self.install_with_entries(new, &entries_to_install, &base_dir, skip_local_check)?;
 
         for (old_entry, new_entry) in entries_to_update {
-            self.replace_one(new, &old_entry, &new_entry, &base_dir, true)?;
+            self.replace_one(new, &old_entry, &new_entry, &base_dir, skip_local_check)?;
         }
 
         self.remove_with_entries(old, &entries_to_remove, &base_dir, skip_local_check)?;
