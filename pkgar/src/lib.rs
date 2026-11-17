@@ -6,6 +6,7 @@ pub(crate) mod repo;
 mod transaction;
 
 pub use bin::*;
+use blake3::Hash;
 pub use package::*;
 #[cfg(feature = "repo")]
 pub use repo::*;
@@ -49,8 +50,18 @@ pub enum Error {
         path: PathBuf,
         entry: Option<Box<Entry>>,
     },
-    #[error("Entry size mismatch: expected {expected}; got {actual}")]
-    LengthMismatch { actual: u64, expected: u64 },
+    #[error("Entry size mismatch for {path:?}: expected {expected}; got {actual}")]
+    LengthMismatch {
+        actual: u64,
+        expected: u64,
+        path: Option<PathBuf>,
+    },
+    #[error("Entry hash mismatch for {path:?}: expected {expected}; got {actual}")]
+    HashMismatch {
+        actual: Hash,
+        expected: Hash,
+        path: Option<PathBuf>,
+    },
     #[error("Data not initialized.")]
     DataNotInitialized,
 }

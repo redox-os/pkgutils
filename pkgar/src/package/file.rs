@@ -1,5 +1,6 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 use bytemuck::Zeroable;
@@ -106,11 +107,25 @@ impl PackageFile {
         for entry in entries {
             let expected_path = base_dir.join(entry.check_path()?);
 
-            let mut expected =
-                File::open(&expected_path).map_err(wrap_io_err!(expected_path, "Opening file"))?;
+            let expected_meta = fs::symlink_metadata(&expected_path)
+                .map_err(wrap_io_err!(expected_path, "Reading meta"))?;
+            let (count, hash) = if expected_meta.is_symlink() {
+                let expected = std::fs::read_link(&expected_path)
+                    .map_err(wrap_io_err!(expected_path, "Opening symlink"))?;
+                let mut expected = expected.as_os_str().as_bytes();
+                copy_and_hash(&mut expected, &mut std::io::sink(), &mut buf)
+                    .map_err(wrap_io_err!(expected_path, "Reading symlink"))?
+            } else if expected_meta.is_file() {
+                let mut expected = File::open(&expected_path)
+                    .map_err(wrap_io_err!(expected_path, "Opening file"))?;
 
-            let (count, hash) = copy_and_hash(&mut expected, &mut std::io::sink(), &mut buf)
-                .map_err(wrap_io_err!(expected_path, "Writing file to to black hole"))?;
+                copy_and_hash(&mut expected, &mut std::io::sink(), &mut buf)
+                    .map_err(wrap_io_err!(expected_path, "Reading file"))?
+            } else {
+                return Err(wrap_io_err!(expected_path, "Checking if file or symlink")(
+                    std::io::Error::from_raw_os_error(21), // EISDIR
+                ));
+            };
 
             let reader = DataReader::new_with_seek(&header, pkg_file, &entry)
                 .map_err(wrap_io_err!(pkg_path, "Reading pkg data"))?;
