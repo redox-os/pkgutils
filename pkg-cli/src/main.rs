@@ -31,6 +31,9 @@ struct Cli {
     /// Always reply with yes even with interactive tty
     #[arg(long, global = true)]
     yes: bool,
+    /// Always reply with no for imperfect installation
+    #[arg(long, global = true)]
+    pedantic: bool,
     /// Do not try to preserve locally changed files
     #[arg(long, global = true)]
     nocheck: bool,
@@ -168,9 +171,14 @@ fn main() {
     let color_support_stderr = is_tty(&io::stderr());
     callback.set_interactive(color_support_stdout);
     if !args.yes {
-        // TODO: --pedantic to enable Some(false)
-        callback.set_always_yes(None);
+        if args.pedantic {
+            callback.set_always_yes(Some(false));
+        } else {
+            // the default is Some(true)
+            callback.set_always_yes(None);
+        }
     }
+
     let mut library =
         LibraryBuilder::new(install_path).with_callback(Rc::new(RefCell::new(callback)));
     if args.nocheck {

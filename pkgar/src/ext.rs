@@ -157,8 +157,6 @@ pub(crate) fn diff_package(
     let mut skipped_entries_count = 0;
     for entry in new_entries {
         let path = entry.check_path()?;
-        old_map.remove(path);
-
         match old_map.get(path) {
             Some(old_hash) if old_hash.blake3() == entry.blake3() => {
                 skipped_entries_count += 1;
@@ -170,6 +168,7 @@ pub(crate) fn diff_package(
                 entries_to_install.push(*entry);
             }
         }
+        old_map.remove(path);
     }
     let mut entries_to_remove = Vec::new();
     for old_e in old_map.into_values() {

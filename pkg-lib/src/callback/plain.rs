@@ -110,7 +110,7 @@ impl PlainCallback {
             if input == "n" || input == "no" {
                 return Err(Error::Interrupted);
             }
-        } else if safe_to_go {
+        } else if safe_to_go || self.always_yes != Some(false) {
             eprintln!();
         } else {
             eprintln!("\nThis session is not interactive, refusing to continue.");
@@ -254,6 +254,11 @@ impl Callback for PlainCallback {
             }
         }
 
+        // "Modified" is allowed only for overriding default config ("/etc" or "~/.config")
+        let ignored_is_safe = ignored.iter().all(|s| {
+            matches!(s.reason, pkgar::TransactionIgnoredReason::Modified)
+                && (s.ignored_path.starts_with("etc") || s.ignored_path.starts_with(".config"))
+        });
         if !ignored.is_empty() {
             eprintln!("Some transactions are ignored:");
             for pkg in ignored.iter().take(20) {
@@ -273,7 +278,7 @@ impl Callback for PlainCallback {
             }
         }
 
-        self.confirm_transaction(conflict.is_empty())
+        self.confirm_transaction(conflict.is_empty() && ignored_is_safe)
     }
 
     fn download_start(&mut self, length: u64, file: &str) {
