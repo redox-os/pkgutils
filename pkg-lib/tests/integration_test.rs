@@ -58,10 +58,11 @@ fn test_pkg_update() -> Result<(), Box<dyn std::error::Error>> {
     use std::fs;
 
     #[cfg(feature = "indicatif")]
-    let callback = Rc::new(RefCell::new(IndicatifCallback::new()));
-
+    let mut callback = IndicatifCallback::new();
     #[cfg(not(feature = "indicatif"))]
-    let callback = Rc::new(RefCell::new(PlainCallback::new()));
+    let mut callback = PlainCallback::new();
+    callback.set_always_yes(Some(false));
+    let callback = Rc::new(RefCell::new(callback));
 
     let tmp_dir = std::env::current_dir()?.join("tests/staging_update");
 
@@ -102,7 +103,7 @@ fn test_pkg_update() -> Result<(), Box<dyn std::error::Error>> {
         callback.clone(),
     )?;
 
-    // should have one update
+    // should have one update without file conflict
     library.update(vec![PackageName::new("ncurses")?])?;
     library.apply()?;
 
