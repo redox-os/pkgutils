@@ -53,14 +53,20 @@ impl EntryExt for Entry {
             Err(Error::LengthMismatch {
                 actual: size,
                 expected: reader.unpacked_size,
+                path: self.check_path().ok().map(|s| s.into()),
             })
         } else if self.size() != reader.data_size {
             Err(Error::LengthMismatch {
-                actual: self.size(),
-                expected: reader.data_size,
+                actual: reader.data_size,
+                expected: self.size(),
+                path: self.check_path().ok().map(|s| s.into()),
             })
         } else if blake3 != self.blake3() {
-            Err(pkgar_core::Error::InvalidBlake3.into())
+            Err(Error::HashMismatch {
+                actual: blake3,
+                expected: self.blake3(),
+                path: self.check_path().ok().map(|s| s.into()),
+            })
         } else {
             Ok(())
         }

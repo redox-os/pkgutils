@@ -90,9 +90,9 @@ impl PublicKeyFile {
 
     /// Parse a `PublicKeyFile` from `file` (in toml format).
     pub fn open(file: impl AsRef<Path>) -> Result<Self, Error> {
-        let content = fs::read_to_string(file).map_err(|source| Error::Io {
+        let content = fs::read_to_string(file.as_ref()).map_err(|source| Error::Io {
             source,
-            path: None,
+            path: Some(file.as_ref().to_path_buf()),
             context: "Reading public key",
         })?;
         Self::from_str(&content)

@@ -208,6 +208,7 @@ fn create_with_entries(
             return Err(Error::LengthMismatch {
                 actual: ulen,
                 expected: rlen,
+                path: Some(relative.into()),
             });
         }
 
