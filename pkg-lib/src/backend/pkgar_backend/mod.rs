@@ -1,6 +1,6 @@
 use std::{cell::RefCell, fs, path::Path, rc::Rc};
 
-use pkgar::{PackageFile, Transaction};
+use pkgar::{PackageFile, Transaction, WorkerPool};
 use pkgar_core::PackageSrc;
 
 use super::{Backend, Error};
@@ -25,6 +25,8 @@ pub struct PkgarBackend {
     commits: Transaction,
     keys_synced: bool,
     skip_local_check: bool,
+    threads: usize,
+    pool: WorkerPool,
     callback: Rc<RefCell<dyn Callback>>,
 }
 
@@ -47,10 +49,16 @@ impl PkgarBackend {
         repo_manager.set_download_path(install_path.download_dir.clone());
         let callback = repo_manager.callback.clone();
 
+        let threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+
         Ok(PkgarBackend {
             install_path,
             packages,
             repo_manager,
+            pool: WorkerPool::new(threads),
+            threads,
             // packages_lock,
             commits: Transaction::new(),
             keys_synced: false,
@@ -129,33 +137,71 @@ impl PkgarBackend {
         pkg: &mut PackageFile,
         entries: Vec<pkgar_core::Entry>,
     ) -> Result<(), Error> {
+        let mapped: Vec<_> = entries
+            .into_iter()
+            .filter_map(|e| self.install_path.map_entry(e))
+            .collect();
+
+        self.extract_parallel(package, pkg, mapped, |tx, pkg, entry, base, skip| {
+            tx.install_one(pkg, entry, base, skip)
+                .map_err(|e| Error::Pkgar(Box::new(e)))
+        })
+    }
+
+    fn extract_parallel<T, Work>(
+        &mut self,
+        package: &RemotePackage,
+        pkg: &mut PackageFile,
+        items: Vec<T>,
+        work: Work,
+    ) -> Result<(), Error>
+    where
+        T: Send + Sync + 'static,
+        Work: Fn(&mut Transaction, &mut PackageFile, &T, &Path, bool) -> Result<(), Error>
+            + Send
+            + Sync
+            + 'static,
+    {
         self.callback
             .borrow_mut()
-            .extract_start(package, entries.len());
-        let mut last_entries;
-        for entry in entries {
-            let Some(entry) = self.install_path.map_entry(entry) else {
-                continue;
-            };
-            last_entries = self.commits.total_indexed();
-            if let Err(e) = self
-                .commits
-                .install_one(
-                    pkg,
-                    &entry,
-                    &self.install_path.base_dir,
-                    self.skip_local_check,
-                )
-                .map_err(|e| Error::Pkgar(Box::new(e)))
-            {
-                self.callback.borrow_mut().extract_end();
-                return Err(e);
+            .extract_start(package, items.len());
+
+        let mut worker_states = Vec::with_capacity(self.threads);
+        for _ in 0..self.threads {
+            match pkg.reopen().map_err(Error::from) {
+                Ok(p) => worker_states.push((p, Transaction::new())),
+                Err(e) => {
+                    self.callback.borrow_mut().extract_end();
+                    return Err(e);
+                }
             }
-            self.callback
-                .borrow_mut()
-                .extract_increment(self.commits.total_indexed() - last_entries);
         }
+
+        let base_dir = self.install_path.base_dir.clone();
+        let skip_local_check = self.skip_local_check;
+
+        let (states, first_err) = self.pool.run_batch(
+            items,
+            worker_states,
+            move |(worker_pkg, local_tx), item| {
+                let before = local_tx.total_indexed();
+                work(local_tx, worker_pkg, item, &base_dir, skip_local_check)?;
+                Ok(local_tx.total_indexed() - before)
+            },
+            |delta| {
+                self.callback.borrow_mut().extract_increment(delta);
+            },
+        );
+
         self.callback.borrow_mut().extract_end();
+
+        for (_, local_tx) in states {
+            self.commits.merge(local_tx, Some(pkg));
+        }
+
+        if let Some(e) = first_err {
+            return Err(e);
+        }
         Ok(())
     }
 
@@ -165,38 +211,25 @@ impl PkgarBackend {
         pkg: &mut PackageFile,
         entries: Vec<(pkgar_core::Entry, pkgar_core::Entry)>,
     ) -> Result<(), Error> {
-        self.callback
-            .borrow_mut()
-            .extract_start(package, entries.len());
-        let mut last_entries;
-        for (old_entry, new_entry) in entries {
-            let Some(old_entry) = self.install_path.map_entry(old_entry) else {
-                continue;
-            };
-            let Some(new_entry) = self.install_path.map_entry(new_entry) else {
-                continue;
-            };
-            last_entries = self.commits.total_indexed();
-            if let Err(e) = self
-                .commits
-                .replace_one(
-                    pkg,
-                    &old_entry,
-                    &new_entry,
-                    &self.install_path.base_dir,
-                    self.skip_local_check,
-                )
-                .map_err(|e| Error::Pkgar(Box::new(e)))
-            {
-                self.callback.borrow_mut().extract_end();
-                return Err(e);
-            }
-            self.callback
-                .borrow_mut()
-                .extract_increment(self.commits.total_indexed() - last_entries);
-        }
-        self.callback.borrow_mut().extract_end();
-        Ok(())
+        let mapped: Vec<_> = entries
+            .into_iter()
+            .filter_map(|(old_e, new_e)| {
+                Some((
+                    self.install_path.map_entry(old_e)?,
+                    self.install_path.map_entry(new_e)?,
+                ))
+            })
+            .collect();
+
+        self.extract_parallel(
+            package,
+            pkg,
+            mapped,
+            |tx, pkg, (old_e, new_e), base, skip| {
+                tx.replace_one(pkg, old_e, new_e, base, skip)
+                    .map_err(|e| Error::Pkgar(Box::new(e)))
+            },
+        )
     }
 
     fn uninstall_inner(

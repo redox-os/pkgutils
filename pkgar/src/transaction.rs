@@ -96,6 +96,8 @@ pub struct Transaction {
     callback: Option<Box<dyn FnMut(u64, u64)>>,
 }
 
+unsafe impl Send for Transaction {}
+
 impl Default for Transaction {
     fn default() -> Self {
         Self::new()
