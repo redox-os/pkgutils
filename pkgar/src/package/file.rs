@@ -135,6 +135,16 @@ impl PackageFile {
 
         Ok(pkg_file)
     }
+
+    pub fn reopen(&self) -> Result<Self, Error> {
+        let file =
+            fs::File::open(&self.path).map_err(wrap_io_err!(self.path, "Re-opening file"))?;
+        Ok(Self {
+            path: self.path.clone(),
+            src: Some(BufReader::new(file)),
+            header: self.header,
+        })
+    }
 }
 
 impl PackageSrc for PackageFile {

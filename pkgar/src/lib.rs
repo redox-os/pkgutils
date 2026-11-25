@@ -1,6 +1,7 @@
 mod bin;
 pub mod ext;
 mod package;
+mod pool;
 #[cfg(feature = "repo")]
 pub(crate) mod repo;
 mod transaction;
@@ -8,6 +9,7 @@ mod transaction;
 pub use bin::*;
 use blake3::Hash;
 pub use package::*;
+pub use pool::*;
 #[cfg(feature = "repo")]
 pub use repo::*;
 pub use transaction::*;
