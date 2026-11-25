@@ -96,6 +96,8 @@ pub struct Transaction {
     callback: Option<Box<dyn FnMut(u64, u64)>>,
 }
 
+unsafe impl Send for Transaction {}
+
 impl Default for Transaction {
     fn default() -> Self {
         Self::new()
@@ -410,6 +412,11 @@ impl Transaction {
         let target_path = base_dir.as_ref().join(relative_path);
         self.indexed += 1;
 
+        if skip_local_check {
+            self.push_action(Action::Remove(target_path), src);
+            return Ok(());
+        }
+
         // Generally user don't care if this not exist, even without `skip_local_check`
         let mode = match fs::symlink_metadata(&target_path) {
             Ok(file) => file,
@@ -430,11 +437,6 @@ impl Transaction {
                 )(e));
             }
         };
-
-        if skip_local_check {
-            self.push_action(Action::Remove(target_path), src);
-            return Ok(());
-        }
 
         let (_, entry_data_hash) = match (mode.is_file(), mode.is_symlink()) {
             (true, false) => {
