@@ -23,6 +23,9 @@ pub struct PkgarBackend {
     repo_manager: RepoManager,
     /// temporary commit
     commits: Transaction,
+    /// last known good position of commits
+    /// (how many packages, how many commits)
+    checkpoint: Option<(usize, usize)>,
     keys_synced: bool,
     skip_local_check: bool,
     threads: usize,
@@ -59,12 +62,20 @@ impl PkgarBackend {
             repo_manager,
             pool: WorkerPool::new(threads),
             threads,
+            checkpoint: None,
             // packages_lock,
             commits: Transaction::new(),
             keys_synced: false,
             skip_local_check: false,
             callback,
         })
+    }
+
+    fn set_checkpoint(&mut self) {
+        self.checkpoint = Some((
+            self.checkpoint.map(|(s, _)| s).unwrap_or(0) + 1,
+            self.commits.pending_commit(),
+        ))
     }
 
     // reads /var/lib/packages/[package].pkgar_head
@@ -294,6 +305,7 @@ impl Backend for PkgarBackend {
         self.install_inner(&package, &mut pkg, entries)?;
 
         self.create_head(&mut pkg, &package.package.name)?;
+        self.set_checkpoint();
         Ok(())
     }
 
@@ -307,6 +319,7 @@ impl Backend for PkgarBackend {
         self.uninstall_inner(&package, &pkg, entries)?;
 
         self.remove_package_head(&package)?;
+        self.set_checkpoint();
 
         Ok(())
     }
@@ -329,6 +342,7 @@ impl Backend for PkgarBackend {
         self.upgrade_inner(package, &mut new, to_update)?;
         self.install_inner(package, &mut new, to_install)?;
         self.create_head(&mut new, name)?;
+        self.set_checkpoint();
         Ok(())
     }
 
@@ -368,6 +382,16 @@ impl Backend for PkgarBackend {
         ))
     }
 
+    fn abort_check(&self) -> Option<(usize, usize)> {
+        match self.checkpoint {
+            Some((packages, commits)) if commits == self.commits.pending_commit() => {
+                Some((packages, packages))
+            }
+            Some((packages, _)) => Some((packages, packages + 1)),
+            None => None,
+        }
+    }
+
     fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error> {
         let mut transaction = core::mem::replace(&mut self.commits, Transaction::new());
         self.callback
@@ -399,7 +423,7 @@ impl Backend for PkgarBackend {
             .borrow_mut()
             .abort_start(transaction.pending_commit());
         while transaction.pending_commit() > 0 {
-            self.callback.borrow_mut().commit_increment(&transaction);
+            self.callback.borrow_mut().abort_increment(&transaction);
             if let Err(e) = transaction.abort_one() {
                 return Err(Error::from(e));
             }
@@ -410,5 +434,28 @@ impl Backend for PkgarBackend {
 
     fn set_nocheck(&mut self, nocheck: bool) {
         self.skip_local_check = nocheck;
+    }
+
+    fn abort_to_checkpoint(&mut self) -> Result<usize, Error> {
+        let Some((_, commits)) = self.checkpoint else {
+            // TODO: should be returning error
+            return self.abort_state();
+        };
+        let mut transaction = core::mem::replace(&mut self.commits, Transaction::new());
+        self.callback
+            .borrow_mut()
+            .abort_start(transaction.pending_commit() - commits);
+        while transaction.pending_commit() > commits {
+            self.callback.borrow_mut().abort_increment(&transaction);
+            if let Err(e) = transaction.abort_one() {
+                return Err(Error::from(e));
+            }
+        }
+        self.callback.borrow_mut().abort_end();
+        let total = transaction.total_committed();
+        transaction.reset_committed();
+        self.commits = transaction;
+
+        Ok(total)
     }
 }

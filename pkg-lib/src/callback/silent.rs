@@ -41,6 +41,11 @@ impl Callback for SilentCallback {
         Ok(())
     }
 
+    #[cfg(feature = "library")]
+    fn abort_check(&mut self, _success: usize, _total: usize) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn download_start(&mut self, _: u64, _: &str) {}
 
     fn download_increment(&mut self, _: u64) {}

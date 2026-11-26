@@ -281,6 +281,33 @@ impl Callback for PlainCallback {
         self.confirm_transaction(conflict.is_empty() && ignored_is_safe)
     }
 
+    #[cfg(feature = "library")]
+    fn abort_check(&mut self, success: usize, total: usize) -> Result<(), Error> {
+        if success == total || total == 0 {
+            return Ok(());
+        }
+        let error = total - success;
+        eprintln!("Transaction failed partially:");
+        eprintln!(
+            "  - {} of {} {} has been extracted.",
+            success,
+            total,
+            if total == 1 { "package" } else { "packages" }
+        );
+        eprintln!(
+            "  - {} {} can be retried again later.",
+            error,
+            if error == 1 { "package" } else { "packages" }
+        );
+        eprintln!(
+            "  - {} {} will be committed.",
+            success,
+            if success == 1 { "package" } else { "packages" }
+        );
+
+        self.confirm_transaction(false)
+    }
+
     fn download_start(&mut self, length: u64, file: &str) {
         self.size = length;
         self.unknown_size = length == 0;

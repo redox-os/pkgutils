@@ -2,7 +2,7 @@ use crate::backend::{Backend, Error};
 use crate::callback::Callback;
 use crate::package::{PackageInfo, PackageName, RemotePackage};
 use crate::repo_manager::RepoManager;
-use crate::{LibraryBuilder, PackageState, PathIndex, sorensen};
+use crate::{LibraryBuilder, PackageList, PackageState, PathIndex, sorensen};
 use std::collections::{BTreeMap, btree_map};
 use std::{cell::RefCell, cmp::Ordering, path::Path, rc::Rc};
 
@@ -12,6 +12,7 @@ pub struct Library {
     cached_info: BTreeMap<PackageName, RemotePackage>,
     backend: Box<dyn Backend>,
     callback: Rc<RefCell<dyn Callback>>,
+    last_diff: Option<PackageList>,
 }
 
 impl Library {
@@ -27,6 +28,7 @@ impl Library {
             backend,
             cached_info: BTreeMap::new(),
             callback,
+            last_diff: None,
         })
     }
 
@@ -206,6 +208,21 @@ impl Library {
     }
 
     pub fn abort(&mut self) -> Result<usize, Error> {
+        let checkpoint = self.backend.as_ref().abort_check().map(|s| s.0);
+        let last_diff = self.last_diff.as_ref().map(|s| s.package_count());
+        if let (Some(success), Some(total)) = (checkpoint, last_diff) {
+            if self
+                .callback
+                .borrow_mut()
+                .abort_check(success, total)
+                .is_ok()
+                && self.backend.abort_to_checkpoint().is_ok()
+                && let Ok(count) = self.apply()
+            {
+                return Ok(count);
+            }
+        };
+
         self.backend.abort_state()
     }
 
@@ -220,6 +237,8 @@ impl Library {
         }
 
         self.callback.borrow_mut().install_prompt(&diff)?;
+
+        self.last_diff = Some(diff.clone());
 
         for package in &diff.uninstall {
             // TODO: Allow self-trusting the package?
