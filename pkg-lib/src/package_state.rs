@@ -349,7 +349,10 @@ impl Default for PackageState {
 
 impl PackageList {
     pub fn is_empty(&self) -> bool {
-        self.install.is_empty() && self.uninstall.is_empty() && self.update.is_empty()
+        self.package_count() == 0
+    }
+    pub fn package_count(&self) -> usize {
+        self.install.len() + self.uninstall.len() + self.update.len()
     }
 }
 

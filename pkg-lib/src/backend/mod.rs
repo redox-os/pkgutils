@@ -95,8 +95,12 @@ pub trait Backend {
     fn commit_check(
         &self,
     ) -> Result<(&[pkgar::TransactionConflict], &[pkgar::TransactionIgnored]), Error>;
+    /// check if there's a checkpoint to rollback-then-commit instead of rollback everything
+    fn abort_check(&self) -> Option<(usize, usize)>;
     /// commit all pending changes, and set state of current installation
     fn commit_state(&mut self, new_state: PackageState) -> Result<usize, Error>;
+    /// abort non-saved pending changes
+    fn abort_to_checkpoint(&mut self) -> Result<usize, Error>;
     /// abort all pending changes
     fn abort_state(&mut self) -> Result<usize, Error>;
 }

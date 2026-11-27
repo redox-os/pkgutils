@@ -115,6 +115,12 @@ impl Callback for IndicatifCallback {
             .suspend(|| self.fallback.install_check(conflict, ignored))
     }
 
+    #[cfg(feature = "library")]
+    fn abort_check(&mut self, success: usize, total: usize) -> Result<(), Error> {
+        self.pb
+            .suspend(|| self.fallback.abort_check(success, total))
+    }
+
     fn download_start(&mut self, length: u64, file: &str) {
         self.unknown_len = length == 0;
         if self.unknown_len {
