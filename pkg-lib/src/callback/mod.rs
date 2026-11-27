@@ -84,6 +84,8 @@ pub trait Callback {
         conflict: &[pkgar::TransactionConflict],
         ignored: &[pkgar::TransactionIgnored],
     ) -> Result<(), Error>;
+    #[cfg(feature = "library")]
+    fn abort_check(&mut self, success: usize, total: usize) -> Result<(), Error>;
 
     fn download_start(&mut self, length: u64, file: &str);
     fn download_increment(&mut self, downloaded: u64);
